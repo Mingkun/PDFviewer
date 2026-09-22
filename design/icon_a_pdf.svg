@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="110" fill="#f59f00"/>
+  <g transform="rotate(-6 256 300)">
+    <rect x="166" y="190" width="180" height="240" rx="16" fill="#ffffff"/>
+    <rect x="192" y="222" width="128" height="13" rx="6.5" fill="#adb5bd"/>
+    <rect x="192" y="250" width="128" height="13" rx="6.5" fill="#adb5bd"/>
+    <rect x="192" y="278" width="92" height="13" rx="6.5" fill="#adb5bd"/>
+    <text x="256" y="390" font-family="Arial, sans-serif" font-size="62" font-weight="bold" fill="#e03131" text-anchor="middle">PDF</text>
+  </g>
+  <g>
+    <circle cx="158" cy="152" r="42" fill="#a9744f"/>
+    <circle cx="158" cy="152" r="21" fill="#d9a875"/>
+    <circle cx="354" cy="152" r="42" fill="#a9744f"/>
+    <circle cx="354" cy="152" r="21" fill="#d9a875"/>
+    <circle cx="256" cy="212" r="110" fill="#c08552"/>
+    <ellipse cx="256" cy="248" rx="55" ry="42" fill="#e8caa0"/>
+    <ellipse cx="256" cy="202" rx="8" ry="11" fill="#3e2a1d"/>
+    <circle cx="215" cy="188" r="9" fill="#3e2a1d"/>
+    <circle cx="297" cy="188" r="9" fill="#3e2a1d"/>
+    <ellipse cx="256" cy="232" rx="10" ry="7" fill="#3e2a1d"/>
+    <path d="M 256 240 Q 256 258 230 264" stroke="#3e2a1d" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <path d="M 256 240 Q 256 258 282 264" stroke="#3e2a1d" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <circle cx="196" cy="216" r="7" fill="#e8847d" opacity="0.5"/>
+    <circle cx="316" cy="216" r="7" fill="#e8847d" opacity="0.5"/>
+  </g>
+</svg>
