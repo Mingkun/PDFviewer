@@ -142,7 +142,6 @@ stage.addEventListener('dblclick', function () { fitPage(); });
 function render() {
   if (!pdf || rendering) { pending = pageNum; return; }
   rendering = true;
-  setInfo('第 ' + pageNum + ' 页');
   pdf.getPage(pageNum).then(function (page) {
     var vp = page.getViewport({ scale: scale });
     var dpr = window.devicePixelRatio || 1;
