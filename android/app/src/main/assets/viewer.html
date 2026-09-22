@@ -57,7 +57,6 @@ document.getElementById('print').onclick = function () {
 document.getElementById('fpick').onchange = function () {
   var f = this.files && this.files[0];
   if (!f) return;
-  setInfo('打开中…');
   var fr = new FileReader();
   fr.onload = function () {
     pdfjsLib.getDocument({ data: new Uint8Array(fr.result) }).promise.then(function (doc) {
