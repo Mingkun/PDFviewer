@@ -23,6 +23,7 @@
 <div id="bar">
   <button id="open">📂 打开</button>
   <button id="print">🖨 打印</button>
+  <button id="speak">🔊</button>
   <input id="pageInput" type="number" value="0">
   <span id="total">/ 0</span>
   <button id="gear" style="margin-left:auto">⚙</button>
@@ -64,9 +65,69 @@ document.getElementById('print').onclick = function () {
   if (!pdf) return;
   try { AppBridge.printPdf(); } catch (e) {}
 };
+document.getElementById('speak').onclick = function () { readerToggle(); };
+var reading = false, readQueue = [], readIdx = 0, readPage = 0;
+function splitS(t) {
+  var s = t.replace(/\s+/g, ' ').trim(), out = [], cur = '';
+  for (var i = 0; i < s.length; i++) {
+    cur += s.charAt(i);
+    var c = s.charAt(i);
+    if ((c === '.' || c === '!' || c === '?' || c === '。' || c === '！' || c === '？') && (i + 1 >= s.length || s.charAt(i + 1) === ' ')) {
+      if (cur.trim().length > 1) out.push(cur.trim());
+      cur = '';
+    }
+  }
+  if (cur.trim().length > 1) out.push(cur.trim());
+  return out;
+}
+function stopReading(msg) {
+  reading = false;
+  readQueue = []; readIdx = 0;
+  try { AppBridge.ttsStop(); } catch (e) {}
+  document.getElementById('speak').textContent = '🔊';
+  if (msg) setInfo(msg);
+}
+function collectPage(n) {
+  pdf.getPage(n).then(function (page) { return page.getTextContent(); }).then(function (tc) {
+    if (!reading) return;
+    var txt = (tc.items || []).map(function (it) { return it.str || ''; }).join(' ');
+    var sents = txt.trim() ? splitS(txt) : [];
+    if (!sents.length) {
+      if (n < pdf.numPages) { readPage = n + 1; renderPageOnly(readPage); collectPage(n + 1); }
+      else stopReading('没有可朗读的文字');
+      return;
+    }
+    for (var i = 0; i < sents.length; i++) readQueue.push({ p: n, s: sents[i] });
+    feedNext();
+  }).catch(function () { stopReading(); });
+}
+function renderPageOnly(n) { if (n !== pageNum) { pageNum = n; render(); } }
+function feedNext() {
+  if (!reading) return;
+  if (readIdx >= readQueue.length) {
+    if (readPage < pdf.numPages) { readPage += 1; renderPageOnly(readPage); collectPage(readPage); }
+    else stopReading();
+    return;
+  }
+  var item = readQueue[readIdx];
+  renderPageOnly(item.p);
+  readIdx += 1;
+  try { AppBridge.ttsSpeak(item.s, 'u' + readIdx); } catch (e) { stopReading(); }
+}
+function readerToggle() {
+  if (reading) { stopReading(); return; }
+  if (!pdf) return;
+  reading = true;
+  readQueue = []; readIdx = 0; readPage = pageNum;
+  document.getElementById('speak').textContent = '⏹';
+  collectPage(pageNum);
+}
+window.onTtsDone = function () { feedNext(); };
+window.onTtsFail = function () { stopReading('语音引擎不可用'); };
 document.getElementById('fpick').onchange = function () {
   var f = this.files && this.files[0];
   if (!f) return;
+  if (reading) stopReading();
   var fr = new FileReader();
   fr.onload = function () {
     pdfjsLib.getDocument({ data: new Uint8Array(fr.result) }).promise.then(function (doc) {

@@ -22,6 +22,8 @@ import android.print.PrintDocumentAdapter
 import android.print.PrintDocumentInfo
 import android.print.PrintManager
 import android.print.pdf.PrintedPdfDocument
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -40,6 +42,9 @@ class MainActivity : Activity() {
     private var downloadId: Long = -1
     private var pendingInstall = false
     private val currentPdf by lazy { File(cacheDir, "current.pdf") }
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
+    private var pendingUtter: Pair<String, String>? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -205,6 +210,53 @@ class MainActivity : Activity() {
                 }
             }
         }
+
+        @JavascriptInterface
+        fun ttsSpeak(text: String, id: String) {
+            if (ttsReady && tts != null) {
+                speakNow(text, id)
+                return
+            }
+            pendingUtter = text to id
+            if (tts == null) {
+                tts = TextToSpeech(applicationContext) { status ->
+                    ttsReady = status == TextToSpeech.SUCCESS
+                    runOnUiThread {
+                        if (ttsReady && tts != null) {
+                            tts!!.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                                override fun onStart(utteranceId: String?) {}
+                                override fun onDone(utteranceId: String?) {
+                                    jsCall("window.onTtsDone && window.onTtsDone()")
+                                }
+                                override fun onError(utteranceId: String?) {
+                                    jsCall("window.onTtsDone && window.onTtsDone()")
+                                }
+                            })
+                            pendingUtter?.let { speakNow(it.first, it.second) }
+                        } else {
+                            jsCall("window.onTtsFail && window.onTtsFail()")
+                        }
+                        pendingUtter = null
+                    }
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun ttsStop() {
+            try { tts?.stop() } catch (e: Exception) {}
+        }
+    }
+
+    private fun speakNow(text: String, id: String) {
+        val t = tts ?: return
+        val zh = text.any { it.code in 0x4E00..0x9FFF }
+        try {
+            t.language = if (zh) java.util.Locale.CHINA else java.util.Locale.US
+            t.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
+        } catch (e: Exception) {
+            jsCall("window.onTtsDone && window.onTtsDone()")
+        }
     }
 
     inner class PdfPrintAdapter(private val file: File) : PrintDocumentAdapter() {
@@ -312,6 +364,7 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        try { tts?.shutdown() } catch (e: Exception) {}
         try {
             unregisterReceiver(onDownloadComplete)
         } catch (e: Exception) {
