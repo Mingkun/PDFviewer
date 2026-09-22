@@ -39,7 +39,7 @@ class MainActivity : Activity() {
     private lateinit var web: WebView
     private var downloadId: Long = -1
     private var pendingInstall = false
-    private var currentPdf = File(cacheDir, "current.pdf")
+    private val currentPdf by lazy { File(cacheDir, "current.pdf") }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
