@@ -133,6 +133,8 @@ window.onUpdateInfo = function (d) {
 window.onUpdateDownload = function (s) {
   var el = document.getElementById('upinfo');
   if (s === 'start') el.textContent = '下载中…（通知栏可见进度）';
+  else if (s === 'permission') el.textContent = '需先允许「安装未知应用」：在刚打开的设置页中开启，返回后会自动继续安装';
+  else if (s === 'installing') el.textContent = '权限已开启，正在打开安装…';
   else if (s === 'done') el.textContent = '下载完成，正在打开安装';
   else if (s === 'fail') el.textContent = '下载失败，请重试';
 };

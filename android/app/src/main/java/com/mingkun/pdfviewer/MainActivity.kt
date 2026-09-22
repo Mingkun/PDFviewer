@@ -25,6 +25,7 @@ class MainActivity : Activity() {
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private lateinit var web: WebView
     private var downloadId: Long = -1
+    private var pendingInstall = false
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,18 +63,46 @@ class MainActivity : Activity() {
         override fun onReceive(context: Context, intent: Intent) {
             val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
             if (id == downloadId && downloadId >= 0) {
-                val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
-                val uri = dm.getUriForDownloadedFile(downloadId)
-                if (uri != null) {
-                    val install = Intent(Intent.ACTION_VIEW)
-                    install.setDataAndType(uri, "application/vnd.android.package-archive")
-                    install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                if (!packageManager.canRequestPackageInstalls()) {
+                    pendingInstall = true
+                    jsCall("window.onUpdateDownload && window.onUpdateDownload('permission')")
                     try {
-                        startActivity(install)
+                        val s = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                        s.data = Uri.parse("package:" + packageName)
+                        startActivity(s)
                     } catch (e: Exception) {
                     }
+                    return
                 }
+                fireInstall()
+            }
+        }
+    }
+
+    private fun fireInstall() {
+        val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
+        val uri = dm.getUriForDownloadedFile(downloadId)
+        if (uri != null) {
+            val install = Intent(Intent.ACTION_VIEW)
+            install.setDataAndType(uri, "application/vnd.android.package-archive")
+            install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            try {
+                startActivity(install)
                 jsCall("window.onUpdateDownload && window.onUpdateDownload('done')")
+                return
+            } catch (e: Exception) {
+            }
+        }
+        jsCall("window.onUpdateDownload && window.onUpdateDownload('fail')")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (pendingInstall) {
+            pendingInstall = false
+            if (packageManager.canRequestPackageInstalls() && downloadId >= 0) {
+                jsCall("window.onUpdateDownload && window.onUpdateDownload('installing')")
+                fireInstall()
             }
         }
     }
