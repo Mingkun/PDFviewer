@@ -253,6 +253,7 @@ class MainActivity : Activity() {
         val zh = text.any { it.code in 0x4E00..0x9FFF }
         try {
             t.language = if (zh) java.util.Locale.CHINA else java.util.Locale.US
+            t.setSpeechRate(0.9f)
             t.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
         } catch (e: Exception) {
             jsCall("window.onTtsDone && window.onTtsDone()")

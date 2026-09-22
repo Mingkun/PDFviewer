@@ -68,16 +68,39 @@ document.getElementById('print').onclick = function () {
 document.getElementById('speak').onclick = function () { readerToggle(); };
 var reading = false, readQueue = [], readIdx = 0, readPage = 0;
 function splitS(t) {
-  var s = t.replace(/\s+/g, ' ').trim(), out = [], cur = '';
+  var s = t.replace(/[ \t]+/g, ' ').replace(/\n+/g, ' ').trim(), out = [], cur = '';
   for (var i = 0; i < s.length; i++) {
-    cur += s.charAt(i);
     var c = s.charAt(i);
-    if ((c === '.' || c === '!' || c === '?' || c === '。' || c === '！' || c === '？') && (i + 1 >= s.length || s.charAt(i + 1) === ' ')) {
+    cur += c;
+    if (c === '。' || c === '！' || c === '？' || c === '；' || ((c === '.' || c === '!' || c === '?') && (i + 1 >= s.length || s.charAt(i + 1) === ' '))) {
       if (cur.trim().length > 1) out.push(cur.trim());
       cur = '';
     }
   }
   if (cur.trim().length > 1) out.push(cur.trim());
+  return out;
+}
+function joinItems(items) {
+  var out = '';
+  for (var i = 0; i < items.length; i++) {
+    var s = items[i].str || '';
+    if (!s) { continue; }
+    if (out.length) {
+      var lc = out.charAt(out.length - 1);
+      var fc = s.charAt(0);
+      if (/[A-Za-z0-9]/.test(lc) && /[A-Za-z0-9]/.test(fc)) out += ' ';
+    }
+    out += s;
+  }
+  return out;
+}
+function toChunks(sents) {
+  var out = [], cur = '';
+  for (var i = 0; i < sents.length; i++) {
+    if (cur.length + sents[i].length > 300 && cur) { out.push(cur); cur = sents[i]; }
+    else cur = cur ? cur + ' ' + sents[i] : sents[i];
+  }
+  if (cur) out.push(cur);
   return out;
 }
 function stopReading(msg) {
@@ -90,8 +113,8 @@ function stopReading(msg) {
 function collectPage(n) {
   pdf.getPage(n).then(function (page) { return page.getTextContent(); }).then(function (tc) {
     if (!reading) return;
-    var txt = (tc.items || []).map(function (it) { return it.str || ''; }).join(' ');
-    var sents = txt.trim() ? splitS(txt) : [];
+    var txt = joinItems(tc.items || []);
+    var sents = txt.trim() ? toChunks(splitS(txt)) : [];
     if (!sents.length) {
       if (n < pdf.numPages) { readPage = n + 1; renderPageOnly(readPage); collectPage(n + 1); }
       else stopReading('没有可朗读的文字');
