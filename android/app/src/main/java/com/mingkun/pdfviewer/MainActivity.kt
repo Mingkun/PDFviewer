@@ -7,16 +7,29 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Bitmap
+import android.graphics.pdf.PdfDocument
+import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.CancellationSignal
 import android.os.Environment
+import android.os.ParcelFileDescriptor
+import android.print.PageRange
+import android.print.PrintAttributes
+import android.print.PrintDocumentAdapter
+import android.print.PrintDocumentInfo
+import android.print.PrintManager
+import android.print.pdf.PrintedPdfDocument
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlin.concurrent.thread
@@ -26,6 +39,7 @@ class MainActivity : Activity() {
     private lateinit var web: WebView
     private var downloadId: Long = -1
     private var pendingInstall = false
+    private var currentPdf = File(cacheDir, "current.pdf")
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -170,15 +184,119 @@ class MainActivity : Activity() {
                 jsCall("window.onUpdateDownload && window.onUpdateDownload('fail')")
             }
         }
+
+        @JavascriptInterface
+        fun printPdf() {
+            if (!currentPdf.exists()) {
+                jsCall("window.onPrintResult && window.onPrintResult('nofile')")
+                return
+            }
+            runOnUiThread {
+                try {
+                    val pm = getSystemService(PRINT_SERVICE) as PrintManager
+                    pm.print(
+                        "PDF 阅读器打印",
+                        PdfPrintAdapter(currentPdf),
+                        PrintAttributes.Builder().build()
+                    )
+                    jsCall("window.onPrintResult && window.onPrintResult('ok')")
+                } catch (e: Exception) {
+                    jsCall("window.onPrintResult && window.onPrintResult('fail')")
+                }
+            }
+        }
+    }
+
+    inner class PdfPrintAdapter(private val file: File) : PrintDocumentAdapter() {
+        private fun countPages(): Int {
+            ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
+                PdfRenderer(pfd).use { r -> return r.pageCount }
+            }
+        }
+
+        override fun onLayout(
+            oldAttributes: PrintAttributes?,
+            newAttributes: PrintAttributes,
+            cancellationSignal: CancellationSignal?,
+            callback: LayoutResultCallback,
+            extras: Bundle?
+        ) {
+            if (cancellationSignal?.isCanceled == true) {
+                callback.onLayoutCancelled()
+                return
+            }
+            try {
+                val info = PrintDocumentInfo.Builder("pdfviewer.pdf")
+                    .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+                    .setPageCount(countPages())
+                    .build()
+                callback.onLayoutFinished(info, true)
+            } catch (e: Exception) {
+                callback.onLayoutFailed(e.message)
+            }
+        }
+
+        override fun onWrite(
+            pages: Array<out PageRange>?,
+            destination: ParcelFileDescriptor,
+            cancellationSignal: CancellationSignal?,
+            callback: WriteResultCallback
+        ) {
+            try {
+                val out = FileOutputStream(destination.fileDescriptor)
+                val attrs = PrintAttributes.Builder()
+                    .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                    .build()
+                val doc = PrintedPdfDocument(this@MainActivity, attrs)
+                ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
+                    PdfRenderer(pfd).use { renderer ->
+                        for (i in 0 until renderer.pageCount) {
+                            if (cancellationSignal?.isCanceled == true) {
+                                doc.close()
+                                callback.onWriteCancelled()
+                                return
+                            }
+                            renderer.openPage(i).use { page ->
+                                val vw = page.width * 2
+                                val vh = page.height * 2
+                                val bmp = Bitmap.createBitmap(vw, vh, Bitmap.Config.ARGB_8888)
+                                bmp.eraseColor(android.graphics.Color.WHITE)
+                                page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                                val p = doc.startPage(
+                                    PdfDocument.PageInfo.Builder(vw, vh, i + 1).create()
+                                )
+                                p.canvas.drawBitmap(bmp, 0f, 0f, null)
+                                doc.finishPage(p)
+                                bmp.recycle()
+                            }
+                        }
+                    }
+                }
+                doc.writeTo(out)
+                doc.close()
+                out.close()
+                callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
+            } catch (e: Exception) {
+                callback.onWriteFailed(e.message)
+            }
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == 1001) {
             val cb = fileCallback
             fileCallback = null
-            cb?.onReceiveValue(
-                if (resultCode == RESULT_OK && data?.data != null) arrayOf(data.data!!) else null
-            )
+            if (resultCode == RESULT_OK && data?.data != null) {
+                try {
+                    contentResolver.openInputStream(data.data!!)!!.use { input ->
+                        currentPdf.outputStream().use { input.copyTo(it) }
+                    }
+                } catch (e: Exception) {
+                }
+                cb?.onReceiveValue(arrayOf(data.data!!))
+            } else {
+                cb?.onReceiveValue(null)
+            }
             return
         }
         super.onActivityResult(requestCode, resultCode, data)
