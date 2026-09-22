@@ -8,7 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Bitmap
-import android.graphics.pdf.PdfDocument
+import android.graphics.RectF
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.Build
@@ -208,6 +208,8 @@ class MainActivity : Activity() {
     }
 
     inner class PdfPrintAdapter(private val file: File) : PrintDocumentAdapter() {
+        private var printAttrs: PrintAttributes? = null
+
         private fun countPages(): Int {
             ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
                 PdfRenderer(pfd).use { r -> return r.pageCount }
@@ -226,6 +228,7 @@ class MainActivity : Activity() {
                 return
             }
             try {
+                printAttrs = newAttributes
                 val info = PrintDocumentInfo.Builder("pdfviewer.pdf")
                     .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
                     .setPageCount(countPages())
@@ -244,7 +247,7 @@ class MainActivity : Activity() {
         ) {
             try {
                 val out = FileOutputStream(destination.fileDescriptor)
-                val attrs = PrintAttributes.Builder()
+                val attrs = printAttrs ?: PrintAttributes.Builder()
                     .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
                     .build()
                 val doc = PrintedPdfDocument(this@MainActivity, attrs)
@@ -262,10 +265,16 @@ class MainActivity : Activity() {
                                 val bmp = Bitmap.createBitmap(vw, vh, Bitmap.Config.ARGB_8888)
                                 bmp.eraseColor(android.graphics.Color.WHITE)
                                 page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                                val p = doc.startPage(
-                                    PdfDocument.PageInfo.Builder(vw, vh, i + 1).create()
+                                val p = doc.startPage(i + 1)
+                                val cw = p.canvas.width.toFloat()
+                                val chh = p.canvas.height.toFloat()
+                                val s = Math.min(cw / bmp.width, chh / bmp.height)
+                                val dx = (cw - bmp.width * s) / 2f
+                                val dy = (chh - bmp.height * s) / 2f
+                                p.canvas.drawBitmap(
+                                    bmp, null,
+                                    RectF(dx, dy, dx + bmp.width * s, dy + bmp.height * s), null
                                 )
-                                p.canvas.drawBitmap(bmp, 0f, 0f, null)
                                 doc.finishPage(p)
                                 bmp.recycle()
                             }
