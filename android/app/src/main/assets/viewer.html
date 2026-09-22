@@ -21,10 +21,8 @@
 <body>
 <div id="bar">
   <button id="open">📂 打开</button>
-  <button id="prev">◀</button>
   <input id="pageInput" type="number" value="0">
   <span id="total">/ 0</span>
-  <button id="next">▶</button>
   <button id="zin">＋</button>
   <button id="zout">－</button>
   <span id="info"></span>
@@ -71,8 +69,7 @@ document.getElementById('fpick').onchange = function () {
   };
   fr.readAsArrayBuffer(f);
 };
-document.getElementById('prev').onclick = function () { if (pdf && pageNum > 1) { pageNum -= 1; render(); } };
-document.getElementById('next').onclick = function () { if (pdf && pageNum < pdf.numPages) { pageNum += 1; render(); } };
+var stage = document.getElementById('stage');
 document.getElementById('pageInput').onchange = function () {
   var n = parseInt(this.value, 10);
   if (pdf && n >= 1 && n <= pdf.numPages) { pageNum = n; render(); }
@@ -81,6 +78,37 @@ document.getElementById('pageInput').onchange = function () {
 document.getElementById('zin').onclick = function () { scale = Math.min(4, scale + 0.25); if (pdf) render(); };
 document.getElementById('zout').onclick = function () { scale = Math.max(0.5, scale - 0.25); if (pdf) render(); };
 
+function fitPage() {
+  if (!pdf) return;
+  pdf.getPage(pageNum).then(function (page) {
+    var vp1 = page.getViewport({ scale: 1 });
+    var pad = 16;
+    var s = Math.min((stage.clientWidth - pad) / vp1.width, (stage.clientHeight - pad) / vp1.height);
+    scale = Math.max(0.5, Math.min(4, s));
+    render();
+  });
+}
+var touchX = 0, touchY = 0, lastTap = 0;
+stage.addEventListener('touchstart', function (e) {
+  if (e.touches.length === 1) { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; }
+}, { passive: true });
+stage.addEventListener('touchend', function (e) {
+  if (e.changedTouches.length !== 1) return;
+  var dx = e.changedTouches[0].clientX - touchX;
+  var dy = e.changedTouches[0].clientY - touchY;
+  if (pdf && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    var atRight = stage.scrollLeft + stage.clientWidth >= stage.scrollWidth - 4;
+    var atLeft = stage.scrollLeft <= 4;
+    if (dx < 0 && atRight && pageNum < pdf.numPages) { pageNum += 1; render(); }
+    else if (dx > 0 && atLeft && pageNum > 1) { pageNum -= 1; render(); }
+  }
+  var now = Date.now();
+  if (Math.abs(dx) < 12 && Math.abs(dy) < 12) {
+    if (now - lastTap < 300) { fitPage(); lastTap = 0; }
+    else { lastTap = now; }
+  }
+}, { passive: true });
+stage.addEventListener('dblclick', function () { fitPage(); });
 function render() {
   if (!pdf || rendering) { pending = pageNum; return; }
   rendering = true;
