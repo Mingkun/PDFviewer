@@ -138,6 +138,7 @@ document.getElementById('fpick').onchange = function () {
       var hint = document.getElementById('hint');
       if (hint) hint.style.display = 'none';
       render();
+      readerToggle();
     }).catch(function (e) { setInfo('打开失败'); });
   };
   fr.readAsArrayBuffer(f);
