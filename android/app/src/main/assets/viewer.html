@@ -11,6 +11,7 @@
   #bar { display:flex; gap:6px; align-items:center; padding:6px 8px; background:#1e2126; color:#dfe3ea; font-size:14px; flex-wrap:wrap; flex-shrink:0; }
   #bar button { background:#3a4048; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:14px; cursor:pointer; }
   #stage { flex:1; overflow:auto; text-align:center; -webkit-overflow-scrolling:touch; }
+  #bottomInfo { display:none; padding:5px 10px; background:#1e2126; color:#9aa3b0; font-size:12px; text-align:center; flex-shrink:0; }
   canvas { margin:8px auto; box-shadow:0 2px 12px rgba(0,0,0,.5); }
   #pageInput { width:52px; text-align:center; border-radius:6px; border:none; padding:6px 2px; font-size:14px; }
   #info { font-size:12px; color:#9aa3b0; }
@@ -24,10 +25,10 @@
   <button id="print">🖨 打印</button>
   <input id="pageInput" type="number" value="0">
   <span id="total">/ 0</span>
-  <span id="info"></span>
   <button id="gear" style="margin-left:auto">⚙</button>
 </div>
 <div id="stage"><div id="hint">点击「📂 打开」选择 PDF 文件</div><canvas id="cv" style="display:none"></canvas></div>
+<div id="bottomInfo"></div>
 <div id="menu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99;align-items:center;justify-content:center;">
   <div style="width:min(320px,86vw);background:#fff;border-radius:12px;padding:16px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -47,7 +48,16 @@ var pdf = null, pageNum = 1, scale = 1.5, rendering = false, pending = null;
 var cv = document.getElementById('cv');
 var ctx = cv.getContext('2d');
 
-function setInfo(s) { document.getElementById('info').textContent = s; }
+var infoTimer = null;
+function setInfo(s) {
+  var el = document.getElementById('bottomInfo');
+  if (!el) return;
+  if (!s) { el.style.display = 'none'; el.textContent = ''; return; }
+  el.textContent = s;
+  el.style.display = 'block';
+  if (infoTimer) clearTimeout(infoTimer);
+  infoTimer = setTimeout(function () { el.style.display = 'none'; el.textContent = ''; }, 4000);
+}
 
 document.getElementById('open').onclick = function () { document.getElementById('fpick').click(); };
 document.getElementById('print').onclick = function () {
