@@ -51,8 +51,8 @@ function setInfo(s) { document.getElementById('info').textContent = s; }
 
 document.getElementById('open').onclick = function () { document.getElementById('fpick').click(); };
 document.getElementById('print').onclick = function () {
-  if (!pdf) { setInfo('请先打开 PDF 文件'); return; }
-  try { AppBridge.printPdf(); setInfo('已调起系统打印'); } catch (e) { setInfo('打印不可用'); }
+  if (!pdf) return;
+  try { AppBridge.printPdf(); } catch (e) {}
 };
 document.getElementById('fpick').onchange = function () {
   var f = this.files && this.files[0];
