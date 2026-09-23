@@ -36,6 +36,10 @@
       <strong style="font-size:15px;color:#1f2630">⚙ 系统菜单</strong>
       <button id="mclose" style="border:none;background:none;font-size:22px;color:#5a6472;cursor:pointer;line-height:1">×</button>
     </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed #e5e9f0;">
+      <span style="font-size:14px;color:#1f2630">打开文档后自动朗读</span>
+      <button id="autoRead" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">关</button>
+    </div>
     <div id="verinfo" style="font-size:13px;color:#555;margin-bottom:12px">当前版本：…</div>
     <button id="checkup" style="border:none;background:#e8590c;color:#fff;border-radius:8px;padding:8px 16px;font-size:14px;cursor:pointer">检查更新</button>
     <button id="dl" style="display:none;border:none;background:#2f9e44;color:#fff;border-radius:8px;padding:8px 16px;font-size:14px;cursor:pointer;margin-left:8px">下载更新</button>
@@ -67,6 +71,20 @@ document.getElementById('print').onclick = function () {
 };
 document.getElementById('speak').onclick = function () { readerToggle(); };
 var reading = false, readQueue = [], readIdx = 0, readPage = 0;
+function autoReadOn() { return localStorage.getItem('pv_autoRead') === 'true'; }
+function updateAutoReadUI() {
+  var b = document.getElementById('autoRead');
+  var on = autoReadOn();
+  b.textContent = on ? '开' : '关';
+  b.style.background = on ? '#e8590c' : '#f0f4fa';
+  b.style.color = on ? '#fff' : '#5a6472';
+  b.style.borderColor = on ? '#e8590c' : '#d5dbe4';
+}
+document.getElementById('autoRead').addEventListener('click', function () {
+  localStorage.setItem('pv_autoRead', autoReadOn() ? 'false' : 'true');
+  updateAutoReadUI();
+});
+updateAutoReadUI();
 function splitS(t) {
   var s = t.replace(/[ \t]+/g, ' ').replace(/\n+/g, ' ').trim(), out = [], cur = '';
   for (var i = 0; i < s.length; i++) {
@@ -161,7 +179,7 @@ document.getElementById('fpick').onchange = function () {
       var hint = document.getElementById('hint');
       if (hint) hint.style.display = 'none';
       render();
-      readerToggle();
+      if (autoReadOn()) readerToggle();
     }).catch(function (e) { setInfo('打开失败'); });
   };
   fr.readAsArrayBuffer(f);
