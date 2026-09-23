@@ -214,6 +214,14 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun openExternal(url: String) {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            } catch (e: Exception) {
+            }
+        }
+
+        @JavascriptInterface
         fun setVoiceGender(g: String) { ttsGender = g }
 
         @JavascriptInterface
