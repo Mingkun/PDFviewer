@@ -152,7 +152,7 @@ function joinItems(items) {
 function toChunks(sents) {
   var out = [], cur = '';
   for (var i = 0; i < sents.length; i++) {
-    if (cur.length + sents[i].length > 300 && cur) { out.push(cur); cur = sents[i]; }
+    if (cur.length + sents[i].length > 180 && cur) { out.push(cur); cur = sents[i]; }
     else cur = cur ? cur + ' ' + sents[i] : sents[i];
   }
   if (cur) out.push(cur);

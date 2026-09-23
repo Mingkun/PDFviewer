@@ -9,10 +9,10 @@ DST = ROOT / 'windows-app'
 POLYFILL = """
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.1.3 (windows)'; },
+  appVersion: function () { return '1.1.4 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.1.3';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.1.4';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -41,7 +41,7 @@ window.AppBridge = {
         if (!picked) picked = voices.filter(function (v) { return re.test(v.name); })[0] || null;
       }
       if (picked) u.voice = picked;
-      else u.pitch = (g === 'female') ? 1.3 : ((g === 'male') ? 0.75 : 1.0);
+      else u.pitch = (g === 'female') ? 1.25 : ((g === 'male') ? 0.8 : 1.0);
       u.onend = function () { if (window.onTtsDone) window.onTtsDone(); };
       u.onerror = function () { if (window.onTtsDone) window.onTtsDone(); };
       speechSynthesis.cancel();

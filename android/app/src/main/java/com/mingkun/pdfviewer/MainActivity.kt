@@ -304,7 +304,7 @@ class MainActivity : Activity() {
                     t.voice = picked
                     t.setPitch(1.0f)
                 } else {
-                    t.setPitch(if (ttsGender == "female") 1.3f else 0.75f)
+                    t.setPitch(if (ttsGender == "female") 1.25f else 0.8f)
                 }
             } else {
                 t.setPitch(1.0f)
