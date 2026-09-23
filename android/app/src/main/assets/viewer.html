@@ -58,7 +58,7 @@
     <div id="upinfo" style="font-size:12px;color:#555;margin-top:10px"></div>
   </div>
 </div>
-<input type="file" id="fpick" accept=".pdf,.epub,.txt,.csv,.docx,.xlsx,.pptx,image/*">
+<input type="file" id="fpick" accept=".pdf,.epub,.txt,.csv,.doc,.docx,.xlsx,.pptx,image/*">
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdfjs/pdf.worker.min.js';
 var pdf = null, pageNum = 1, scale = 1.5, rendering = false, pending = null;
@@ -264,6 +264,7 @@ document.getElementById('fpick').onchange = function () {
       else if (/\.(png|jpe?g|gif|webp|bmp)$/.test(name) || mime.indexOf('image/') === 0) openImage(buf);
       else if (name.indexOf('.epub') >= 0) openEpub(buf);
       else if (name.indexOf('.docx') >= 0) openDocx(buf);
+      else if (name.indexOf('.doc') >= 0) openDoc(buf);
       else if (name.indexOf('.xlsx') >= 0 || name.indexOf('.csv') >= 0) openXlsx(buf);
       else if (name.indexOf('.pptx') >= 0) openPptx(buf);
       else openTxt(buf);
@@ -505,6 +506,41 @@ function showSlide(n) {
   for (var i = 0; i < els.length; i++) els[i].style.display = 'none';
   var el = contentEl.querySelector('[data-slide="' + n + '"]');
   if (el) el.style.display = 'block';
+}
+function extractDocText(buf) {
+  try {
+    var u8 = new Uint8Array(buf);
+    var out = [], cur = [];
+    function flush() {
+      if (cur.length >= 8) {
+        var s = '';
+        for (var k = 0; k < cur.length; k += 4096) {
+          s += String.fromCharCode.apply(null, cur.slice(k, k + 4096));
+        }
+        out.push(s);
+      }
+      cur = [];
+    }
+    for (var i = 0; i + 1 < u8.length; i += 2) {
+      var code = u8[i] | (u8[i + 1] << 8);
+      var ok = (code >= 0x20 && code < 0x7F) || (code >= 0x4E00 && code <= 0x9FFF) || (code >= 0xA0 && code <= 0xFFFD && code !== 0xFEFF) || code === 0x0A || code === 0x0D || code === 0x09;
+      if (ok) cur.push(code); else flush();
+    }
+    flush();
+    return out.join('\n');
+  } catch (e) { return ''; }
+}
+function openDoc(buf) {
+  resetView();
+  var txt = extractDocText(buf);
+  if (txt.trim().length < 50) { setInfo('旧版 .doc 解析有限，建议另存为 .docx'); return; }
+  docPages = chunksFromText(txt);
+  contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(txt) + '</div>';
+  contentEl.style.background = '#fff';
+  contentEl.style.display = 'block';
+  docKind = 'doc';
+  setTotal(docPages.length);
+  if (autoReadOn()) readerToggle();
 }
 function openEpub(buf) {
   resetView();

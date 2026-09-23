@@ -72,6 +72,7 @@ class MainActivity : Activity() {
                     "application/epub+zip",
                     "text/*",
                     "application/csv",
+                    "application/msword",
                     "application/vnd.ms-excel",
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
