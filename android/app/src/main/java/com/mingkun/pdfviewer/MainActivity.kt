@@ -298,7 +298,7 @@ class MainActivity : Activity() {
         val zh = text.any { it.code in 0x4E00..0x9FFF }
         try {
             t.language = if (zh) java.util.Locale.CHINA else java.util.Locale.US
-            t.setSpeechRate(0.9f)
+            t.setSpeechRate(1.0f)
             if (ttsGender != "default") {
                 val picked = pickVoice(t, zh, ttsGender == "female")
                 if (picked != null) {
