@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.0 (windows)'; },
+  appVersion: function () { return '1.2.1 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.0';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.1';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -359,6 +359,14 @@ document.getElementById('pageInput').onchange = function () {
   else if (docKind) this.value = pageNum;
 };
 
+function fitAll() {
+  if (docKind === 'img') {
+    var im = document.getElementById('imgView');
+    if (im) { im.style.transform = ''; im.style.maxWidth = '100%'; }
+    return;
+  }
+  fitPage();
+}
 function fitPage() {
   if (!pdf) return;
   pdf.getPage(pageNum).then(function (page) {
@@ -420,12 +428,12 @@ stage.addEventListener('touchend', function (e) {
     else if ((docKind === 'pdf' || docKind === 'pptx') && dx > 0 && atLeft && pageNum > 1) { displayPage(pageNum - 1); }
   }
   var now = Date.now();
-  if (Math.abs(dx) < 12 && Math.abs(dy) < 12) {
-    if (now - lastTap < 300) { fitPage(); lastTap = 0; }
+  if (Math.abs(dx) < 25 && Math.abs(dy) < 25) {
+    if (now - lastTap < 350) { fitAll(); lastTap = 0; }
     else { lastTap = now; }
   }
 }, { passive: true });
-stage.addEventListener('dblclick', function () { fitPage(); });
+stage.addEventListener('dblclick', function () { fitAll(); });
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 var docKind = null, docPages = [];
 var contentEl = document.getElementById('content');
