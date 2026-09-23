@@ -78,6 +78,8 @@ class MainActivity : Activity() {
         )
     }
 
+    @Volatile private var ttsGender = "default"
+
     private val onDownloadComplete = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
@@ -212,6 +214,9 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun setVoiceGender(g: String) { ttsGender = g }
+
+        @JavascriptInterface
         fun ttsSpeak(text: String, id: String) {
             if (ttsReady && tts != null) {
                 speakNow(text, id)
@@ -254,6 +259,7 @@ class MainActivity : Activity() {
         try {
             t.language = if (zh) java.util.Locale.CHINA else java.util.Locale.US
             t.setSpeechRate(0.9f)
+            t.setPitch(if (ttsGender == "male") 0.85f else if (ttsGender == "female") 1.25f else 1.0f)
             t.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
         } catch (e: Exception) {
             jsCall("window.onTtsDone && window.onTtsDone()")
