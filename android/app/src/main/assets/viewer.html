@@ -242,7 +242,7 @@ function feedNext() {
 }
 function readerToggle() {
   if (reading) { stopReading(); return; }
-  if (!pdf) return;
+  if (!docKind) return;
   reading = true;
   readQueue = []; readIdx = 0; readPage = pageNum;
   document.getElementById('speak').textContent = '⏹';
