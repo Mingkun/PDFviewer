@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.1.0 (windows)'; },
+  appVersion: function () { return '1.1.1 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.1.0';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.1.1';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -388,6 +388,7 @@ function resetView() {
   cv.style.display = 'none';
   contentEl.style.display = 'none';
   contentEl.innerHTML = '';
+  contentEl.style.background = '';
   var h = document.getElementById('hint');
   if (h) h.style.display = 'none';
   pdf = null; docKind = null; docPages = [];
@@ -447,6 +448,7 @@ function openTxt(buf) {
   var txt = decodeText(buf);
   docPages = chunksFromText(txt);
   contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(txt) + '</div>';
+  contentEl.style.background = '#fff';
   contentEl.style.display = 'block';
   docKind = 'txt';
   setTotal(docPages.length);
@@ -458,6 +460,7 @@ function openDocx(buf) {
     if (err || typeof mammoth === 'undefined') { setInfo('打开失败'); return; }
     mammoth.convertToHtml({ arrayBuffer: buf }).then(function (r) {
       contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.8;color:#1f2630">' + (r.value || '') + '</div>';
+      contentEl.style.background = '#fff';
       contentEl.style.display = 'block';
       docKind = 'docx';
       return mammoth.extractRawText({ arrayBuffer: buf });
@@ -483,6 +486,7 @@ function openXlsx(buf) {
         if (csv.trim()) texts.push(csv);
       });
       contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px">' + html.replace(/<td/g, '<td style="border:1px solid #dde4ec;padding:4px 8px"').replace(/<th/g, '<th style="border:1px solid #dde4ec;padding:4px 8px"') + '</div>';
+      contentEl.style.background = '#fff';
       contentEl.style.display = 'block';
       var t = texts.join('\n');
       docPages = t.trim() ? chunksFromText(t) : [];
