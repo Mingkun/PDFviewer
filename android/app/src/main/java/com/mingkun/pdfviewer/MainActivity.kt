@@ -65,7 +65,21 @@ class MainActivity : Activity() {
                 fileCallback = filePathCallback
                 val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
                 intent.addCategory(Intent.CATEGORY_OPENABLE)
-                intent.type = "application/pdf"
+                intent.type = "*/*"
+                intent.putExtra(Intent.EXTRA_MIME_TYPES, arrayOf(
+                    "application/pdf",
+                    "application/epub+zip",
+                    "text/plain",
+                    "text/csv",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    "image/png",
+                    "image/jpeg",
+                    "image/gif",
+                    "image/webp",
+                    "image/bmp"
+                ))
                 startActivityForResult(intent, 1001)
                 return true
             }
