@@ -2,3 +2,8 @@
 build/
 local.properties
 *.apk
+
+# Windows app runtime
+windows-app/node_modules/
+windows-app/dist/
+*.zip
