@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.1 (windows)'; },
+  appVersion: function () { return '1.2.2 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.1';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.2';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -239,6 +239,7 @@ function toChunks(sents) {
 }
 function stopReading(msg) {
   reading = false;
+  localLocked = false;
   readQueue = []; readIdx = 0;
   try { AppBridge.ttsStop(); } catch (e) {}
   try { if (cloudAudio) { cloudAudio.pause(); cloudAudio = null; } } catch (e) {}
@@ -248,10 +249,11 @@ function stopReading(msg) {
 var CLOUD_TTS = 'https://5130599.best/Translator/api/tts';
 var TTS_TOKEN = '54a0d81280ac26c1932bc6f30158a0df';
 var cloudAudio = null;
+var localLocked = false;
 function speakText(text, id, attempt) {
   attempt = attempt || 0;
   var g = voiceGender();
-  if (g === 'default') {
+  if (g === 'default' || localLocked) {
     try { AppBridge.ttsSpeak(text, id); } catch (e) { stopReading(); }
     return;
   }
@@ -266,9 +268,10 @@ function speakText(text, id, attempt) {
   cloudAudio = new Audio(CLOUD_TTS + qs);
   cloudAudio.onended = function () { if (reading) feedNext(); };
   var fallback = function () {
-    if (attempt < 2) {
+    if (attempt < 5) {
       setTimeout(function () { if (reading) speakText(text, id, attempt + 1); }, 700);
     } else {
+      localLocked = true;
       try { AppBridge.ttsSpeak(text, id); } catch (e) { stopReading(); }
     }
   };
