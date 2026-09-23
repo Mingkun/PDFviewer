@@ -70,16 +70,13 @@ class MainActivity : Activity() {
                 intent.putExtra(Intent.EXTRA_MIME_TYPES, arrayOf(
                     "application/pdf",
                     "application/epub+zip",
-                    "text/plain",
-                    "text/csv",
+                    "text/*",
+                    "application/csv",
+                    "application/vnd.ms-excel",
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                    "image/png",
-                    "image/jpeg",
-                    "image/gif",
-                    "image/webp",
-                    "image/bmp"
+                    "image/*"
                 ))
                 startActivityForResult(intent, 1001)
                 return true
