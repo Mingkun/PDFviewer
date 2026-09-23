@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.1.5 (windows)'; },
+  appVersion: function () { return '1.1.6 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.1.5';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.1.6';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -452,7 +452,7 @@ function openPdf(buf) {
     pageNum = 1;
     setTotal(doc.numPages);
     cv.style.display = '';
-    render();
+    fitPage();
     if (autoReadOn()) readerToggle();
   }).catch(function (e) { setInfo('打开失败'); });
 }

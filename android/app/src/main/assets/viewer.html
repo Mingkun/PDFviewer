@@ -386,7 +386,7 @@ function openPdf(buf) {
     pageNum = 1;
     setTotal(doc.numPages);
     cv.style.display = '';
-    render();
+    fitPage();
     if (autoReadOn()) readerToggle();
   }).catch(function (e) { setInfo('打开失败'); });
 }
