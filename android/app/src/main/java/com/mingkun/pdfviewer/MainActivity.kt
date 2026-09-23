@@ -54,6 +54,7 @@ class MainActivity : Activity() {
         web.settings.allowFileAccess = true
         web.settings.allowContentAccess = true
         web.settings.domStorageEnabled = true
+        web.settings.mediaPlaybackRequiresUserGesture = false
         web.webViewClient = WebViewClient()
         web.addJavascriptInterface(Bridge(), "AppBridge")
         web.webChromeClient = object : WebChromeClient() {
