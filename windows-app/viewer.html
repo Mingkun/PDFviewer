@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.0.2 (windows)'; },
+  appVersion: function () { return '1.1.0 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.0.2';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.1.0';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -59,8 +59,14 @@ window.addEventListener('wheel', function (e) {
 }, { passive: false });
 window.addEventListener('keydown', function (e) {
   try {
-    if (e.key === 'ArrowRight' || e.key === 'PageDown') { if (pdf && pageNum < pdf.numPages) { pageNum += 1; render(); } }
-    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { if (pdf && pageNum > 1) { pageNum -= 1; render(); } }
+    if (docKind === 'epub' && window.epubRendition) {
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') { window.epubRendition.next(); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { window.epubRendition.prev(); }
+    } else if (docKind === 'pdf' || docKind === 'pptx') {
+      var total = readTotal();
+      if ((e.key === 'ArrowRight' || e.key === 'PageDown') && pageNum < total) { displayPage(pageNum + 1); }
+      else if ((e.key === 'ArrowLeft' || e.key === 'PageUp') && pageNum > 1) { displayPage(pageNum - 1); }
+    }
   } catch (err) {}
 });
 </script>
@@ -88,7 +94,7 @@ window.addEventListener('keydown', function (e) {
   <span id="total">/ 0</span>
   <button id="gear" style="margin-left:auto">⚙</button>
 </div>
-<div id="stage"><div id="hint">点击「📂 打开」选择 PDF 文件</div><canvas id="cv" style="display:none"></canvas></div>
+<div id="stage"><div id="hint">点击「📂 打开」选择文件（PDF/EPUB/TXT/Word/Excel/PPT/图片）</div><canvas id="cv" style="display:none"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div></div>
 <div id="bottomInfo"></div>
 <div id="menu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99;align-items:center;justify-content:center;">
   <div style="width:min(320px,86vw);background:#fff;border-radius:12px;padding:16px;">
@@ -118,7 +124,7 @@ window.addEventListener('keydown', function (e) {
     <div id="upinfo" style="font-size:12px;color:#555;margin-top:10px"></div>
   </div>
 </div>
-<input type="file" id="fpick" accept="application/pdf">
+<input type="file" id="fpick" accept=".pdf,.epub,.txt,.csv,.docx,.xlsx,.pptx,image/*">
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdfjs/pdf.worker.min.js';
 var pdf = null, pageNum = 1, scale = 1.5, rendering = false, pending = null;
@@ -138,7 +144,7 @@ function setInfo(s) {
 
 document.getElementById('open').onclick = function () { document.getElementById('fpick').click(); };
 document.getElementById('print').onclick = function () {
-  if (!pdf) return;
+  if (docKind !== 'pdf') { if (docKind) setInfo('打印仅支持 PDF'); return; }
   try { AppBridge.printPdf(); } catch (e) {}
 };
 document.getElementById('speak').onclick = function () { readerToggle(); };
@@ -226,29 +232,46 @@ function stopReading(msg) {
   if (msg) setInfo(msg);
 }
 function collectPage(n) {
-  pdf.getPage(n).then(function (page) { return page.getTextContent(); }).then(function (tc) {
-    if (!reading) return;
-    var txt = joinItems(tc.items || []);
-    var sents = txt.trim() ? toChunks(splitS(txt)) : [];
-    if (!sents.length) {
-      if (n < pdf.numPages) { readPage = n + 1; renderPageOnly(readPage); collectPage(n + 1); }
-      else stopReading('没有可朗读的文字');
-      return;
-    }
-    for (var i = 0; i < sents.length; i++) readQueue.push({ p: n, s: sents[i] });
-    feedNext();
-  }).catch(function () { stopReading(); });
+  if (docKind === 'pdf') {
+    pdf.getPage(n).then(function (page) { return page.getTextContent(); }).then(function (tc) {
+      if (!reading) return;
+      var txt = joinItems(tc.items || []);
+      var sents = txt.trim() ? toChunks(splitS(txt)) : [];
+      if (!sents.length) {
+        if (n < pdf.numPages) { readPage = n + 1; displayPage(readPage); collectPage(n + 1); }
+        else stopReading('没有可朗读的文字');
+        return;
+      }
+      for (var i = 0; i < sents.length; i++) readQueue.push({ p: n, s: sents[i] });
+      feedNext();
+    }).catch(function () { stopReading(); });
+    return;
+  }
+  if (docKind === 'epub') {
+    epubCollect(function (fullText) {
+      if (!reading) return;
+      docPages = chunksFromText(fullText || '');
+      if (!docPages.length) { stopReading('没有可朗读的文字'); return; }
+      for (var k = 0; k < docPages.length; k++) readQueue.push({ p: k + 1, s: docPages[k] });
+      readPage = docPages.length;
+      feedNext();
+    });
+    return;
+  }
+  if (!docPages.length) { stopReading('没有可朗读的文字'); return; }
+  readPage = docPages.length;
+  for (var j = 0; j < docPages.length; j++) readQueue.push({ p: j + 1, s: docPages[j] });
+  feedNext();
 }
-function renderPageOnly(n) { if (n !== pageNum) { pageNum = n; render(); } }
 function feedNext() {
   if (!reading) return;
   if (readIdx >= readQueue.length) {
-    if (readPage < pdf.numPages) { readPage += 1; renderPageOnly(readPage); collectPage(readPage); }
+    if (readPage < readTotal()) { readPage += 1; displayPage(readPage); collectPage(readPage); }
     else stopReading();
     return;
   }
   var item = readQueue[readIdx];
-  renderPageOnly(item.p);
+  if (docKind === 'pdf' || docKind === 'pptx') displayPage(item.p);
   readIdx += 1;
   try { AppBridge.ttsSpeak(item.s, 'u' + readIdx); } catch (e) { stopReading(); }
 }
@@ -266,26 +289,29 @@ document.getElementById('fpick').onchange = function () {
   var f = this.files && this.files[0];
   if (!f) return;
   if (reading) stopReading();
+  var name = (f.name || '').toLowerCase();
+  var mime = f.type || '';
   var fr = new FileReader();
   fr.onload = function () {
-    pdfjsLib.getDocument({ data: new Uint8Array(fr.result) }).promise.then(function (doc) {
-      pdf = doc;
-      pageNum = 1;
-      document.getElementById('total').textContent = '/ ' + doc.numPages;
-      cv.style.display = '';
-      var hint = document.getElementById('hint');
-      if (hint) hint.style.display = 'none';
-      render();
-      if (autoReadOn()) readerToggle();
-    }).catch(function (e) { setInfo('打开失败'); });
+    var buf = fr.result;
+    try {
+      if (name.indexOf('.pdf') >= 0 || mime === 'application/pdf') openPdf(buf);
+      else if (/\.(png|jpe?g|gif|webp|bmp)$/.test(name) || mime.indexOf('image/') === 0) openImage(buf);
+      else if (name.indexOf('.epub') >= 0) openEpub(buf);
+      else if (name.indexOf('.docx') >= 0) openDocx(buf);
+      else if (name.indexOf('.xlsx') >= 0 || name.indexOf('.csv') >= 0) openXlsx(buf);
+      else if (name.indexOf('.pptx') >= 0) openPptx(buf);
+      else openTxt(buf);
+    } catch (e) { setInfo('打开失败'); }
   };
   fr.readAsArrayBuffer(f);
 };
 var stage = document.getElementById('stage');
 document.getElementById('pageInput').onchange = function () {
   var n = parseInt(this.value, 10);
-  if (pdf && n >= 1 && n <= pdf.numPages) { pageNum = n; render(); }
-  else if (pdf) this.value = pageNum;
+  var total = readTotal();
+  if ((docKind === 'pdf' || docKind === 'pptx') && n >= 1 && n <= total) { displayPage(n); }
+  else if (docKind) this.value = pageNum;
 };
 
 function fitPage() {
@@ -300,6 +326,7 @@ function fitPage() {
 }
 var touchX = 0, touchY = 0, lastTap = 0;
 var pinchActive = false, pinchDist = 0, pinchScale = 0, vizK = 1;
+function zoomEl() { return docKind === 'img' ? (document.getElementById('imgView') || cv) : cv; }
 function dist2(t1, t2) {
   var dx = t1.clientX - t2.clientX, dy = t1.clientY - t2.clientY;
   return Math.sqrt(dx * dx + dy * dy);
@@ -318,14 +345,16 @@ stage.addEventListener('touchmove', function (e) {
   var d = dist2(e.touches[0], e.touches[1]);
   if (pinchDist > 0 && d > 0) {
     vizK = d / pinchDist;
-    cv.style.transformOrigin = 'center center';
-    cv.style.transform = 'scale(' + vizK + ')';
+    var ze = zoomEl();
+    ze.style.transformOrigin = 'center center';
+    ze.style.transform = 'scale(' + vizK + ')';
   }
 }, { passive: false });
 stage.addEventListener('touchend', function (e) {
   if (pinchActive) {
     if (e.touches.length < 2) {
       pinchActive = false;
+      if (docKind === 'img') return;
       cv.style.transform = '';
       scale = Math.max(0.5, Math.min(4, pinchScale * vizK));
       if (pdf) render();
@@ -335,11 +364,15 @@ stage.addEventListener('touchend', function (e) {
   if (e.changedTouches.length !== 1) return;
   var dx = e.changedTouches[0].clientX - touchX;
   var dy = e.changedTouches[0].clientY - touchY;
-  if (pdf && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+  if (docKind && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
     var atRight = stage.scrollLeft + stage.clientWidth >= stage.scrollWidth - 4;
     var atLeft = stage.scrollLeft <= 4;
-    if (dx < 0 && atRight && pageNum < pdf.numPages) { pageNum += 1; render(); }
-    else if (dx > 0 && atLeft && pageNum > 1) { pageNum -= 1; render(); }
+    var total = readTotal();
+    if (docKind === 'epub' && window.epubRendition) {
+      if (dx < 0 && atRight) { window.epubRendition.next(); }
+      else if (dx > 0 && atLeft) { window.epubRendition.prev(); }
+    } else if ((docKind === 'pdf' || docKind === 'pptx') && dx < 0 && atRight && pageNum < total) { displayPage(pageNum + 1); }
+    else if ((docKind === 'pdf' || docKind === 'pptx') && dx > 0 && atLeft && pageNum > 1) { displayPage(pageNum - 1); }
   }
   var now = Date.now();
   if (Math.abs(dx) < 12 && Math.abs(dy) < 12) {
@@ -348,6 +381,203 @@ stage.addEventListener('touchend', function (e) {
   }
 }, { passive: true });
 stage.addEventListener('dblclick', function () { fitPage(); });
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+var docKind = null, docPages = [];
+var contentEl = document.getElementById('content');
+function resetView() {
+  cv.style.display = 'none';
+  contentEl.style.display = 'none';
+  contentEl.innerHTML = '';
+  var h = document.getElementById('hint');
+  if (h) h.style.display = 'none';
+  pdf = null; docKind = null; docPages = [];
+  cv.style.transform = '';
+  window.epubBook = null; window.epubRendition = null;
+  document.getElementById('total').textContent = '/ 0';
+  document.getElementById('pageInput').value = 0;
+}
+function setTotal(n) { document.getElementById('total').textContent = '/ ' + n; }
+function readTotal() { return docKind === 'pdf' ? (pdf ? pdf.numPages : 0) : docPages.length; }
+function loadScript(src, cb) {
+  if (loadScript.done && loadScript.done[src]) { cb(); return; }
+  var s = document.createElement('script');
+  s.src = src;
+  s.onload = function () { if (!loadScript.done) loadScript.done = {}; loadScript.done[src] = 1; cb(); };
+  s.onerror = function () { cb(true); };
+  document.head.appendChild(s);
+}
+function decodeText(buf) {
+  var s = '';
+  try { s = new TextDecoder('utf-8').decode(buf); } catch (e) {}
+  var bad = (s.match(/\uFFFD/g) || []).length;
+  if (bad > s.length / 100) {
+    try { s = new TextDecoder('gbk').decode(buf); } catch (e) {}
+  }
+  return s;
+}
+function chunksFromText(txt) {
+  var t = (txt || '').trim();
+  if (!t) return [];
+  var sents = splitS(t);
+  return toChunks(sents.length ? sents : [t]);
+}
+function openPdf(buf) {
+  resetView();
+  pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise.then(function (doc) {
+    pdf = doc;
+    docKind = 'pdf';
+    pageNum = 1;
+    setTotal(doc.numPages);
+    cv.style.display = '';
+    render();
+    if (autoReadOn()) readerToggle();
+  }).catch(function (e) { setInfo('打开失败'); });
+}
+function openImage(buf) {
+  resetView();
+  var blob = new Blob([buf]);
+  var url = URL.createObjectURL(blob);
+  contentEl.innerHTML = '<img id="imgView" src="' + url + '" style="max-width:100%;margin:8px auto;box-shadow:0 2px 12px rgba(0,0,0,.5)">';
+  contentEl.style.display = 'block';
+  docKind = 'img';
+  setTotal(1);
+}
+function openTxt(buf) {
+  resetView();
+  var txt = decodeText(buf);
+  docPages = chunksFromText(txt);
+  contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(txt) + '</div>';
+  contentEl.style.display = 'block';
+  docKind = 'txt';
+  setTotal(docPages.length);
+  if (autoReadOn()) readerToggle();
+}
+function openDocx(buf) {
+  resetView();
+  loadScript('libs/mammoth.min.js', function (err) {
+    if (err || typeof mammoth === 'undefined') { setInfo('打开失败'); return; }
+    mammoth.convertToHtml({ arrayBuffer: buf }).then(function (r) {
+      contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.8;color:#1f2630">' + (r.value || '') + '</div>';
+      contentEl.style.display = 'block';
+      docKind = 'docx';
+      return mammoth.extractRawText({ arrayBuffer: buf });
+    }).then(function (r2) {
+      docPages = chunksFromText(r2 && r2.value ? r2.value : '');
+      setTotal(docPages.length);
+      if (autoReadOn()) readerToggle();
+    }).catch(function () { setInfo('打开失败'); });
+  });
+}
+function openXlsx(buf) {
+  resetView();
+  loadScript('libs/xlsx.full.min.js', function (err) {
+    if (err || typeof XLSX === 'undefined') { setInfo('打开失败'); return; }
+    try {
+      var wb = XLSX.read(buf, { type: 'array' });
+      var html = '', texts = [];
+      wb.SheetNames.forEach(function (sn) {
+        var ws = wb.Sheets[sn];
+        html += '<div style="font-size:13px;color:#7048a8;margin:10px 0 4px">📋 ' + esc(sn) + '</div>';
+        html += XLSX.utils.sheet_to_html(ws);
+        var csv = XLSX.utils.sheet_to_csv(ws);
+        if (csv.trim()) texts.push(csv);
+      });
+      contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px">' + html.replace(/<td/g, '<td style="border:1px solid #dde4ec;padding:4px 8px"').replace(/<th/g, '<th style="border:1px solid #dde4ec;padding:4px 8px"') + '</div>';
+      contentEl.style.display = 'block';
+      var t = texts.join('\n');
+      docPages = t.trim() ? chunksFromText(t) : [];
+      docKind = 'xlsx';
+      setTotal(docPages.length);
+      if (autoReadOn()) readerToggle();
+    } catch (e) { setInfo('打开失败'); }
+  });
+}
+function openPptx(buf) {
+  resetView();
+  loadScript('libs/jszip.min.js', function (err) {
+    if (err || typeof JSZip === 'undefined') { setInfo('打开失败'); return; }
+    JSZip.loadAsync(buf).then(function (zip) {
+      var names = [];
+      zip.forEach(function (path, f) {
+        var m = path.match(/^ppt\/slides\/slide(\d+)\.xml$/);
+        if (m && !f.dir) names.push({ n: parseInt(m[1], 10), path: path });
+      });
+      names.sort(function (a, b) { return a.n - b.n; });
+      docPages = [];
+      var idx = 0;
+      function next() {
+        if (idx >= names.length) { finishPptx(); return; }
+        zip.files[names[idx].path].async('string').then(function (xml) {
+          var parts = [];
+          xml.replace(/<a:t>([^<]*)<\/a:t>/g, function (m, t) { parts.push(t); return ''; });
+          docPages.push(parts.join('\n'));
+          idx += 1;
+          next();
+        }).catch(function () { docPages.push(''); idx += 1; next(); });
+      }
+      next();
+    }).catch(function () { setInfo('打开失败'); });
+  });
+}
+function finishPptx() {
+  var html = '';
+  for (var i = 0; i < docPages.length; i++) {
+    html += '<div class="slideCard" data-slide="' + (i + 1) + '" style="display:none;text-align:left;max-width:100%;margin:12px;padding:16px;background:#fff;border-radius:10px;font-size:15px;line-height:1.8;color:#1f2630;white-space:pre-wrap"><div style="font-size:11px;color:#7048a8;margin-bottom:6px">幻灯片 ' + (i + 1) + ' / ' + docPages.length + '</div>' + esc(docPages[i] || '（无文字）') + '</div>';
+  }
+  contentEl.innerHTML = html;
+  contentEl.style.display = 'block';
+  docKind = 'pptx';
+  setTotal(docPages.length);
+  showSlide(1);
+  if (autoReadOn()) readerToggle();
+}
+function showSlide(n) {
+  var els = contentEl.querySelectorAll('[data-slide]');
+  for (var i = 0; i < els.length; i++) els[i].style.display = 'none';
+  var el = contentEl.querySelector('[data-slide="' + n + '"]');
+  if (el) el.style.display = 'block';
+}
+function openEpub(buf) {
+  resetView();
+  loadScript('libs/epub.min.js', function (err) {
+    if (err || typeof ePub === 'undefined') { setInfo('打开失败'); return; }
+    contentEl.innerHTML = '<div id="epubBox" style="width:100%;height:100%;background:#fff"></div>';
+    contentEl.style.display = 'block';
+    try {
+      var book = ePub(buf);
+      var rendition = book.renderTo(document.getElementById('epubBox'), { width: '100%', height: '100%', flow: 'paginated' });
+      window.epubBook = book;
+      window.epubRendition = rendition;
+      docKind = 'epub';
+      setTotal(0);
+      rendition.display().then(function () {
+        if (autoReadOn()) readerToggle();
+      }).catch(function () {});
+    } catch (e) { setInfo('打开失败'); }
+  });
+}
+function epubCollect(onDone) {
+  var book = window.epubBook;
+  var texts = [];
+  var items = book && book.spine ? (book.spine.spineItems || []) : [];
+  var i = 0;
+  function step() {
+    if (i >= items.length) { onDone(texts.join('\n')); return; }
+    try {
+      items[i].load(book.load.bind(book)).then(function (doc) {
+        try { texts.push(doc && doc.body ? doc.body.textContent : ''); } catch (e) {}
+        try { items[i].unload(); } catch (e) {}
+        i += 1; step();
+      }).catch(function () { i += 1; step(); });
+    } catch (e) { i += 1; step(); }
+  }
+  step();
+}
+function displayPage(n) {
+  pageNum = n;
+  if (docKind === 'pdf') { render(); return; }
+  if (docKind === 'pptx') { showSlide(n); document.getElementById('pageInput').value = n; return; }
+}
 function render() {
   if (!pdf || rendering) { pending = pageNum; return; }
   rendering = true;

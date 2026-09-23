@@ -9,10 +9,10 @@ DST = ROOT / 'windows-app'
 POLYFILL = """
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.0.2 (windows)'; },
+  appVersion: function () { return '1.1.0 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.0.2';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.1.0';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -61,8 +61,14 @@ window.addEventListener('wheel', function (e) {
 }, { passive: false });
 window.addEventListener('keydown', function (e) {
   try {
-    if (e.key === 'ArrowRight' || e.key === 'PageDown') { if (pdf && pageNum < pdf.numPages) { pageNum += 1; render(); } }
-    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { if (pdf && pageNum > 1) { pageNum -= 1; render(); } }
+    if (docKind === 'epub' && window.epubRendition) {
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') { window.epubRendition.next(); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { window.epubRendition.prev(); }
+    } else if (docKind === 'pdf' || docKind === 'pptx') {
+      var total = readTotal();
+      if ((e.key === 'ArrowRight' || e.key === 'PageDown') && pageNum < total) { displayPage(pageNum + 1); }
+      else if ((e.key === 'ArrowLeft' || e.key === 'PageUp') && pageNum > 1) { displayPage(pageNum - 1); }
+    }
   } catch (err) {}
 });
 </script>
