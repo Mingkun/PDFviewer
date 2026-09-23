@@ -275,13 +275,40 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun pickVoice(t: TextToSpeech, zh: Boolean, female: Boolean): android.speech.tts.Voice? {
+        return try {
+            val voices = t.voices ?: return null
+            val femaleRe = Regex("huihui|xiaoxiao|yaoyao|zira|aria|jenny|female|女", RegexOption.IGNORE_CASE)
+            val maleRe = Regex("kangkang|yunxi|yunyang|david|mark|george|guy|male|男", RegexOption.IGNORE_CASE)
+            val re = if (female) femaleRe else maleRe
+            val langPrefix = if (zh) "zh" else "en"
+            val byLang = voices.filter { v ->
+                v.locale.language.equals(langPrefix, true) || (zh && v.locale.language.equals("cmn", true))
+            }
+            val source = if (byLang.isNotEmpty()) byLang else voices
+            source.filter { re.containsMatchIn(it.name) }.maxByOrNull { it.quality }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     private fun speakNow(text: String, id: String) {
         val t = tts ?: return
         val zh = text.any { it.code in 0x4E00..0x9FFF }
         try {
             t.language = if (zh) java.util.Locale.CHINA else java.util.Locale.US
             t.setSpeechRate(0.9f)
-            t.setPitch(if (ttsGender == "male") 0.85f else if (ttsGender == "female") 1.25f else 1.0f)
+            if (ttsGender != "default") {
+                val picked = pickVoice(t, zh, ttsGender == "female")
+                if (picked != null) {
+                    t.voice = picked
+                    t.setPitch(1.0f)
+                } else {
+                    t.setPitch(if (ttsGender == "female") 1.3f else 0.75f)
+                }
+            } else {
+                t.setPitch(1.0f)
+            }
             t.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
         } catch (e: Exception) {
             jsCall("window.onTtsDone && window.onTtsDone()")
