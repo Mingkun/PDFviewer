@@ -169,7 +169,8 @@ function stopReading(msg) {
 var CLOUD_TTS = 'https://5130599.best/Translator/api/tts';
 var TTS_TOKEN = '54a0d81280ac26c1932bc6f30158a0df';
 var cloudAudio = null;
-function speakText(text, id) {
+function speakText(text, id, attempt) {
+  attempt = attempt || 0;
   var g = voiceGender();
   if (g === 'default') {
     try { AppBridge.ttsSpeak(text, id); } catch (e) { stopReading(); }
@@ -181,11 +182,19 @@ function speakText(text, id) {
   qs += '&lang=' + (zh ? 'zh-CN' : 'en');
   qs += '&voice=' + voice;
   qs += '&token=' + TTS_TOKEN;
+  qs += '&_a=' + attempt;
   try { if (cloudAudio) { cloudAudio.pause(); } } catch (e) {}
   cloudAudio = new Audio(CLOUD_TTS + qs);
   cloudAudio.onended = function () { if (reading) feedNext(); };
-  cloudAudio.onerror = function () { try { AppBridge.ttsSpeak(text, id); } catch (e) { stopReading(); } };
-  cloudAudio.play().catch(function () { try { AppBridge.ttsSpeak(text, id); } catch (e) { stopReading(); } });
+  var fallback = function () {
+    if (attempt < 2) {
+      setTimeout(function () { if (reading) speakText(text, id, attempt + 1); }, 700);
+    } else {
+      try { AppBridge.ttsSpeak(text, id); } catch (e) { stopReading(); }
+    }
+  };
+  cloudAudio.onerror = fallback;
+  cloudAudio.play().catch(fallback);
 }
 function collectPage(n) {
   if (docKind === 'pdf') {
