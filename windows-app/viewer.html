@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.2 (windows)'; },
+  appVersion: function () { return '1.2.3 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.2';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.3';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -123,6 +123,13 @@ window.addEventListener('keydown', function (e) {
         <a href="https://5130599.best/Translator/downloads/pdfviewer-android-debug.apk" onclick="return dlExt(this.href);" style="flex:1;display:flex;align-items:center;gap:6px;justify-content:center;border:1px solid #d5dbe4;border-radius:8px;padding:8px 6px;text-decoration:none;font-size:13px;color:#1f2630;background:#f6f8fb"><span style="font-size:16px">📱</span>安卓客户端</a>
         <a href="https://5130599.best/Translator/downloads/pdfviewer-windows-x64.zip" onclick="return dlExt(this.href);" style="flex:1;display:flex;align-items:center;gap:6px;justify-content:center;border:1px solid #d5dbe4;border-radius:8px;padding:8px 6px;text-decoration:none;font-size:13px;color:#1f2630;background:#f6f8fb"><span style="font-size:16px">💻</span>Windows 客户端</a>
       </div>
+      <div style="font-size:11px;color:#5a6472;margin-top:10px">安卓 APK 下载地址（可长按复制）</div>
+      <input id="dlUrlAndroid" readonly value="https://5130599.best/Translator/downloads/pdfviewer-android-debug.apk" onclick="this.select()" onfocus="this.select()" style="width:100%;margin-top:4px;padding:7px 9px;border:1px solid #d5dbe4;border-radius:8px;font-size:11px;color:#5a6472;background:#fff;box-sizing:border-box">
+      <button type="button" onclick="dlCopyUrl('dlUrlAndroid')" style="margin-top:6px;border:1px solid #d5dbe4;background:#fff;border-radius:8px;padding:6px 12px;font-size:12px;color:#1f2630;cursor:pointer">📋 复制链接</button>
+      <div style="font-size:11px;color:#5a6472;margin-top:10px">Windows 客户端 下载地址（可长按复制）</div>
+      <input id="dlUrlWindows" readonly value="https://5130599.best/Translator/downloads/pdfviewer-windows-x64.zip" onclick="this.select()" onfocus="this.select()" style="width:100%;margin-top:4px;padding:7px 9px;border:1px solid #d5dbe4;border-radius:8px;font-size:11px;color:#5a6472;background:#fff;box-sizing:border-box">
+      <button type="button" onclick="dlCopyUrl('dlUrlWindows')" style="margin-top:6px;border:1px solid #d5dbe4;background:#fff;border-radius:8px;padding:6px 12px;font-size:12px;color:#1f2630;cursor:pointer">📋 复制链接</button>
+      <div id="dlCopyOut" style="font-size:11px;color:#5a6472;margin-top:6px"></div>
     </div>
     <div style="font-size:12px;color:#5a6472;font-weight:600;margin:10px 2px 6px">🔄 版本与更新</div>
     <div style="background:#f6f8fb;border:1px solid #e3e8ef;border-radius:10px;padding:2px 12px">
@@ -176,6 +183,29 @@ document.getElementById('autoRead').addEventListener('click', function () {
   updateAutoReadUI();
 });
 updateAutoReadUI();
+function dlCopyUrl(id) {
+  var el = document.getElementById(id); if (!el) return;
+  var out = document.getElementById('dlCopyOut');
+  function say(ok) {
+    if (!out) return;
+    out.textContent = ok ? '链接已复制，可直接粘贴分享' : '复制失败，请长按上面的地址手动复制';
+    if (out._tm) clearTimeout(out._tm);
+    out._tm = setTimeout(function () { out.textContent = ''; }, 2500);
+  }
+  try {
+    el.removeAttribute('readonly'); el.select(); el.setSelectionRange(0, 9999);
+    var ok = document.execCommand('copy');
+    el.setAttribute('readonly', 'readonly');
+    if (ok) { say(true); return; }
+  } catch (e) {}
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(el.value).then(function () { say(true); }, function () { say(false); });
+      return;
+    }
+  } catch (e2) {}
+  say(false);
+}
 function dlExt(u) {
   try { AppBridge.openExternal(u); return false; } catch (e) { return true; }
 }
