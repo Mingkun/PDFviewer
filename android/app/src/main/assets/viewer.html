@@ -17,6 +17,27 @@
   #total { font-size:11px; color:#9aa3b0; }
   #hint { color:#8a94a6; font-size:13px; text-align:center; padding-top:40%; }
   #fpick { display:none; }
+  .mdwrap { display:inline-block; text-align:left; max-width:100%; padding:12px 14px;
+            font-size:15px; line-height:1.85; color:#1f2630; word-break:break-word; }
+  .mdwrap h1, .mdwrap h2, .mdwrap h3, .mdwrap h4, .mdwrap h5, .mdwrap h6 { margin:16px 0 8px; line-height:1.35; }
+  .mdwrap h1 { font-size:23px; } .mdwrap h2 { font-size:20px; } .mdwrap h3 { font-size:17px; }
+  .mdwrap h4, .mdwrap h5, .mdwrap h6 { font-size:15px; }
+  .mdwrap p { margin:8px 0; }
+  .mdwrap .mdc { background:#f1f5f9; border:1px solid #e3e8ef; border-radius:4px; padding:1px 5px;
+                 font-family:ui-monospace,Consolas,monospace; font-size:13px; }
+  .mdwrap .mdpre { background:#f6f8fb; border:1px solid #e3e8ef; border-radius:8px; padding:10px 12px;
+                   overflow:auto; font-family:ui-monospace,Consolas,monospace; font-size:13px;
+                   line-height:1.6; margin:10px 0; }
+  .mdwrap .mdq { border-left:3px solid #d5dbe4; margin:10px 0; padding:2px 0 2px 10px; color:#5a6472; }
+  .mdwrap .mdhr { border:0; border-top:1px solid #e3e8ef; margin:14px 0; }
+  .mdwrap .mdt { border-collapse:collapse; margin:10px 0; font-size:13px; }
+  .mdwrap .mdth, .mdwrap .mdtd { border:1px solid #e3e8ef; padding:5px 9px; text-align:left; }
+  .mdwrap .mdth { background:#f6f8fb; }
+  .mdwrap .mdl { color:#1d4ed8; word-break:break-all; }
+  .mdwrap .mdi { max-width:100%; }
+  .mdwrap .mdr { color:#5a6472; }
+  .mdwrap ul, .mdwrap ol { margin:8px 0 8px 4px; padding-left:22px; }
+  .mdwrap li { margin:3px 0; }
 </style>
 </head>
 <body>
@@ -28,7 +49,7 @@
   <span id="total">/ 0</span>
   <button id="gear" style="margin-left:auto">⚙</button>
 </div>
-<div id="stage"><div id="hint">点击「📂 打开」选择文件（PDF/EPUB/TXT/Word/Excel/PPT/图片）</div><canvas id="cv" style="display:none"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div></div>
+<div id="stage"><div id="hint">点击「📂 打开」选择文件（PDF/EPUB/TXT/Markdown/Word/Excel/PPT/图片）</div><canvas id="cv" style="display:none"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div></div>
 <div id="bottomInfo"></div>
 <div id="menu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99;align-items:center;justify-content:center;">
   <div style="width:min(340px,88vw);background:#fff;border-radius:12px;padding:14px;max-height:calc(100vh - 60px);overflow-y:auto;box-sizing:border-box">
@@ -78,7 +99,7 @@
     </div>
   </div>
 </div>
-<input type="file" id="fpick" accept=".pdf,.epub,.txt,.csv,.doc,.docx,.xlsx,.pptx,image/*">
+<input type="file" id="fpick" accept=".pdf,.epub,.txt,.csv,.doc,.docx,.xlsx,.pptx,.md,.markdown,image/*">
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdfjs/pdf.worker.min.js';
 var pdf = null, pageNum = 1, scale = 1.5, rendering = false, pending = null;
@@ -313,6 +334,7 @@ document.getElementById('fpick').onchange = function () {
       else if (name.indexOf('.doc') >= 0) openDoc(buf);
       else if (name.indexOf('.xlsx') >= 0 || name.indexOf('.csv') >= 0) openXlsx(buf);
       else if (name.indexOf('.pptx') >= 0) openPptx(buf);
+      else if (/\.(md|markdown|mdown|mkd)$/.test(name) || mime === 'text/markdown' || mime === 'text/x-markdown') openMd(buf);
       else openTxt(buf);
     } catch (e) { setInfo('打开失败'); }
   };
@@ -462,6 +484,108 @@ function openImage(buf) {
   contentEl.style.display = 'block';
   docKind = 'img';
   setTotal(1);
+}
+function mdInline(s) {
+  s = s.replace(/`([^`]+)`/g, '<code class="mdc">$1</code>');
+  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)[^)]*\)/g, function (m, a, u) {
+    if (/^https?:\/\//i.test(u)) return '<img src="' + u + '" alt="' + a + '" class="mdi">';
+    return '<span class="mdr">[' + '\u56fe\u7247' + ': ' + (a || u) + ']</span>';
+  });
+  s = s.replace(/\[([^\]]*)\]\(([^)\s]+)[^)]*\)/g, '<a href="$2" class="mdl">$1</a>');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+  s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+  s = s.replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a href="$2" class="mdl">$2</a>');
+  return s;
+}
+function mdPlain(src) {
+  var t = String(src).replace(/\r\n?/g, '\n');
+  t = t.replace(/```[\s\S]*?```/g, ' ');
+  t = t.replace(/`([^`]+)`/g, '$1');
+  t = t.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1');
+  t = t.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
+  t = t.replace(/^\s{0,3}#{1,6}\s+/gm, '');
+  t = t.replace(/^\s{0,3}>\s?/gm, '');
+  t = t.replace(/^\s*[-*+]\s+/gm, '');
+  t = t.replace(/^\s*\d+[.)]\s+/gm, '');
+  t = t.replace(/\*\*([^*]+)\*\*/g, '$1');
+  t = t.replace(/~~([^~]+)~~/g, '$1');
+  t = t.replace(/\|/g, ' ');
+  return t;
+}
+function mdCells(l) {
+  var a = l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|');
+  return a.map(function (c) { return mdInline(esc(c.trim())); });
+}
+function mdIsTableRow(l) { return l.indexOf('|') >= 0 && /\|/.test(l); }
+function mdHtml(src) {
+  var lines = String(src).replace(/\r\n?/g, '\n').split('\n');
+  var out = [], i = 0, list = null;
+  function closeList() { if (list) { out.push('</' + list + '>'); list = null; } }
+  while (i < lines.length) {
+    var ln = lines[i];
+    if (/^\s*(```|~~~)/.test(ln)) {
+      closeList(); i++;
+      var code = [];
+      while (i < lines.length && !/^\s*(```|~~~)\s*$/.test(lines[i])) { code.push(lines[i]); i++; }
+      i++;
+      out.push('<pre class="mdpre">' + esc(code.join('\n')) + '</pre>');
+      continue;
+    }
+    if (!ln.trim()) { closeList(); i++; continue; }
+    var h = ln.match(/^(#{1,6})\s+(.*)$/);
+    if (h) { closeList(); var lv = h[1].length;
+      out.push('<h' + lv + '>' + mdInline(esc(h[2])) + '</h' + lv + '>'); i++; continue; }
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(ln)) { closeList(); out.push('<hr class="mdhr">'); i++; continue; }
+    if (mdIsTableRow(ln) && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i + 1])) {
+      closeList();
+      var hdr = ln, rows = [];
+      i += 2;
+      while (i < lines.length && lines[i].trim() && mdIsTableRow(lines[i])) { rows.push(lines[i]); i++; }
+      var th = mdCells(hdr).map(function (c) { return '<th class="mdth">' + c + '</th>'; }).join('');
+      var tb = rows.map(function (r) {
+        return '<tr>' + mdCells(r).map(function (c) { return '<td class="mdtd">' + c + '</td>'; }).join('') + '</tr>';
+      }).join('');
+      out.push('<table class="mdt"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table>');
+      continue;
+    }
+    var q = ln.match(/^\s*>\s?(.*)$/);
+    if (q) {
+      closeList();
+      var qb = [q[1]]; i++;
+      while (i < lines.length) { var q2 = lines[i].match(/^\s*>\s?(.*)$/); if (!q2) break; qb.push(q2[1]); i++; }
+      out.push('<blockquote class="mdq">' + mdInline(esc(qb.join('\n'))).replace(/\n/g, '<br>') + '</blockquote>');
+      continue;
+    }
+    var ul = ln.match(/^\s*[-*+]\s+(.*)$/), ol = ln.match(/^\s*\d+[.)]\s+(.*)$/);
+    if (ul || ol) {
+      var want = ul ? 'ul' : 'ol';
+      if (list !== want) { closeList(); out.push('<' + want + '>'); list = want; }
+      out.push('<li>' + mdInline(esc((ul || ol)[1])) + '</li>');
+      i++; continue;
+    }
+    var ps = [ln]; i++;
+    while (i < lines.length && lines[i].trim()
+           && !/^\s*(#{1,6}\s|>|[-*+]\s|\d+[.)]\s|```|~~~)/.test(lines[i])
+           && !(mdIsTableRow(lines[i]) && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i + 1]))) {
+      ps.push(lines[i]); i++;
+    }
+    closeList();
+    out.push('<p>' + mdInline(esc(ps.join('\n'))).replace(/\n/g, '<br>') + '</p>');
+  }
+  closeList();
+  return out.join('\n');
+}
+function openMd(buf) {
+  resetView();
+  var txt = decodeText(buf);
+  docPages = chunksFromText(mdPlain(txt));
+  contentEl.innerHTML = '<div class="mdwrap">' + mdHtml(txt) + '</div>';
+  contentEl.style.background = '#fff';
+  contentEl.style.display = 'block';
+  docKind = 'txt';
+  setTotal(docPages.length);
+  if (autoReadOn()) readerToggle();
 }
 function openTxt(buf) {
   resetView();
