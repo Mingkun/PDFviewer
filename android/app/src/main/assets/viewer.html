@@ -925,7 +925,7 @@ document.getElementById('esave').onclick = async function () {
     var pages = await out.copyPages(src, kept.map(function (n) { return n - 1; }));
     pages.forEach(function (p, idx) {
       var d = rotDelta[kept[idx]] || 0;
-      if (d) p.setRotation(((p.getRotation().angle + d) % 360 + 360) % 360);
+      if (d) p.setRotation(L.degrees(((p.getRotation().angle + d) % 360 + 360) % 360));
       out.addPage(p);
     });
     var imgCache = {};
