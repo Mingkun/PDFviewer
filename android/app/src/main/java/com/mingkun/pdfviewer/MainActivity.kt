@@ -163,6 +163,31 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun savePdfBase64(name: String, b64: String) {
+            try {
+                val bytes = android.util.Base64.decode(b64, android.util.Base64.DEFAULT)
+                val safe = if (name.endsWith(".pdf")) name else (name + ".pdf")
+                val outName = "PDFviewer_" + System.currentTimeMillis() + "_" + safe
+                if (android.os.Build.VERSION.SDK_INT >= 29) {
+                    val values = android.content.ContentValues()
+                    values.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, outName)
+                    values.put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/pdf")
+                    values.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, "Download/PDFviewer")
+                    val uri = contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    if (uri != null) contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                    runOnUiThread { android.widget.Toast.makeText(this@MainActivity, "已保存到 Download/PDFviewer/" + outName, android.widget.Toast.LENGTH_LONG).show() }
+                } else {
+                    val dir = java.io.File(getExternalFilesDir(null), "saved")
+                    dir.mkdirs()
+                    java.io.File(dir, outName).outputStream().use { it.write(bytes) }
+                    runOnUiThread { android.widget.Toast.makeText(this@MainActivity, "已保存 " + outName, android.widget.Toast.LENGTH_LONG).show() }
+                }
+            } catch (e: Exception) {
+                runOnUiThread { android.widget.Toast.makeText(this@MainActivity, "保存失败：" + (e.message ?: "?"), android.widget.Toast.LENGTH_LONG).show() }
+            }
+        }
+
+        @JavascriptInterface
         fun checkUpdate() {
             thread {
                 var result = JSONObject()
