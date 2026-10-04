@@ -570,7 +570,7 @@ function chunksFromText(txt) {
 }
 function openPdf(buf) {
   resetView();
-  pdfBytes = buf;
+  pdfBytes = buf.slice(0);  // pdf.js 会 detach 传入的 ArrayBuffer，必须留副本给 pdf-lib
   pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise.then(function (doc) {
     pdf = doc;
     docKind = 'pdf';
