@@ -126,19 +126,23 @@ window.addEventListener('keydown', function (e) {
   <button id="gear">⚙</button>
 </div>
 <div id="ebar">
-  <button class="et on" data-t="hl">🖍高亮</button>
-  <button class="et" data-t="ink">✏️画笔</button>
-  <button class="et" data-t="rect">▭方框</button>
-  <button class="et" data-t="txt">T文字</button>
-  <span class="ec on" data-c="#ffd54a" style="background:#ffd54a"></span>
-  <span class="ec" data-c="#ff5252" style="background:#ff5252"></span>
-  <span class="ec" data-c="#40c4ff" style="background:#40c4ff"></span>
-  <span class="ec" data-c="#212121" style="background:#212121"></span>
+  <button class="et etp on" data-t="hl">🖍高亮</button>
+  <button class="et etp" data-t="ink">✏️画笔</button>
+  <button class="et etp" data-t="rect">▭方框</button>
+  <button class="et etp" data-t="txt">T文字</button>
+  <span class="ec etp on" data-c="#ffd54a" style="background:#ffd54a"></span>
+  <span class="ec etp" data-c="#ff5252" style="background:#ff5252"></span>
+  <span class="ec etp" data-c="#40c4ff" style="background:#40c4ff"></span>
+  <span class="ec etp" data-c="#212121" style="background:#212121"></span>
   <button id="eundo">↩撤销</button>
-  <button id="eclearpg">🧹清页</button>
-  <button id="edelpg">🗑删页</button>
-  <button id="erotpg">↻旋转</button>
-  <button id="esave" style="background:#1e88e5;color:#fff">💾存PDF</button>
+  <button id="eclearpg" class="etp">🧹清页</button>
+  <button id="edelpg" class="etp">🗑删页</button>
+  <button id="erotpg" class="etp">↻旋转</button>
+  <button id="esave" class="etp" style="background:#1e88e5;color:#fff">💾存PDF</button>
+  <button id="wb" class="etw" style="display:none;font-weight:800">B</button>
+  <button id="wi" class="etw" style="display:none;font-style:italic">I</button>
+  <button id="wclr" class="etw" style="display:none">✂清格式</button>
+  <button id="wsave" class="etw" style="display:none;background:#1e88e5;color:#fff">💾存Word</button>
   <button id="eexit">✕退出</button>
 </div>
 <div id="tmodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:98;align-items:center;justify-content:center">
@@ -932,12 +936,25 @@ function drawAnns() {
   });
 }
 document.getElementById('editb').onclick = function () {
-  if (docKind !== 'pdf' || !pdf) { setInfo('仅 PDF 支持编辑'); return; }
-  editMode = !editMode;
-  document.getElementById('ebar').style.display = editMode ? 'flex' : 'none';
-  ocv.style.display = editMode ? 'block' : 'none';
-  this.classList.toggle('onb', editMode);
-  if (editMode) { syncOverlay(); drawAnns(); setInfo('编辑模式：拖动高亮/画笔/方框，点页面加文字；删页旋转导出生效'); }
+  if (docKind === 'pdf') {
+    if (!pdf) { setInfo('先打开 PDF'); return; }
+    editMode = !editMode;
+    document.getElementById('ebar').style.display = editMode ? 'flex' : 'none';
+    ocv.style.display = editMode ? 'block' : 'none';
+    document.querySelectorAll('.etp').forEach(function (x) { x.style.display = editMode ? '' : 'none'; });
+    document.querySelectorAll('.etw').forEach(function (x) { x.style.display = 'none'; });
+    this.classList.toggle('onb', editMode);
+    if (editMode) { syncOverlay(); drawAnns(); setInfo('编辑模式：拖动高亮/画笔/方框，点页面加文字；删页旋转导出生效'); }
+  } else if (docKind === 'docx') {
+    editMode = !editMode;
+    var wrap = contentEl.firstChild || contentEl;
+    wrap.contentEditable = editMode ? 'true' : 'false';
+    document.getElementById('ebar').style.display = editMode ? 'flex' : 'none';
+    document.querySelectorAll('.etp').forEach(function (x) { x.style.display = 'none'; });
+    document.querySelectorAll('.etw').forEach(function (x) { x.style.display = editMode ? '' : 'none'; });
+    this.classList.toggle('onb', editMode);
+    setInfo(editMode ? 'Word 编辑：直接点击文字修改，选中后可加粗/斜体；完成点「存Word」' : '已退出 Word 编辑');
+  } else setInfo('该格式暂不支持编辑（PDF / Word 可编辑）');
 };
 document.querySelectorAll('#ebar .et').forEach(function (b) {
   b.onclick = function () { editTool = b.getAttribute('data-t'); document.querySelectorAll('#ebar .et').forEach(function (x) { x.classList.toggle('on', x === b); }); };
@@ -972,7 +989,7 @@ document.getElementById('tok').onclick = function () {
   pendingTxt = null; document.getElementById('tmodal').style.display = 'none'; drawAnns();
 };
 document.getElementById('tcancel').onclick = function () { pendingTxt = null; document.getElementById('tmodal').style.display = 'none'; };
-document.getElementById('eundo').onclick = function () { for (var i = anns.length - 1; i >= 0; i--) { if (anns[i].pg === pageNum) { anns.splice(i, 1); break; } } drawAnns(); };
+document.getElementById('eundo').onclick = function () { if (docKind === 'docx') { document.execCommand('undo'); return; } for (var i = anns.length - 1; i >= 0; i--) { if (anns[i].pg === pageNum) { anns.splice(i, 1); break; } } drawAnns(); };
 document.getElementById('eclearpg').onclick = function () { anns = anns.filter(function (a) { return a.pg !== pageNum; }); delete delPages[pageNum]; drawAnns(); setInfo('已清空本页批注'); };
 document.getElementById('edelpg').onclick = function () { delPages[pageNum] = !delPages[pageNum]; drawAnns(); setInfo(delPages[pageNum] ? '本页已标记删除，导出时移除' : '已取消删除标记'); };
 document.getElementById('erotpg').onclick = function () { rotDelta[pageNum] = ((rotDelta[pageNum] || 0) + 90) % 360; render(); setInfo('已旋转 90°（' + (rotDelta[pageNum]) + '°）'); };
@@ -1029,6 +1046,82 @@ document.getElementById('esave').onclick = async function () {
     if (window.AppBridge && AppBridge.savePdfBase64) AppBridge.savePdfBase64(name, u8b64(bytes));
     else { var aEl = document.createElement('a'); aEl.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); aEl.download = name; aEl.click(); setInfo('已生成 ' + name + '（' + bytes.length + ' 字节）'); }
   } catch (err) { setInfo('导出失败：' + ((err && err.message) || err)); }
+};
+/* ================= Word(.docx) 轻编辑：HTML → OOXML → JSZip 打包 ================= */
+document.getElementById('wb').onclick = function () { document.execCommand('bold'); };
+document.getElementById('wi').onclick = function () { document.execCommand('italic'); };
+document.getElementById('wclr').onclick = function () { document.execCommand('removeFormat'); };
+function escXml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function runsXml(node, fmt) {
+  var out = '';
+  Array.prototype.forEach.call(node.childNodes, function (n) {
+    if (n.nodeType === 3) {
+      var t = n.nodeValue; if (!t) return;
+      var rpr = (fmt.b || fmt.i) ? '<w:rPr>' + (fmt.b ? '<w:b/>' : '') + (fmt.i ? '<w:i/>' : '') + '</w:rPr>' : '';
+      out += '<w:r>' + rpr + '<w:t xml:space="preserve">' + escXml(t) + '</w:t></w:r>';
+    } else if (n.nodeType === 1) {
+      var tg = n.tagName;
+      if (tg === 'BR') { out += '<w:r><w:br/></w:r>'; return; }
+      if (tg === 'IMG') return;
+      var f2 = { b: fmt.b || tg === 'STRONG' || tg === 'B', i: fmt.i || tg === 'EM' || tg === 'I' };
+      out += runsXml(n, f2);
+    }
+  });
+  return out;
+}
+function paraXml(el, style, prefix) {
+  var ppr = style ? '<w:pPr><w:pStyle w:val="' + style + '"/></w:pPr>' : '';
+  var inner = runsXml(el, {});
+  if (prefix) inner = '<w:r><w:t xml:space="preserve">' + prefix + ' </w:t></w:r>' + inner;
+  return '<w:p>' + ppr + inner + '</w:p>';
+}
+function blocksXml(el, out) {
+  Array.prototype.forEach.call(el.childNodes, function (n) {
+    if (n.nodeType === 3) { var t = n.nodeValue.trim(); if (t) out.push(paraXml({ childNodes: [document.createTextNode(t)] })); return; }
+    if (n.nodeType !== 1) return;
+    var tg = n.tagName;
+    if (tg === 'P') out.push(paraXml(n));
+    else if (/^H[1-6]$/.test(tg)) out.push(paraXml(n, 'Heading' + tg[1]));
+    else if (tg === 'UL' || tg === 'OL') {
+      Array.prototype.forEach.call(n.children, function (li, ix) { out.push(paraXml(li, null, tg === 'OL' ? (ix + 1) + '.' : '\u2022')); });
+    }
+    else if (tg === 'TABLE') {
+      var rows = '';
+      Array.prototype.forEach.call(n.querySelectorAll('tr'), function (tr) {
+        var cells = '';
+        Array.prototype.forEach.call(tr.children, function (td) { cells += '<w:tc><w:tcPr/>' + paraXml(td) + '</w:tc>'; });
+        rows += '<w:tr>' + cells + '</w:tr>';
+      });
+      var bd = ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(function (b) { return '<w:' + b + ' w:val="single" w:sz="4" w:space="0" w:color="999999"/>'; }).join('');
+      out.push('<w:tbl><w:tblPr><w:tblBorders>' + bd + '</w:tblBorders></w:tblPr>' + rows + '</w:tbl>');
+    }
+    else if (tg === 'DIV' || tg === 'SECTION' || tg === 'BLOCKQUOTE' || tg === 'ARTICLE') blocksXml(n, out);
+    else out.push(paraXml(n));
+  });
+}
+document.getElementById('wsave').onclick = function () {
+  if (docKind !== 'docx') return;
+  loadScript('libs/jszip.min.js', function (err) {
+    if (err || typeof JSZip === 'undefined') { setInfo('导出组件加载失败'); return; }
+    try {
+      var wrap = contentEl.firstChild || contentEl;
+      var out = []; blocksXml(wrap, out);
+      var doc = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' + out.join('') + '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/></w:sectPr></w:body></w:document>';
+      var zip = new JSZip();
+      zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+      zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+      zip.file('word/_rels/document.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');
+      zip.file('word/document.xml', doc);
+      zip.generateAsync({ type: 'arraybuffer' }).then(function (ab) {
+        window.__lastDocx = ab;
+        var u8 = new Uint8Array(ab);
+        var name = 'edited-word-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.docx';
+        var b64 = u8b64(u8);
+        if (window.AppBridge && AppBridge.saveFileBase64) AppBridge.saveFileBase64(name, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', b64);
+        else { var aEl = document.createElement('a'); aEl.href = URL.createObjectURL(new Blob([ab], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })); aEl.download = name; aEl.click(); setInfo('已生成 ' + name + '（' + u8.length + ' 字节）'); }
+      }).catch(function (e) { setInfo('导出失败：' + e); });
+    } catch (e) { setInfo('导出失败：' + e); }
+  });
 };
 var menu = document.getElementById('menu');
 document.getElementById('gear').onclick = function () {
