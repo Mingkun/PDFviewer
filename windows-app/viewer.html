@@ -143,6 +143,8 @@ window.addEventListener('keydown', function (e) {
   <button id="wi" class="etw" style="display:none;font-style:italic">I</button>
   <button id="wclr" class="etw" style="display:none">✂清格式</button>
   <button id="wsave" class="etw" style="display:none;background:#1e88e5;color:#fff">💾存Word</button>
+  <button id="wstxt" class="etx" style="display:none;background:#1e88e5;color:#fff">💾存TXT</button>
+  <button id="wsxl" class="etx" style="display:none;background:#1e88e5;color:#fff">💾存Excel</button>
   <button id="eexit">✕退出</button>
 </div>
 <div id="tmodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:98;align-items:center;justify-content:center">
@@ -155,7 +157,7 @@ window.addEventListener('keydown', function (e) {
     </div>
   </div>
 </div>
-<div id="stage"><div id="hint">点击「📂 打开」选择文件（PDF/EPUB/TXT/Markdown/Word/Excel/PPT/图片）</div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div></div>
+<div id="stage"><div id="hint">点击「📂 打开」选择文件（PDF/EPUB/TXT/Markdown/Word/Excel/PPT/图片）</div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
 <div id="bottomInfo"></div>
 <div id="menu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99;align-items:center;justify-content:center;">
   <div style="width:min(340px,88vw);background:#fff;border-radius:12px;padding:14px;max-height:calc(100vh - 60px);overflow-y:auto;box-sizing:border-box">
@@ -210,6 +212,7 @@ window.addEventListener('keydown', function (e) {
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdfjs/pdf.worker.min.js';
 var pdf = null, pageNum = 1, scale = 1.5, rendering = false, pending = null;
 var pdfBytes = null, editMode = false, editTool = 'hl', editColor = '#ffd54a';
+var txtRaw = null, xlNames = [];
 var anns = [], delPages = {}, rotDelta = {}, curVp = null, drawing = null, pendingTxt = null;
 var cv = document.getElementById('cv');
 var ctx = cv.getContext('2d');
@@ -699,6 +702,7 @@ function openMd(buf) {
 function openTxt(buf) {
   resetView();
   var txt = decodeText(buf);
+  txtRaw = txt;
   docPages = chunksFromText(txt);
   contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(txt) + '</div>';
   contentEl.style.background = '#fff';
@@ -731,10 +735,11 @@ function openXlsx(buf) {
     try {
       var wb = XLSX.read(buf, { type: 'array' });
       var html = '', texts = [];
-      wb.SheetNames.forEach(function (sn) {
+      xlNames = wb.SheetNames.slice();
+      wb.SheetNames.forEach(function (sn, si) {
         var ws = wb.Sheets[sn];
         html += '<div style="font-size:13px;color:#7048a8;margin:10px 0 4px">📋 ' + esc(sn) + '</div>';
-        html += XLSX.utils.sheet_to_html(ws);
+        html += XLSX.utils.sheet_to_html(ws).replace('<table', '<table data-i="' + si + '"');
         var csv = XLSX.utils.sheet_to_csv(ws);
         if (csv.trim()) texts.push(csv);
       });
@@ -942,7 +947,7 @@ document.getElementById('editb').onclick = function () {
     document.getElementById('ebar').style.display = editMode ? 'flex' : 'none';
     ocv.style.display = editMode ? 'block' : 'none';
     document.querySelectorAll('.etp').forEach(function (x) { x.style.display = editMode ? '' : 'none'; });
-    document.querySelectorAll('.etw').forEach(function (x) { x.style.display = 'none'; });
+    document.querySelectorAll('.etw,.etx').forEach(function (x) { x.style.display = 'none'; });
     this.classList.toggle('onb', editMode);
     if (editMode) { syncOverlay(); drawAnns(); setInfo('编辑模式：拖动高亮/画笔/方框，点页面加文字；删页旋转导出生效'); }
   } else if (docKind === 'docx') {
@@ -951,10 +956,29 @@ document.getElementById('editb').onclick = function () {
     wrap.contentEditable = editMode ? 'true' : 'false';
     document.getElementById('ebar').style.display = editMode ? 'flex' : 'none';
     document.querySelectorAll('.etp').forEach(function (x) { x.style.display = 'none'; });
-    document.querySelectorAll('.etw').forEach(function (x) { x.style.display = editMode ? '' : 'none'; });
+    document.querySelectorAll('.etw,.etx').forEach(function (x) { x.style.display = editMode && x.classList.contains('etw') ? '' : 'none'; });
     this.classList.toggle('onb', editMode);
     setInfo(editMode ? 'Word 编辑：直接点击文字修改，选中后可加粗/斜体；完成点「存Word」' : '已退出 Word 编辑');
-  } else setInfo('该格式暂不支持编辑（PDF / Word 可编辑）');
+  } else if (docKind === 'txt') {
+    editMode = !editMode;
+    var ta = document.getElementById('tarea');
+    if (editMode) { ta.value = txtRaw || ''; ta.style.display = 'block'; contentEl.style.display = 'none'; }
+    else { ta.style.display = 'none'; contentEl.style.display = 'block'; }
+    document.getElementById('ebar').style.display = editMode ? 'flex' : 'none';
+    document.querySelectorAll('.etp,.etw').forEach(function (x) { x.style.display = 'none'; });
+    document.getElementById('wstxt').style.display = editMode ? '' : 'none';
+    document.getElementById('eundo').style.display = editMode ? 'none' : '';
+    this.classList.toggle('onb', editMode);
+    setInfo(editMode ? '文本编辑：直接修改全文，完成后点「存TXT」' : '已退出编辑');
+  } else if (docKind === 'xlsx') {
+    editMode = !editMode;
+    Array.prototype.forEach.call(contentEl.querySelectorAll('td,th'), function (c) { c.contentEditable = editMode ? 'true' : 'false'; });
+    document.getElementById('ebar').style.display = editMode ? 'flex' : 'none';
+    document.querySelectorAll('.etp,.etw').forEach(function (x) { x.style.display = 'none'; });
+    document.getElementById('wsxl').style.display = editMode ? '' : 'none';
+    this.classList.toggle('onb', editMode);
+    setInfo(editMode ? '表格编辑：点击单元格直接修改，完成后点「存Excel」' : '已退出编辑');
+  } else setInfo('该格式暂不支持编辑（PDF / Word / TXT / Excel 可编辑）');
 };
 document.querySelectorAll('#ebar .et').forEach(function (b) {
   b.onclick = function () { editTool = b.getAttribute('data-t'); document.querySelectorAll('#ebar .et').forEach(function (x) { x.classList.toggle('on', x === b); }); };
@@ -1051,6 +1075,48 @@ document.getElementById('esave').onclick = async function () {
 document.getElementById('wb').onclick = function () { document.execCommand('bold'); };
 document.getElementById('wi').onclick = function () { document.execCommand('italic'); };
 document.getElementById('wclr').onclick = function () { document.execCommand('removeFormat'); };
+document.getElementById('wstxt').onclick = function () {
+  var ta = document.getElementById('tarea');
+  txtRaw = ta.value;
+  docPages = chunksFromText(txtRaw || '');
+  contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(txtRaw) + '</div>';
+  setTotal(docPages.length);
+  var u8 = new TextEncoder().encode(txtRaw || '');
+  window.__lastTxt = u8;
+  var name = 'edited-text-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.txt';
+  var b64 = u8b64(u8);
+  if (window.AppBridge && AppBridge.saveFileBase64) AppBridge.saveFileBase64(name, 'text/plain', b64);
+  else { var aEl = document.createElement('a'); aEl.href = URL.createObjectURL(new Blob([u8], { type: 'text/plain' })); aEl.download = name; aEl.click(); }
+  setInfo('已保存 ' + name + '（' + u8.length + ' 字节）');
+};
+document.getElementById('wsxl').onclick = function () {
+  if (typeof XLSX === 'undefined') { setInfo('组件未加载'); return; }
+  try {
+    var tbls = contentEl.querySelectorAll('table[data-i]');
+    if (!tbls.length) { setInfo('未找到表格数据'); return; }
+    var wb = XLSX.utils.book_new();
+    Array.prototype.forEach.call(tbls, function (tbl, i) {
+      var aoa = [];
+      Array.prototype.forEach.call(tbl.querySelectorAll('tr'), function (tr) {
+        var row = [];
+        Array.prototype.forEach.call(tr.querySelectorAll('td,th'), function (c) {
+          var v = c.textContent.trim();
+          row.push(/^-?\d+(\.\d+)?$/.test(v) ? parseFloat(v) : v);
+        });
+        aoa.push(row);
+      });
+      var nm = (xlNames && xlNames[+tbl.getAttribute('data-i')]) || ('Sheet' + (i + 1));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), nm);
+    });
+    var u8 = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    window.__lastXlsx = u8;
+    var name = 'edited-excel-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.xlsx';
+    var b64 = u8b64(u8);
+    if (window.AppBridge && AppBridge.saveFileBase64) AppBridge.saveFileBase64(name, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', b64);
+    else { var aEl = document.createElement('a'); aEl.href = URL.createObjectURL(new Blob([u8])); aEl.download = name; aEl.click(); }
+    setInfo('已保存 ' + name + '（' + u8.length + ' 字节）');
+  } catch (e) { setInfo('导出失败：' + e); }
+};
 function escXml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function runsXml(node, fmt) {
   var out = '';
