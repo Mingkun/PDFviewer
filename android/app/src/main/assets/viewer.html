@@ -146,7 +146,7 @@
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdfjs/pdf.worker.min.js';
 var pdf = null, pageNum = 1, scale = 1.5, rendering = false, pending = null;
 var pdfBytes = null, editMode = false, editTool = 'hl', editColor = '#ffd54a';
-var txtRaw = null, xlNames = [];
+var txtRaw = null, txtIsMd = false, xlNames = [];
 var anns = [], delPages = {}, rotDelta = {}, curVp = null, drawing = null, pendingTxt = null;
 var cv = document.getElementById('cv');
 var ctx = cv.getContext('2d');
@@ -478,7 +478,7 @@ function resetView() {
   contentEl.style.background = '';
   var h = document.getElementById('hint');
   if (h) h.style.display = 'none';
-  pdf = null; docKind = null; docPages = [];
+  pdf = null; docKind = null; docPages = []; txtRaw = null; txtIsMd = false;
   cv.style.transform = '';
   window.epubBook = null; window.epubRendition = null;
   document.getElementById('total').textContent = '/ 0';
@@ -625,6 +625,7 @@ function mdHtml(src) {
 function openMd(buf) {
   resetView();
   var txt = decodeText(buf);
+  txtRaw = txt; txtIsMd = true;
   docPages = chunksFromText(mdPlain(txt));
   contentEl.innerHTML = '<div class="mdwrap">' + mdHtml(txt) + '</div>';
   contentEl.style.background = '#fff';
@@ -903,7 +904,8 @@ document.getElementById('editb').onclick = function () {
     document.getElementById('wstxt').style.display = editMode ? '' : 'none';
     document.getElementById('eundo').style.display = editMode ? 'none' : '';
     this.classList.toggle('onb', editMode);
-    setInfo(editMode ? '文本编辑：直接修改全文，完成后点「存TXT」' : '已退出编辑');
+    document.getElementById('wstxt').textContent = txtIsMd ? '💾存MD' : '💾存TXT';
+    setInfo(editMode ? (txtIsMd ? 'Markdown 编辑：直接改源码，完成后点「存MD」' : '文本编辑：直接修改全文，完成后点「存TXT」') : '已退出编辑');
   } else if (docKind === 'xlsx') {
     editMode = !editMode;
     Array.prototype.forEach.call(contentEl.querySelectorAll('td,th'), function (c) { c.contentEditable = editMode ? 'true' : 'false'; });
@@ -1012,15 +1014,21 @@ document.getElementById('wclr').onclick = function () { document.execCommand('re
 document.getElementById('wstxt').onclick = function () {
   var ta = document.getElementById('tarea');
   txtRaw = ta.value;
-  docPages = chunksFromText(txtRaw || '');
-  contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(txtRaw) + '</div>';
+  if (txtIsMd) {
+    contentEl.innerHTML = '<div class="mdwrap">' + mdHtml(txtRaw) + '</div>';
+    docPages = chunksFromText(mdPlain(txtRaw));
+  } else {
+    contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(txtRaw) + '</div>';
+    docPages = chunksFromText(txtRaw || '');
+  }
   setTotal(docPages.length);
   var u8 = new TextEncoder().encode(txtRaw || '');
   window.__lastTxt = u8;
-  var name = 'edited-text-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.txt';
+  var name = 'edited-' + (txtIsMd ? 'md-' : 'text-') + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + (txtIsMd ? '.md' : '.txt');
+  var mime = txtIsMd ? 'text/markdown' : 'text/plain';
   var b64 = u8b64(u8);
-  if (window.AppBridge && AppBridge.saveFileBase64) AppBridge.saveFileBase64(name, 'text/plain', b64);
-  else { var aEl = document.createElement('a'); aEl.href = URL.createObjectURL(new Blob([u8], { type: 'text/plain' })); aEl.download = name; aEl.click(); }
+  if (window.AppBridge && AppBridge.saveFileBase64) AppBridge.saveFileBase64(name, mime, b64);
+  else { var aEl = document.createElement('a'); aEl.href = URL.createObjectURL(new Blob([u8], { type: mime })); aEl.download = name; aEl.click(); }
   setInfo('已保存 ' + name + '（' + u8.length + ' 字节）');
 };
 document.getElementById('wsxl').onclick = function () {
