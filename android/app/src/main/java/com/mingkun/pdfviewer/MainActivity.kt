@@ -147,6 +147,31 @@ class MainActivity : Activity() {
         jsCall("window.onUpdateDownload && window.onUpdateDownload('fail')")
     }
 
+    private fun installApk(file: java.io.File) {
+        try {
+            if (!packageManager.canRequestPackageInstalls()) {
+                pendingInstall = true
+                jsCall("window.onUpdateDownload && window.onUpdateDownload('permission')")
+                try {
+                    val s = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                    s.data = Uri.parse("package:" + packageName)
+                    startActivity(s)
+                } catch (e: Exception) {}
+                return
+            }
+            val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+            val install = Intent(Intent.ACTION_VIEW)
+            install.setDataAndType(uri, "application/vnd.android.package-archive")
+            install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            install.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(install)
+            jsCall("window.onUpdateDownload && window.onUpdateDownload('done')")
+        } catch (e: Exception) {
+            jsCall("window.onUpdateDownload && window.onUpdateDownload('fail')")
+            android.widget.Toast.makeText(this, "安装失败: " + (e.message ?: "?"), android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         if (pendingInstall) {
@@ -255,20 +280,29 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun downloadUpdate(apkUrl: String) {
-            try {
-                val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
-                val req = DownloadManager.Request(Uri.parse(apkUrl))
-                req.setTitle("PDF 阅读器更新")
-                req.setMimeType("application/vnd.android.package-archive")
-                req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                req.setDestinationInExternalPublicDir(
-                    Environment.DIRECTORY_DOWNLOADS, "pdfviewer-update.apk"
-                )
-                downloadId = dm.enqueue(req)
-                jsCall("window.onUpdateDownload && window.onUpdateDownload('start')")
-            } catch (e: Exception) {
-                jsCall("window.onUpdateDownload && window.onUpdateDownload('fail')")
-            }
+            jsCall("window.onUpdateDownload && window.onUpdateDownload('start')")
+            Thread {
+                try {
+                    val url = java.net.URL(apkUrl)
+                    val conn = url.openConnection() as java.net.HttpURLConnection
+                    conn.connectTimeout = 15000
+                    conn.readTimeout = 60000
+                    conn.setRequestProperty("User-Agent", "Mozilla/5.0")
+                    val file = java.io.File(getExternalFilesDir(null), "pdfviewer-update.apk")
+                    val output = java.io.FileOutputStream(file)
+                    val input = conn.inputStream
+                    val buf = ByteArray(8192)
+                    var n: Int
+                    while (input.read(buf).also { n = it } > 0) output.write(buf, 0, n)
+                    output.close(); input.close(); conn.disconnect()
+                    runOnUiThread { installApk(file) }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        jsCall("window.onUpdateDownload && window.onUpdateDownload('fail')")
+                        android.widget.Toast.makeText(this@MainActivity, "下载失败: " + (e.message ?: "?"), android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
+            }.start()
         }
 
         @JavascriptInterface
