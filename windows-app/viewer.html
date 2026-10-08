@@ -1027,8 +1027,8 @@ function applyCompact(page) {
   var pageW = parseFloat(cv.style.width);
   if (contentW < 40 || contentW > pageW * 0.93) return null;
   var targetW = stage.clientWidth;
-  var ratio = Math.min(targetW / contentW, 1.08 / (scale * contentW / parseFloat(cv.style.width)));
-  var maxCompactScale = scale * 1.08;
+  var ratio = Math.min(targetW / contentW, 0.85 / (scale * contentW / parseFloat(cv.style.width)));
+  var maxCompactScale = scale * 0.85;
   var newScale = Math.min(4, Math.min(scale * ratio, maxCompactScale));
   if (newScale <= scale * 1.01) return null;
   compactPass = true;
