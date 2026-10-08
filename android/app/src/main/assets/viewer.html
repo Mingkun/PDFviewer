@@ -30,6 +30,7 @@
   #bottomInfo { display:none; padding:5px 10px; background:#1e2126; color:#9aa3b0; font-size:12px; text-align:center; flex-shrink:0; }
   canvas { margin:8px auto; box-shadow:0 2px 12px rgba(0,0,0,.5); }
   body.compact canvas { margin:0 auto !important; box-shadow:none !important; }
+  body.compact #stage { touch-action: pan-y; }
   #pageInput { width:28px; text-align:center; border-radius:6px; border:none; padding:4px 1px; font-size:11px; }
   #total { font-size:11px; color:#9aa3b0; }
   #hint { color:#8a94a6; font-size:13px; text-align:center; padding-top:40%; }
@@ -513,8 +514,12 @@ stage.addEventListener('touchend', function (e) {
     if (docKind === 'epub' && window.epubRendition) {
       if (dx < 0 && atRight) { window.epubRendition.next(); }
       else if (dx > 0 && atLeft) { window.epubRendition.prev(); }
-    } else if ((docKind === 'pdf' || docKind === 'pptx') && dx < 0 && atRight && pageNum < total) { displayPage(pageNum + 1); }
-    else if ((docKind === 'pdf' || docKind === 'pptx') && dx > 0 && atLeft && pageNum > 1) { displayPage(pageNum - 1); }
+    } else if ((docKind === 'pdf' || docKind === 'pptx') && dx < 0 && pageNum < total) {
+      if (compactOn() || atRight) { displayPage(pageNum + 1); if (compactOn()) { stage.scrollLeft = 0; } }
+    }
+    else if ((docKind === 'pdf' || docKind === 'pptx') && dx > 0 && pageNum > 1) {
+      if (compactOn() || atLeft) { displayPage(pageNum - 1); if (compactOn()) { stage.scrollLeft = 0; } }
+    }
   }
   var now = Date.now();
   if (Math.abs(dx) < 25 && Math.abs(dy) < 25) {
