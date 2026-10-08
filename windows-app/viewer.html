@@ -75,8 +75,23 @@ window.addEventListener('keydown', function (e) {
 <style>
   html, body { margin:0; height:100%; background:#2b2f36; font-family:sans-serif; }
   body { display:flex; flex-direction:column; }
-  #bar { display:flex; gap:6px; align-items:center; padding:6px 8px; background:#1e2126; color:#dfe3ea; font-size:14px; flex-wrap:wrap; flex-shrink:0; }
-  #bar button { background:#3a4048; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:14px; cursor:pointer; }
+  #bar { display:flex; gap:5px; align-items:center; padding:6px 8px; background:#1e2126; color:#dfe3ea; font-size:14px; flex-wrap:wrap; flex-shrink:0; position:relative; }
+  #bar button { background:#3a4048; color:#fff; border:none; border-radius:8px; cursor:pointer; }
+  #bar .bb { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; min-width:44px; min-height:44px; padding:5px 8px; font-size:17px; }
+  #bar .bb i { font-style:normal; font-size:9px; opacity:.85; letter-spacing:1px; }
+  #pnav { display:flex; align-items:center; gap:6px; flex-basis:100%; order:8; }
+  #pslider { flex:1; accent-color:#1e88e5; min-width:80px; }
+  .bz { width:32px; height:30px; font-size:15px; padding:0 4px !important; }
+  #zoomlab { font-size:10px; color:#9aa3b0; min-width:34px; text-align:center; }
+  #readbar { position:absolute; left:0; bottom:0; height:2px; width:0; background:#39c97e; transition:width .3s; }
+  body.slimbar #bar, body.slimbar #ebar { padding-top:2px; padding-bottom:2px; }
+  body.slimbar #bar .bb { min-height:34px; padding:3px 8px; }
+  body.slimbar #bar .bb i { display:none; }
+  body.dark { background:#12141a; }
+  body.dark #stage { background:#12141a; }
+  body.dark #content { background:#1b1f27 !important; }
+  body.dark #content > div { background:#1b1f27 !important; color:#d8dde6 !important; }
+  body.dark #hint { color:#8a93a3; }
   #stage { flex:1; overflow:auto; text-align:center; -webkit-overflow-scrolling:touch; }
   #bottomInfo { display:none; padding:5px 10px; background:#1e2126; color:#9aa3b0; font-size:12px; text-align:center; flex-shrink:0; }
   canvas { margin:8px auto; box-shadow:0 2px 12px rgba(0,0,0,.5); }
@@ -117,13 +132,14 @@ window.addEventListener('keydown', function (e) {
 </head>
 <body>
 <div id="bar">
-  <button id="open">📂 打开</button>
-  <button id="print">🖨 打印</button>
-  <button id="speak">🔊</button>
-  <input id="pageInput" type="number" value="0">
-  <span id="total">/ 0</span>
-  <button id="editb" style="margin-left:auto">✏️</button>
-  <button id="gear">⚙</button>
+  <button id="open" class="bb">📂<i>打开</i></button>
+  <button id="speak" class="bb">🔊<i>朗读</i></button>
+  <button id="searchb" class="bb">🔍<i>搜索</i></button>
+  <button id="editb" class="bb">✏️<i>编辑</i></button>
+  <button id="nightb" class="bb">🌙<i>夜间</i></button>
+  <button id="gear" class="bb">⚙<i>设置</i></button>
+  <div id="pnav"><button id="zoomout" class="bz">−</button><span id="zoomlab">150%</span><button id="zoomin" class="bz">＋</button><input id="pageInput" type="number" value="0"><span id="total">/ 0</span><input type="range" id="pslider" min="1" max="1" value="1"></div>
+  <div id="readbar"></div>
 </div>
 <div id="ebar">
   <button class="et etp on" data-t="hl">🖍高亮</button>
@@ -139,6 +155,8 @@ window.addEventListener('keydown', function (e) {
   <button id="edelpg" class="etp">🗑删页</button>
   <button id="erotpg" class="etp">↻旋转</button>
   <button id="esave" class="etp" style="background:#1e88e5;color:#fff">💾存PDF</button>
+  <button id="eprev" class="etp">‹ 上页</button>
+  <button id="enext" class="etp">下页 ›</button>
   <button id="wb" class="etw" style="display:none;font-weight:800">B</button>
   <button id="wi" class="etw" style="display:none;font-style:italic">I</button>
   <button id="wclr" class="etw" style="display:none">✂清格式</button>
@@ -161,11 +179,29 @@ window.addEventListener('keydown', function (e) {
 </div>
 <div id="stage"><div id="hint">点击「📂 打开」选择文件（PDF/EPUB/TXT/Markdown/Word/Excel/PPT/图片）</div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
 <div id="bottomInfo"></div>
+<div id="smodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:97;align-items:center;justify-content:center">
+  <div style="width:min(360px,90vw);background:#fff;border-radius:12px;padding:14px;max-height:70vh;display:flex;flex-direction:column">
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <input id="sinput" placeholder="在 PDF 中搜索…" style="flex:1;border:1px solid #d5dbe4;border-radius:8px;padding:8px;font-size:14px">
+      <button id="sgo" style="border:none;background:#1e88e5;color:#fff;border-radius:8px;padding:6px 14px;cursor:pointer">搜</button>
+      <button id="sclose" style="border:1px solid #d5dbe4;background:#f0f4fa;border-radius:8px;padding:6px 10px;cursor:pointer">✕</button>
+    </div>
+    <div id="sresults" style="overflow-y:auto;font-size:13px;color:#1f2630"></div>
+  </div>
+</div>
 <div id="menu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99;align-items:center;justify-content:center;">
   <div style="width:min(340px,88vw);background:#fff;border-radius:12px;padding:14px;max-height:calc(100vh - 60px);overflow-y:auto;box-sizing:border-box">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
       <strong style="font-size:15px;color:#1f2630">⚙ 系统菜单</strong>
       <button type="button" id="mclose" style="border:none;background:none;font-size:22px;cursor:pointer;color:#5a6472;line-height:1">×</button>
+    </div>
+    <div style="font-size:12px;color:#5a6472;font-weight:600;margin:10px 2px 6px">📄 文档操作</div>
+    <div style="background:#f6f8fb;border:1px solid #e3e8ef;border-radius:10px;padding:2px 12px;margin-bottom:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
+        <span style="font-size:14px;color:#1f2630">🖨 打印当前文档</span>
+        <button id="print" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">打印</button>
+      </div>
+      <div id="recentWrap" style="display:none;border-top:1px dashed #e3e8ef;padding:8px 0 6px"></div>
     </div>
     <div style="font-size:12px;color:#5a6472;font-weight:600;margin:10px 2px 6px">🔊 朗读设置</div>
     <div style="background:#f6f8fb;border:1px solid #e3e8ef;border-radius:10px;padding:2px 12px;margin-bottom:4px">
@@ -236,7 +272,13 @@ document.getElementById('print').onclick = function () {
   if (docKind !== 'pdf') { if (docKind) setInfo('打印仅支持 PDF'); return; }
   try { AppBridge.printPdf(); } catch (e) {}
 };
-document.getElementById('speak').onclick = function () { readerToggle(); };
+document.getElementById('speak').onclick = function () { if (window.__lpStop) { window.__lpStop = false; return; } readerToggle(); };
+(function () {
+  var sb = document.getElementById('speak'), lpT = null;
+  sb.addEventListener('pointerdown', function () { lpT = setTimeout(function () { lpT = null; window.__lpStop = true; try { stopReading('已停止朗读'); } catch (e) {} }, 600); });
+  sb.addEventListener('pointerup', function () { if (lpT) { clearTimeout(lpT); lpT = null; } });
+  sb.addEventListener('pointerleave', function () { if (lpT) { clearTimeout(lpT); lpT = null; } });
+})();
 var reading = false, readQueue = [], readIdx = 0, readPage = 0;
 function autoReadOn() { return localStorage.getItem('pv_autoRead') === 'true'; }
 function updateAutoReadUI() {
@@ -342,7 +384,7 @@ function stopReading(msg) {
   readQueue = []; readIdx = 0;
   try { AppBridge.ttsStop(); } catch (e) {}
   try { if (cloudAudio) { cloudAudio.pause(); cloudAudio = null; } } catch (e) {}
-  document.getElementById('speak').textContent = '🔊';
+  document.getElementById('speak').innerHTML = '🔊<i>朗读</i>'; document.getElementById('speak').classList.remove('onb');
   if (msg) setInfo(msg);
 }
 var CLOUD_TTS = 'https://5130599.best/Translator/api/tts';
@@ -426,7 +468,7 @@ function readerToggle() {
   if (!docKind) return;
   reading = true;
   readQueue = []; readIdx = 0; readPage = pageNum;
-  document.getElementById('speak').textContent = '⏹';
+  document.getElementById('speak').innerHTML = '⏹<i>停止</i>'; document.getElementById('speak').classList.add('onb');
   collectPage(pageNum);
 }
 window.onTtsDone = function () { feedNext(); };
@@ -440,6 +482,7 @@ document.getElementById('fpick').onchange = function () {
   var fr = new FileReader();
   fr.onload = function () {
     var buf = fr.result;
+    try { recordRecent(f.name, buf); } catch (e) {}
     try {
       if (name.indexOf('.pdf') >= 0 || mime === 'application/pdf') openPdf(buf);
       else if (/\.(png|jpe?g|gif|webp|bmp)$/.test(name) || mime.indexOf('image/') === 0) openImage(buf);
@@ -477,6 +520,7 @@ function fitPage() {
     var pad = 16;
     var s = Math.min((stage.clientWidth - pad) / vp1.width, (stage.clientHeight - pad) / vp1.height);
     scale = Math.max(0.5, Math.min(4, s));
+    updZoom();
     render();
   });
 }
@@ -553,7 +597,12 @@ function resetView() {
   document.getElementById('total').textContent = '/ 0';
   document.getElementById('pageInput').value = 0;
 }
-function setTotal(n) { document.getElementById('total').textContent = '/ ' + n; }
+function setTotal(n) {
+  document.getElementById('total').textContent = '/ ' + n;
+  var sl = document.getElementById('pslider');
+  sl.max = Math.max(1, n);
+  sl.value = Math.min(Math.max(1, pageNum), Math.max(1, n));
+}
 function readTotal() { return docKind === 'pdf' ? (pdf ? pdf.numPages : 0) : docPages.length; }
 function loadScript(src, cb) {
   if (loadScript.done && loadScript.done[src]) { cb(); return; }
@@ -933,7 +982,7 @@ function epubCollect(onDone) {
 function displayPage(n) {
   pageNum = n;
   if (docKind === 'pdf') { render(); return; }
-  if (docKind === 'pptx') { showSlide(n); document.getElementById('pageInput').value = n; return; }
+  if (docKind === 'pptx') { showSlide(n); document.getElementById('pageInput').value = n; document.getElementById('pslider').value = n; return; }
 }
 function render() {
   if (!pdf || rendering) { pending = pageNum; return; }
@@ -954,6 +1003,7 @@ function render() {
     rendering = false;
     syncOverlay(); drawAnns();
     document.getElementById('pageInput').value = pageNum;
+    document.getElementById('pslider').value = pageNum;
     if (pending !== null && pending !== null) {
       var p = pending;
       pending = null;
@@ -1005,6 +1055,7 @@ document.getElementById('editb').onclick = function () {
     if (!pdf) { setInfo('先打开 PDF'); return; }
     editMode = !editMode;
     document.getElementById('ebar').style.display = editMode ? 'flex' : 'none';
+    document.getElementById('bar').style.display = editMode ? 'none' : 'flex';
     ocv.style.display = editMode ? 'block' : 'none';
     document.querySelectorAll('.etp').forEach(function (x) { x.style.display = editMode ? '' : 'none'; });
     document.querySelectorAll('.etw,.etx,.eti,.epe').forEach(function (x) { x.style.display = 'none'; });
@@ -1015,6 +1066,7 @@ document.getElementById('editb').onclick = function () {
     var wrap = contentEl.firstChild || contentEl;
     wrap.contentEditable = editMode ? 'true' : 'false';
     document.getElementById('ebar').style.display = editMode ? 'flex' : 'none';
+    document.getElementById('bar').style.display = editMode ? 'none' : 'flex';
     document.querySelectorAll('.etp').forEach(function (x) { x.style.display = 'none'; });
     document.querySelectorAll('.etw,.etx,.eti,.epe').forEach(function (x) { x.style.display = editMode && x.classList.contains('etw') ? '' : 'none'; });
     this.classList.toggle('onb', editMode);
@@ -1025,6 +1077,7 @@ document.getElementById('editb').onclick = function () {
     if (editMode) { ta.value = txtRaw || ''; ta.style.display = 'block'; contentEl.style.display = 'none'; }
     else { ta.style.display = 'none'; contentEl.style.display = 'block'; }
     document.getElementById('ebar').style.display = editMode ? 'flex' : 'none';
+    document.getElementById('bar').style.display = editMode ? 'none' : 'flex';
     document.querySelectorAll('.etp,.etw,.eti,.epe').forEach(function (x) { x.style.display = 'none'; });
     document.getElementById('wstxt').style.display = editMode ? '' : 'none';
     document.getElementById('eundo').style.display = editMode ? 'none' : '';
@@ -1035,6 +1088,7 @@ document.getElementById('editb').onclick = function () {
     editMode = !editMode;
     Array.prototype.forEach.call(contentEl.querySelectorAll('td,th'), function (c) { c.contentEditable = editMode ? 'true' : 'false'; });
     document.getElementById('ebar').style.display = editMode ? 'flex' : 'none';
+    document.getElementById('bar').style.display = editMode ? 'none' : 'flex';
     document.querySelectorAll('.etp,.etw,.eti,.epe').forEach(function (x) { x.style.display = 'none'; });
     document.getElementById('wsxl').style.display = editMode ? '' : 'none';
     this.classList.toggle('onb', editMode);
@@ -1044,6 +1098,7 @@ document.getElementById('editb').onclick = function () {
     var ioc2 = document.getElementById('iocv');
     if (ioc2) ioc2.style.display = editMode ? 'block' : 'none';
     document.getElementById('ebar').style.display = editMode ? 'flex' : 'none';
+    document.getElementById('bar').style.display = editMode ? 'none' : 'flex';
     document.querySelectorAll('.etp').forEach(function (x) { x.style.display = (editMode && ['eclearpg', 'edelpg', 'esave'].indexOf(x.id) < 0) ? '' : 'none'; });
     document.querySelectorAll('.etw,.etx,.epe').forEach(function (x) { x.style.display = 'none'; });
     document.getElementById('wimg').style.display = editMode ? '' : 'none';
@@ -1053,6 +1108,7 @@ document.getElementById('editb').onclick = function () {
     editMode = !editMode;
     setEpubEditable(editMode);
     document.getElementById('ebar').style.display = editMode ? 'flex' : 'none';
+    document.getElementById('bar').style.display = editMode ? 'none' : 'flex';
     document.querySelectorAll('.etp,.etw,.etx,.eti').forEach(function (x) { x.style.display = 'none'; });
     document.getElementById('wepb').style.display = editMode ? '' : 'none';
     this.classList.toggle('onb', editMode);
@@ -1360,8 +1416,145 @@ document.getElementById('wsave').onclick = function () {
     } catch (e) { setInfo('导出失败：' + e); }
   });
 };
+/* ============ 顶栏增强：缩放/滑杆/夜间/搜索/最近文件/收缩/朗读进度 ============ */
+function updZoom() { document.getElementById('zoomlab').textContent = Math.round(scale * 100) + '%'; }
+document.getElementById('zoomin').onclick = function () { if (docKind !== 'pdf') { setInfo('缩放仅支持 PDF'); return; } scale = Math.min(4, scale * 1.25); updZoom(); render(); };
+document.getElementById('zoomout').onclick = function () { if (docKind !== 'pdf') { setInfo('缩放仅支持 PDF'); return; } scale = Math.max(0.5, scale / 1.25); updZoom(); render(); };
+var psl = document.getElementById('pslider');
+psl.oninput = function () { document.getElementById('pageInput').value = psl.value; };
+psl.onchange = function () { var v = parseInt(psl.value, 10); if (v >= 1) displayPage(Math.min(v, readTotal() || 1)); };
+document.getElementById('eprev').onclick = function () { displayPage(Math.max(1, pageNum - 1)); };
+document.getElementById('enext').onclick = function () { displayPage(Math.min(readTotal() || 1, pageNum + 1)); };
+document.getElementById('nightb').onclick = function () {
+  document.body.classList.toggle('dark');
+  var on = document.body.classList.contains('dark');
+  try { localStorage.setItem('pv_dark', on ? '1' : '0'); } catch (e) {}
+  this.innerHTML = (on ? '☀️<i>日间</i>' : '🌙<i>夜间</i>');
+  setInfo(on ? '夜间模式已开启' : '已切回日间模式');
+};
+try { if (localStorage.getItem('pv_dark') === '1') { document.body.classList.add('dark'); document.getElementById('nightb').innerHTML = '☀️<i>日间</i>'; } } catch (e) {}
+updZoom();
+setInterval(function () {
+  var rb = document.getElementById('readbar'); if (!rb) return;
+  var p = 0;
+  if (reading && readQueue && readQueue.length) p = Math.round(((readIdx || 0) / readQueue.length) * 100);
+  rb.style.width = p + '%';
+}, 400);
+(function () {
+  var slim = false;
+  function chk() {
+    var y = (window.scrollY || document.documentElement.scrollTop || 0) + (contentEl ? contentEl.scrollTop : 0);
+    var now = y > 48;
+    if (now !== slim) { slim = now; document.body.classList.toggle('slimbar', now); }
+  }
+  window.addEventListener('scroll', chk, { passive: true });
+  if (contentEl) contentEl.addEventListener('scroll', chk, { passive: true });
+})();
+function recordRecent(name, buf) {
+  try {
+    var rec = JSON.parse(localStorage.getItem('pv_recent') || '[]');
+    rec = rec.filter(function (r) { return r.name !== name; });
+    var item = { name: name, time: Date.now() };
+    if (buf && buf.byteLength < 1500000 && /\.(txt|md|markdown|csv)$/i.test(name || '')) {
+      var u8 = new Uint8Array(buf.slice(0)); var s2 = '';
+      for (var i = 0; i < u8.length; i += 0x8000) s2 += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+      item.data = btoa(s2);
+    }
+    rec.unshift(item); rec = rec.slice(0, 8);
+    localStorage.setItem('pv_recent', JSON.stringify(rec));
+  } catch (e) {}
+}
+function renderRecent() {
+  var w = document.getElementById('recentWrap'); if (!w) return;
+  try {
+    var rec = JSON.parse(localStorage.getItem('pv_recent') || '[]');
+    if (!rec.length) { w.style.display = 'none'; w.innerHTML = ''; return; }
+    w.style.display = '';
+    var h = '<div style="font-size:11px;color:#9aa3b0;margin-bottom:4px">最近打开（⚡=可直开，其余需重新选择文件）</div>';
+    rec.forEach(function (r, i) {
+      h += '<div class="recentItem" data-i="' + i + '" style="display:flex;justify-content:space-between;gap:8px;padding:6px 4px;' + (i ? 'border-top:1px dashed #e3e8ef;' : '') + 'font-size:13px;color:#1f2630;cursor:pointer"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.name || '?') + '</span><span style="color:#9aa3b0;font-size:11px;white-space:nowrap">' + (r.data ? '⚡ ' : '') + new Date(r.time).toISOString().slice(5, 16).replace('T', ' ') + '</span></div>';
+    });
+    w.innerHTML = h;
+    Array.prototype.forEach.call(w.querySelectorAll('.recentItem'), function (el) {
+      el.onclick = function () {
+        var item = rec[+el.getAttribute('data-i')]; if (!item) return;
+        if (item.data) {
+          var bin = atob(item.data), u8 = new Uint8Array(bin.length);
+          for (var k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+          var nm = (item.name || '').toLowerCase(), ab = u8.buffer;
+          if (/\.csv$/.test(nm)) openXlsx(ab);
+          else if (/\.(md|markdown)$/.test(nm)) openMd(ab);
+          else openTxt(ab);
+          document.getElementById('mclose').click();
+        } else { document.getElementById('mclose').click(); document.getElementById('open').onclick(); }
+      };
+    });
+  } catch (e) { w.style.display = 'none'; }
+}
+document.getElementById('searchb').onclick = function () {
+  if (docKind !== 'pdf' || !pdf) { setInfo('搜索目前支持 PDF'); return; }
+  document.getElementById('smodal').style.display = 'flex';
+  document.getElementById('sinput').focus();
+};
+document.getElementById('sclose').onclick = function () { document.getElementById('smodal').style.display = 'none'; };
+document.getElementById('sgo').onclick = function () {
+  var q = document.getElementById('sinput').value.trim();
+  var box = document.getElementById('sresults');
+  if (!q) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div style="color:#9aa3b0;padding:8px">搜索中…</div>';
+  var hits = [], total = pdf.numPages, i = 1;
+  (function step() {
+    if (i > total || hits.length >= 50) { showResults(q, hits); return; }
+    pdf.getPage(i).then(function (pg) { return pg.getTextContent(); }).then(function (tc) {
+      Array.prototype.forEach.call(tc.items, function (it) {
+        if (it.str && it.str.indexOf(q) >= 0) {
+          var tr = it.transform || [1, 0, 0, 1, 0, 0];
+          var hh = Math.sqrt(tr[2] * tr[2] + tr[3] * tr[3]) || 10;
+          hits.push({ pg: i, x: tr[4], y: tr[5], ctx: (it.str || '').slice(0, 60) });
+        }
+      });
+      i += 1; step();
+    }).catch(function () { i += 1; step(); });
+  })();
+};
+function showResults(q, hits) {
+  var box = document.getElementById('sresults');
+  if (!hits.length) { box.innerHTML = '<div style="color:#9aa3b0;padding:8px">未找到「' + esc(q) + '」</div>'; return; }
+  var pages = {};
+  hits.forEach(function (h2) { (pages[h2.pg] = pages[h2.pg] || []).push(h2); });
+  var h = '<div style="color:#9aa3b0;padding:4px 2px">找到 ' + hits.length + ' 处 · ' + Object.keys(pages).length + ' 页</div>';
+  Object.keys(pages).forEach(function (p) {
+    h += '<div style="font-weight:700;color:#1e88e5;margin-top:6px">第 ' + p + ' 页</div>';
+    pages[p].slice(0, 5).forEach(function (x) {
+      h += '<div class="sres" data-pg="' + x.pg + '" data-x="' + x.x + '" data-y="' + x.y + '" style="padding:5px 6px;border-top:1px dashed #e3e8ef;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">…' + esc(x.ctx) + '…</div>';
+    });
+  });
+  box.innerHTML = h;
+  Array.prototype.forEach.call(box.querySelectorAll('.sres'), function (el) {
+    el.onclick = function () {
+      var p = +el.getAttribute('data-pg');
+      document.getElementById('smodal').style.display = 'none';
+      displayPage(p);
+      try {
+        var ox = parseFloat(el.getAttribute('data-x')), oy = parseFloat(el.getAttribute('data-y'));
+        setTimeout(function () {
+          if (!curVp) return;
+          var v = curVp.convertToViewportPoint(ox, oy);
+          var c = document.getElementById('ocv');
+          if (!c || c.style.display === 'none') return;
+          var cf = c.getContext('2d');
+          cf.setTransform(window.devicePixelRatio || 1, 0, 0, window.devicePixelRatio || 1, 0, 0);
+          cf.fillStyle = 'rgba(255,214,0,.45)';
+          cf.fillRect(Math.max(0, v[0] - 6), Math.max(0, v[1] - 14), 140, 24);
+          setTimeout(function () { if (editMode) drawAnns(); else cf.clearRect(0, 0, c.width, c.height); cf.setTransform(1, 0, 0, 1, 0, 0); cf.clearRect(0, 0, c.width, c.height); if (editMode) drawAnns(); }, 1800);
+        }, 400);
+      } catch (e) {}
+    };
+  });
+}
 var menu = document.getElementById('menu');
 document.getElementById('gear').onclick = function () {
+  renderRecent();
   try { document.getElementById('verinfo').textContent = '当前版本：' + AppBridge.appVersion(); } catch (e) { document.getElementById('verinfo').textContent = '当前版本：-'; }
   document.getElementById('upinfo').textContent = '';
   document.getElementById('dl').style.display = 'none';
