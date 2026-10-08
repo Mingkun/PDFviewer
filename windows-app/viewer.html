@@ -1024,35 +1024,39 @@ function applyCompact(page) {
   if (!b) return null;
   var dpr = window.devicePixelRatio || 1;
   var rot = curVp.rotation;
-  // ① 内容边界换算到 PDF 坐标系
+  // ① 内容边界 → PDF 坐标
   var p1 = curVp.convertToPdfPoint(b.minX / dpr, b.minY / dpr);
   var p2 = curVp.convertToPdfPoint(b.maxX / dpr, b.maxY / dpr);
   var cx = Math.min(p1[0], p2[0]), cy = Math.min(p1[1], p2[1]);
   var cw = Math.abs(p2[0] - p1[0]), ch = Math.abs(p2[1] - p1[1]);
   if (cw < 20 || ch < 20) return null;
-  // ② 四周只留 2pt 极小边距
   var pad = 2;
-  var clip = { x: Math.max(0, cx - pad), y: Math.max(0, cy - pad), width: cw + pad * 2, height: ch + pad * 2 };
-  // ③ 裁剪后刚好铺满整屏（宽高都贴合，不溢出、不用滚动）
-  var probe = page.getViewport({ scale: 1, rotation: rot, clip: clip });
+  cx = Math.max(0, cx - pad); cy = Math.max(0, cy - pad);
+  cw += pad * 2; ch += pad * 2;
+  // ② 缩放到「裁剪后内容」刚好铺满屏幕
   var sw = stage.clientWidth - 2, sh = stage.clientHeight - 2;
-  var newScale = Math.max(0.5, Math.min(6, Math.min(sw / probe.width, sh / probe.height)));
+  var probe = page.getViewport({ scale: 1, rotation: rot });
+  var kx = cw / probe.width, ky = ch / probe.height;   // 内容占整页比例
+  var newScale = Math.max(0.5, Math.min(6, Math.min(sw / (probe.width * kx), sh / (probe.height * ky))));
+  // ③ 平移视口：把内容左上角移到画布 (0,0)，实现真裁剪
+  var full = page.getViewport({ scale: newScale, rotation: rot });
+  var c1 = full.convertToViewportPoint(cx, cy);
+  var c2 = full.convertToViewportPoint(cx + cw, cy + ch);
+  var leftPx = Math.min(c1[0], c2[0]), topPx = Math.min(c1[1], c2[1]);
+  var wPx = Math.abs(c2[0] - c1[0]), hPx = Math.abs(c2[1] - c1[1]);
+  if (wPx < 20 || hPx < 20) return null;
   compactPass = true;
   scale = newScale;
   updZoom();
-  return page.getViewport({ scale: newScale, rotation: rot, clip: clip }).then(function(newVp) {
-    cv.width = Math.floor(newVp.width * dpr);
-    cv.height = Math.floor(newVp.height * dpr);
-    cv.style.width = Math.floor(newVp.width) + 'px';
-    cv.style.height = Math.floor(newVp.height) + 'px';
-    curVp = newVp;
-    var opts = { canvasContext: ctx, viewport: newVp };
-    if (dpr !== 1) opts.transform = [dpr, 0, 0, dpr, 0, 0];
-    return page.render(opts).promise;
-  }).then(function() {
-    var sc = document.getElementById('stage');
-    if (sc) { if (sc.scrollTo) sc.scrollTo(0, 0); else { sc.scrollLeft = 0; sc.scrollTop = 0; } }
-  });
+  var vp = page.getViewport({ scale: newScale, rotation: rot, offsetX: -leftPx, offsetY: -topPx });
+  cv.width = Math.floor(wPx * dpr);
+  cv.height = Math.floor(hPx * dpr);
+  cv.style.width = Math.floor(wPx) + 'px';
+  cv.style.height = Math.floor(hPx) + 'px';
+  curVp = vp;
+  var opts = { canvasContext: ctx, viewport: vp };
+  if (dpr !== 1) opts.transform = [dpr, 0, 0, dpr, 0, 0];
+  return page.render(opts).promise;
 }
 
 function compactOn() { return localStorage.getItem('pv_compact') === 'true'; }
