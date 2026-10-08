@@ -145,6 +145,7 @@
         <span style="font-size:14px;color:#1f2630">紧凑视图（去除页面空白边距）</span>
         <button id="compactBtn" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">关</button>
       </div>
+      <div id="compactInfo" style="font-size:11px;color:#8a94a6;padding:0 0 8px">紧凑模式：—</div>
     </div>
     <div style="font-size:12px;color:#5a6472;font-weight:600;margin:10px 2px 6px">🔊 朗读设置</div>
     <div style="background:#f6f8fb;border:1px solid #e3e8ef;border-radius:10px;padding:2px 12px;margin-bottom:4px">
@@ -932,6 +933,10 @@ function displayPage(n) {
   if (docKind === 'pptx') { showSlide(n); document.getElementById('pageInput').value = n; document.getElementById('pslider').value = n; return; }
 }
 var compactPass = false;
+function setCompactInfo(m) {
+  var e = document.getElementById('compactInfo');
+  if (e) e.textContent = '紧凑模式：' + m;
+}
 function scanContentBounds() {
   try {
     var w = cv.width, h = cv.height;
@@ -953,9 +958,10 @@ function scanContentBounds() {
   } catch (e) { return null; }
 }
 function applyCompact(page) {
-  if (!compactOn() || compactPass || docKind !== 'pdf' || !page) return null;
+  if (!compactOn()) { setCompactInfo('关闭'); return null; }
+  if (compactPass || docKind !== 'pdf' || !page) return null;
   var b = scanContentBounds();
-  if (!b) return null;
+  if (!b) { setCompactInfo('未触发：扫描不到内容'); return null; }
   var dpr = window.devicePixelRatio || 1;
   var rot = curVp.rotation;
   // ① 内容边界 → PDF 坐标
@@ -963,7 +969,7 @@ function applyCompact(page) {
   var p2 = curVp.convertToPdfPoint(b.maxX / dpr, b.maxY / dpr);
   var cx = Math.min(p1[0], p2[0]), cy = Math.min(p1[1], p2[1]);
   var cw = Math.abs(p2[0] - p1[0]), ch = Math.abs(p2[1] - p1[1]);
-  if (cw < 20 || ch < 20) return null;
+  if (cw < 20 || ch < 20) { setCompactInfo('未触发：内容过小'); return null; }
   var pad = 2;
   cx = Math.max(0, cx - pad); cy = Math.max(0, cy - pad);
   cw += pad * 2; ch += pad * 2;
@@ -978,7 +984,8 @@ function applyCompact(page) {
   var c2 = full.convertToViewportPoint(cx + cw, cy + ch);
   var leftPx = Math.min(c1[0], c2[0]), topPx = Math.min(c1[1], c2[1]);
   var wPx = Math.abs(c2[0] - c1[0]), hPx = Math.abs(c2[1] - c1[1]);
-  if (wPx < 20 || hPx < 20) return null;
+  if (wPx < 20 || hPx < 20) { setCompactInfo('未触发：裁剪区过小'); return null; }
+  setCompactInfo('已裁剪 ' + Math.floor(wPx) + 'x' + Math.floor(hPx) + '（原页 ' + Math.floor(probe.width) + 'x' + Math.floor(probe.height) + '）');
   compactPass = true;
   scale = newScale;
   updZoom();
