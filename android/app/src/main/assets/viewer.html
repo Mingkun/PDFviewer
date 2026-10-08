@@ -137,6 +137,13 @@
       </div>
       <div id="recentWrap" style="display:none;border-top:1px dashed #e3e8ef;padding:8px 0 6px"></div>
     </div>
+    <div style="font-size:12px;color:#5a6472;font-weight:600;margin:10px 2px 6px">📄 显示设置</div>
+    <div style="background:#f6f8fb;border:1px solid #e3e8ef;border-radius:10px;padding:2px 12px;margin-bottom:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
+        <span style="font-size:14px;color:#1f2630">紧凑视图（去除页面空白边距）</span>
+        <button id="compactBtn" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">关</button>
+      </div>
+    </div>
     <div style="font-size:12px;color:#5a6472;font-weight:600;margin:10px 2px 6px">🔊 朗读设置</div>
     <div style="background:#f6f8fb;border:1px solid #e3e8ef;border-radius:10px;padding:2px 12px;margin-bottom:4px">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
@@ -918,8 +925,75 @@ function displayPage(n) {
   if (docKind === 'pdf') { render(); return; }
   if (docKind === 'pptx') { showSlide(n); document.getElementById('pageInput').value = n; document.getElementById('pslider').value = n; return; }
 }
+function compactOn() { return localStorage.getItem('pv_compact') === 'true'; }
+function updateCompactBtn() {
+  var b = document.getElementById('compactBtn');
+  if (!b) return;
+  var on = compactOn();
+  b.textContent = on ? '开' : '关';
+  b.style.background = on ? '#d3f9d8' : '#f0f4fa';
+  b.style.color = on ? '#2b8a3e' : '#5a6472';
+  b.style.borderColor = on ? '#8ce99a' : '#d5dbe4';
+}
+document.addEventListener('DOMContentLoaded', function() {
+  var b = document.getElementById('compactBtn');
+  if (b) b.addEventListener('click', function() {
+    localStorage.setItem('pv_compact', compactOn() ? 'false' : 'true');
+    updateCompactBtn();
+    compactPass = false;
+    render();
+  });
+});
+
+var compactPass = false;
+function applyCompact(page) {
+  if (!compactOn() || compactPass || docKind !== 'pdf' || !page || !curVp) return null;
+  try {
+    var w = cv.width, h = cv.height;
+    if (!w || !h) return null;
+    var data = ctx.getImageData(0, 0, w, h).data;
+    var minX = w, minY = h, maxX = 0, maxY = 0;
+    var thr = 235, step = 4;
+    for (var y = 0; y < h; y += step) {
+      for (var x = 0; x < w; x += step) {
+        var i = (y * w + x) * 4;
+        if ((data[i] + data[i + 1] + data[i + 2]) / 3 < thr) {
+          if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (y < minY) minY = y; if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX <= minX || maxY <= minY) return null;
+    var dpr = window.devicePixelRatio || 1;
+    var padCss = 8;
+    var leftCss = Math.max(0, minX / dpr - padCss);
+    var topCss = Math.max(0, minY / dpr - padCss);
+    var rightCss = Math.min(parseFloat(cv.style.width), maxX / dpr + padCss);
+    var bottomCss = Math.min(parseFloat(cv.style.height), maxY / dpr + padCss);
+    if (rightCss - leftCss < 50 || bottomCss - topCss < 50) return null;
+    var p1 = curVp.convertToPdfPoint(leftCss, topCss);
+    var p2 = curVp.convertToPdfPoint(rightCss, bottomCss);
+    var cx = Math.min(p1[0], p2[0]) - 3;
+    var cy = Math.min(p1[1], p2[1]) - 3;
+    var cw = Math.abs(p2[0] - p1[0]) + 6;
+    var ch = Math.abs(p2[1] - p1[1]) + 6;
+    var rot = (((page.rotate || 0) + (rotDelta[pageNum] || 0)) % 360 + 360) % 360;
+    var newVp = page.getViewport({ scale: scale, rotation: rot, clip: { x: Math.max(0, cx), y: Math.max(0, cy), width: cw, height: ch } });
+    compactPass = true;
+    cv.width = Math.floor(newVp.width * dpr);
+    cv.height = Math.floor(newVp.height * dpr);
+    cv.style.width = Math.floor(newVp.width) + 'px';
+    cv.style.height = Math.floor(newVp.height) + 'px';
+    curVp = newVp;
+    var opts = { canvasContext: ctx, viewport: newVp };
+    if (dpr !== 1) opts.transform = [dpr, 0, 0, dpr, 0, 0];
+    return page.render(opts).promise;
+  } catch (e) { return null; }
+}
+
 function render() {
   if (!pdf || rendering) { pending = pageNum; return; }
+  compactPass = false;
   rendering = true;
   pdf.getPage(pageNum).then(function (page) {
     var rot = (((page.rotate || 0) + (rotDelta[pageNum] || 0)) % 360 + 360) % 360;
@@ -938,6 +1012,12 @@ function render() {
     syncOverlay(); drawAnns();
     document.getElementById('pageInput').value = pageNum;
     document.getElementById('pslider').value = pageNum;
+    if (compactOn() && !compactPass) {
+      pdf.getPage(pageNum).then(function(pg) {
+        var pr = applyCompact(pg);
+        if (pr) pr.then(function() { syncOverlay(); drawAnns(); }).catch(function() {});
+      });
+    }
     if (pending !== null && pending !== null) {
       var p = pending;
       pending = null;
