@@ -77,7 +77,7 @@ window.addEventListener('keydown', function (e) {
   body { display:flex; flex-direction:column; }
   #bar { display:flex; gap:5px; align-items:center; padding:6px 8px; background:#1e2126; color:#dfe3ea; font-size:14px; flex-wrap:wrap; flex-shrink:0; position:relative; }
   #bar button { background:#3a4048; color:#fff; border:none; border-radius:8px; cursor:pointer; }
-  #bar .bb { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; min-width:44px; min-height:44px; padding:5px 8px; font-size:17px; }
+  #bar .bb { flex:1 1 0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; min-height:44px; padding:5px 0; font-size:17px; }
   #bar .bb i { font-style:normal; font-size:9px; opacity:.85; letter-spacing:1px; }
   #pnav { display:flex; align-items:center; gap:6px; flex-basis:100%; order:8; }
   #pslider { flex:1; accent-color:#1e88e5; min-width:80px; }
@@ -85,7 +85,7 @@ window.addEventListener('keydown', function (e) {
   #zoomlab { font-size:10px; color:#9aa3b0; min-width:34px; text-align:center; }
   #readbar { position:absolute; left:0; bottom:0; height:2px; width:0; background:#39c97e; transition:width .3s; }
   body.slimbar #bar, body.slimbar #ebar { padding-top:2px; padding-bottom:2px; }
-  body.slimbar #bar .bb { min-height:34px; padding:3px 8px; }
+  body.slimbar #bar .bb { min-height:34px; padding:3px 0; }
   body.slimbar #bar .bb i { display:none; }
   body.dark { background:#12141a; }
   body.dark #stage { background:#12141a; }
