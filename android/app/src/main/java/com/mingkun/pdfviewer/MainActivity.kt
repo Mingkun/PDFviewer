@@ -49,6 +49,17 @@ class MainActivity : Activity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            try {
+                java.io.File(getExternalFilesDir(null), "crash.txt").writeText(
+                    "time=" + System.currentTimeMillis() + "\nthread=" + t.name + "\n" + android.util.Log.getStackTraceString(e))
+            } catch (_: Exception) {}
+            android.os.Process.killProcess(android.os.Process.myPid())
+        }
+        val lastCrash = try {
+            val cf = java.io.File(getExternalFilesDir(null), "crash.txt")
+            if (cf.isFile) cf.readText().also { cf.delete() } else null
+        } catch (_: Exception) { null }
         web = WebView(this)
         web.settings.javaScriptEnabled = true
         web.settings.allowFileAccess = true
@@ -85,10 +96,16 @@ class MainActivity : Activity() {
         }
         setContentView(web)
         web.loadUrl("file:///android_asset/viewer.html")
-        registerReceiver(
-            onDownloadComplete,
-            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
-        )
+        if (lastCrash != null) {
+            val esc = lastCrash.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            web.loadDataWithBaseURL(null, "<html><body style='font-family:monospace;padding:16px;font-size:12px;white-space:pre-wrap;line-height:1.5'><h3>PDF查看 v3.24 上次启动崩溃现场</h3><p style='color:#b02a37'>请截图发给机器人排查</p><hr>" + esc.take(6000) + "</body></html>", "text/html", "utf-8", null)
+        }
+        try {
+            val dlFilter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
+            if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(onDownloadComplete, dlFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
+            else registerReceiver(onDownloadComplete, dlFilter)
+        } catch (_: Exception) {
+        }
     }
 
     @Volatile private var ttsGender = "default"
