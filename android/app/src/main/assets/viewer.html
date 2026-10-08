@@ -29,8 +29,8 @@
   #stage { flex:1; overflow:auto; text-align:center; -webkit-overflow-scrolling:touch; }
   #bottomInfo { display:none; padding:5px 10px; background:#1e2126; color:#9aa3b0; font-size:12px; text-align:center; flex-shrink:0; }
   canvas { margin:8px auto; box-shadow:0 2px 12px rgba(0,0,0,.5); }
-  body.compact canvas { margin:0 !important; box-shadow:none !important; }
-  body.compact #stage { touch-action: pan-y; text-align: left !important; }
+  body.compact canvas { margin:0 auto !important; box-shadow:none !important; }
+  body.compact #stage { touch-action: pan-y; }
   #pageInput { width:28px; text-align:center; border-radius:6px; border:none; padding:4px 1px; font-size:11px; }
   #total { font-size:11px; color:#9aa3b0; }
   #hint { color:#8a94a6; font-size:13px; text-align:center; padding-top:40%; }
@@ -957,19 +957,24 @@ function applyCompact(page) {
   var b = scanContentBounds();
   if (!b) return null;
   var dpr = window.devicePixelRatio || 1;
-  var contentW = (b.maxX - b.minX) / dpr;
-  var pageW = parseFloat(cv.style.width);
-  if (contentW < 40 || contentW > pageW * 0.93) return null;
-  var targetW = stage.clientWidth;
-  var ratio = Math.min(targetW / contentW, 0.85 / (scale * contentW / parseFloat(cv.style.width)));
-  var maxCompactScale = scale * 0.85;
-  var newScale = Math.min(4, Math.min(scale * ratio, maxCompactScale));
-  if (newScale <= scale * 1.01) return null;
+  var rot = curVp.rotation;
+  // ① 内容边界换算到 PDF 坐标系
+  var p1 = curVp.convertToPdfPoint(b.minX / dpr, b.minY / dpr);
+  var p2 = curVp.convertToPdfPoint(b.maxX / dpr, b.maxY / dpr);
+  var cx = Math.min(p1[0], p2[0]), cy = Math.min(p1[1], p2[1]);
+  var cw = Math.abs(p2[0] - p1[0]), ch = Math.abs(p2[1] - p1[1]);
+  if (cw < 20 || ch < 20) return null;
+  // ② 四周只留 2pt 极小边距
+  var pad = 2;
+  var clip = { x: Math.max(0, cx - pad), y: Math.max(0, cy - pad), width: cw + pad * 2, height: ch + pad * 2 };
+  // ③ 裁剪后刚好铺满整屏（宽高都贴合，不溢出、不用滚动）
+  var probe = page.getViewport({ scale: 1, rotation: rot, clip: clip });
+  var sw = stage.clientWidth - 2, sh = stage.clientHeight - 2;
+  var newScale = Math.max(0.5, Math.min(6, Math.min(sw / probe.width, sh / probe.height)));
   compactPass = true;
   scale = newScale;
   updZoom();
-  var rot = curVp.rotation;
-  return page.getViewport({ scale: newScale, rotation: rot }).then(function(newVp) {
+  return page.getViewport({ scale: newScale, rotation: rot, clip: clip }).then(function(newVp) {
     cv.width = Math.floor(newVp.width * dpr);
     cv.height = Math.floor(newVp.height * dpr);
     cv.style.width = Math.floor(newVp.width) + 'px';
@@ -979,15 +984,8 @@ function applyCompact(page) {
     if (dpr !== 1) opts.transform = [dpr, 0, 0, dpr, 0, 0];
     return page.render(opts).promise;
   }).then(function() {
-    var scaledLeft = (b.minX / dpr) * ratio;
-    var scaledTop = (b.minY / dpr) * ratio;
-    var scroller = document.getElementById('stage');
-    if (scroller && scroller.scrollTo) {
-      scroller.scrollTo(Math.max(0, scaledLeft), Math.max(0, scaledTop));
-    } else if (scroller) {
-      scroller.scrollLeft = Math.max(0, scaledLeft);
-      scroller.scrollTop = Math.max(0, scaledTop);
-    }
+    var sc = document.getElementById('stage');
+    if (sc) { if (sc.scrollTo) sc.scrollTo(0, 0); else { sc.scrollLeft = 0; sc.scrollTop = 0; } }
   });
 }
 
