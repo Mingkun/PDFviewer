@@ -86,6 +86,7 @@ window.addEventListener('keydown', function (e) {
   #readbar { position:absolute; left:0; bottom:0; height:2px; width:0; background:#39c97e; transition:width .3s; }
   body.slimbar #bar, body.slimbar #ebar { padding-top:2px; padding-bottom:2px; }
   body.hidebar #bar, body.hidebar #ebar { display:none !important; }
+  body.ctrcontent #stage { display:flex; flex-direction:column; align-items:center; justify-content:center; }
   body.slimbar #bar .bb { height:34px; }
   body.slimbar #bar .bb i { display:none; }
   body.dark { background:#12141a; }
@@ -558,6 +559,7 @@ stage.addEventListener('touchmove', function (e) {
       swipeFired = true;
       if (mdy < 0) document.body.classList.add('hidebar');
       else document.body.classList.remove('hidebar');
+      setTimeout(updateStageCenter, 30);
     }
   }
   if (!pinchActive || e.touches.length !== 2) return;
@@ -610,6 +612,7 @@ var docKind = null, docPages = [];
 var contentEl = document.getElementById('content');
 function resetView() {
   document.body.classList.remove('hidebar');
+  document.body.classList.remove('ctrcontent');
   cv.style.display = 'none';
   contentEl.style.display = 'none';
   contentEl.innerHTML = '';
@@ -1010,6 +1013,15 @@ function displayPage(n) {
   if (docKind === 'pptx') { showSlide(n); document.getElementById('pageInput').value = n; document.getElementById('pslider').value = n; return; }
 }
 var compactPass = false;
+function updateStageCenter() {
+  try {
+    var cvs = cv.style.display !== 'none';
+    var fits = cvs && cv.clientHeight > 0 &&
+               cv.clientHeight <= stage.clientHeight + 1 && cv.clientWidth <= stage.clientWidth + 1;
+    document.body.classList.toggle('ctrcontent', fits);
+  } catch (e) {
+  }
+}
 function setCompactInfo(m) {
   var e = document.getElementById('compactInfo');
   if (e) e.textContent = '紧凑模式：' + m;
@@ -1074,7 +1086,7 @@ function applyCompact(page) {
   curVp = vp;
   var opts = { canvasContext: ctx, viewport: vp };
   if (dpr !== 1) opts.transform = [dpr, 0, 0, dpr, 0, 0];
-  return page.render(opts).promise;
+  return page.render(opts).promise.then(function () { updateStageCenter(); });
 }
 
 function compactOn() { return localStorage.getItem('pv_compact') === 'true'; }
@@ -1122,6 +1134,7 @@ function render() {
     syncOverlay(); drawAnns();
     document.getElementById('pageInput').value = pageNum;
     document.getElementById('pslider').value = pageNum;
+    updateStageCenter();
     if (compactOn() && !compactPass) {
       pdf.getPage(pageNum).then(function(pg) {
         var pr = applyCompact(pg);
