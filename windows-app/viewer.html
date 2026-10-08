@@ -95,7 +95,7 @@ window.addEventListener('keydown', function (e) {
   #stage { flex:1; overflow:auto; text-align:center; -webkit-overflow-scrolling:touch; }
   #bottomInfo { display:none; padding:5px 10px; background:#1e2126; color:#9aa3b0; font-size:12px; text-align:center; flex-shrink:0; }
   canvas { margin:8px auto; box-shadow:0 2px 12px rgba(0,0,0,.5); }
-  body.compact canvas { margin:2px auto; box-shadow:0 1px 6px rgba(0,0,0,.3); }
+  body.compact canvas { margin:0 auto !important; box-shadow:none !important; }
   #pageInput { width:28px; text-align:center; border-radius:6px; border:none; padding:4px 1px; font-size:11px; }
   #total { font-size:11px; color:#9aa3b0; }
   #hint { color:#8a94a6; font-size:13px; text-align:center; padding-top:40%; }
@@ -525,7 +525,7 @@ function fitPage() {
   if (!pdf) return;
   pdf.getPage(pageNum).then(function (page) {
     var vp1 = page.getViewport({ scale: 1 });
-    var pad = 16;
+    var pad = compactOn() ? 0 : 16;
     var s = Math.min((stage.clientWidth - pad) / vp1.width, (stage.clientHeight - pad) / vp1.height);
     scale = Math.max(0.5, Math.min(4, s));
     updZoom();
@@ -1021,10 +1021,10 @@ function applyCompact(page) {
   var contentW = (b.maxX - b.minX) / dpr;
   var pageW = parseFloat(cv.style.width);
   if (contentW < 40 || contentW > pageW * 0.93) return null;
-  var targetW = stage.clientWidth - 4;
+  var targetW = stage.clientWidth;
   var ratio = targetW / contentW;
   var newScale = Math.min(4, scale * ratio);
-  if (newScale <= scale * 1.02) return null;
+  if (newScale <= scale * 1.01) return null;
   compactPass = true;
   scale = newScale;
   updZoom();
@@ -1039,8 +1039,8 @@ function applyCompact(page) {
     if (dpr !== 1) opts.transform = [dpr, 0, 0, dpr, 0, 0];
     return page.render(opts).promise;
   }).then(function() {
-    var scaledLeft = (b.minX / dpr) * ratio - 4;
-    var scaledTop = (b.minY / dpr) * ratio - 4;
+    var scaledLeft = (b.minX / dpr) * ratio;
+    var scaledTop = (b.minY / dpr) * ratio;
     var scroller = document.getElementById('stage');
     if (scroller && scroller.scrollTo) {
       scroller.scrollTo(Math.max(0, scaledLeft), Math.max(0, scaledTop));
