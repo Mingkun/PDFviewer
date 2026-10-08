@@ -121,7 +121,7 @@ window.addEventListener('keydown', function (e) {
   .mdwrap .mdr { color:#5a6472; }
   .mdwrap ul, .mdwrap ol { margin:8px 0 8px 4px; padding-left:22px; }
   .mdwrap li { margin:3px 0; }
-  #stage { position:relative; }
+  #stage { position:relative; overflow:auto; }
   #ocv { position:absolute; display:none; touch-action:none; z-index:5; }
   #bar button.onb { background:#1e88e5; color:#fff; }
   #ebar { display:none; flex-wrap:wrap; gap:4px; padding:6px 8px; background:#f0f4fa; border-bottom:1px solid #e3e8ef; align-items:center; }
@@ -992,6 +992,65 @@ function displayPage(n) {
   if (docKind === 'pdf') { render(); return; }
   if (docKind === 'pptx') { showSlide(n); document.getElementById('pageInput').value = n; document.getElementById('pslider').value = n; return; }
 }
+var compactPass = false;
+function scanContentBounds() {
+  try {
+    var w = cv.width, h = cv.height;
+    if (!w || !h) return null;
+    var data = ctx.getImageData(0, 0, w, h).data;
+    var minX = w, minY = h, maxX = 0, maxY = 0;
+    var thr = 240, step = 3;
+    for (var y = 0; y < h; y += step) {
+      for (var x = 0; x < w; x += step) {
+        var i = (y * w + x) * 4;
+        if ((data[i] + data[i+1] + data[i+2]) / 3 < thr) {
+          if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (y < minY) minY = y; if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX <= minX || maxY <= minY) return null;
+    return { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
+  } catch (e) { return null; }
+}
+function applyCompact(page) {
+  if (!compactOn() || compactPass || docKind !== 'pdf' || !page) return null;
+  var b = scanContentBounds();
+  if (!b) return null;
+  var dpr = window.devicePixelRatio || 1;
+  var contentW = (b.maxX - b.minX) / dpr;
+  var pageW = parseFloat(cv.style.width);
+  if (contentW < 40 || contentW > pageW * 0.93) return null;
+  var targetW = stage.clientWidth - 4;
+  var ratio = targetW / contentW;
+  var newScale = Math.min(4, scale * ratio);
+  if (newScale <= scale * 1.02) return null;
+  compactPass = true;
+  scale = newScale;
+  updZoom();
+  var rot = curVp.rotation;
+  return page.getViewport({ scale: newScale, rotation: rot }).then(function(newVp) {
+    cv.width = Math.floor(newVp.width * dpr);
+    cv.height = Math.floor(newVp.height * dpr);
+    cv.style.width = Math.floor(newVp.width) + 'px';
+    cv.style.height = Math.floor(newVp.height) + 'px';
+    curVp = newVp;
+    var opts = { canvasContext: ctx, viewport: newVp };
+    if (dpr !== 1) opts.transform = [dpr, 0, 0, dpr, 0, 0];
+    return page.render(opts).promise;
+  }).then(function() {
+    var scaledLeft = (b.minX / dpr) * ratio - 4;
+    var scaledTop = (b.minY / dpr) * ratio - 4;
+    var scroller = document.getElementById('stage');
+    if (scroller && scroller.scrollTo) {
+      scroller.scrollTo(Math.max(0, scaledLeft), Math.max(0, scaledTop));
+    } else if (scroller) {
+      scroller.scrollLeft = Math.max(0, scaledLeft);
+      scroller.scrollTop = Math.max(0, scaledTop);
+    }
+  });
+}
+
 function compactOn() { return localStorage.getItem('pv_compact') === 'true'; }
 function updateCompactBtn() {
   var b = document.getElementById('compactBtn');
@@ -1014,51 +1073,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-var compactPass = false;
-function applyCompact(page) {
-  if (!compactOn() || compactPass || docKind !== 'pdf' || !page || !curVp) return null;
-  try {
-    var w = cv.width, h = cv.height;
-    if (!w || !h) return null;
-    var data = ctx.getImageData(0, 0, w, h).data;
-    var minX = w, minY = h, maxX = 0, maxY = 0;
-    var thr = 235, step = 4;
-    for (var y = 0; y < h; y += step) {
-      for (var x = 0; x < w; x += step) {
-        var i = (y * w + x) * 4;
-        if ((data[i] + data[i + 1] + data[i + 2]) / 3 < thr) {
-          if (x < minX) minX = x; if (x > maxX) maxX = x;
-          if (y < minY) minY = y; if (y > maxY) maxY = y;
-        }
-      }
-    }
-    if (maxX <= minX || maxY <= minY) return null;
-    var dpr = window.devicePixelRatio || 1;
-    var padCss = 2;
-    var leftCss = Math.max(0, minX / dpr - padCss);
-    var topCss = Math.max(0, minY / dpr - padCss);
-    var rightCss = Math.min(parseFloat(cv.style.width), maxX / dpr + padCss);
-    var bottomCss = Math.min(parseFloat(cv.style.height), maxY / dpr + padCss);
-    if (rightCss - leftCss < 50 || bottomCss - topCss < 50) return null;
-    var p1 = curVp.convertToPdfPoint(leftCss, topCss);
-    var p2 = curVp.convertToPdfPoint(rightCss, bottomCss);
-    var cx = Math.min(p1[0], p2[0]) - 1;
-    var cy = Math.min(p1[1], p2[1]) - 1;
-    var cw = Math.abs(p2[0] - p1[0]) + 2;
-    var ch = Math.abs(p2[1] - p1[1]) + 2;
-    var rot = (((page.rotate || 0) + (rotDelta[pageNum] || 0)) % 360 + 360) % 360;
-    var newVp = page.getViewport({ scale: scale, rotation: rot, clip: { x: Math.max(0, cx), y: Math.max(0, cy), width: cw, height: ch } });
-    compactPass = true;
-    cv.width = Math.floor(newVp.width * dpr);
-    cv.height = Math.floor(newVp.height * dpr);
-    cv.style.width = Math.floor(newVp.width) + 'px';
-    cv.style.height = Math.floor(newVp.height) + 'px';
-    curVp = newVp;
-    var opts = { canvasContext: ctx, viewport: newVp };
-    if (dpr !== 1) opts.transform = [dpr, 0, 0, dpr, 0, 0];
-    return page.render(opts).promise;
-  } catch (e) { return null; }
-}
+
 
 function render() {
   if (!pdf || rendering) { pending = pageNum; return; }
