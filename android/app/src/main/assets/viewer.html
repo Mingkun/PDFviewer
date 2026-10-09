@@ -960,17 +960,17 @@ function setCompactInfo(m) {
   var e = document.getElementById('compactInfo');
   if (e) e.textContent = '紧凑模式：' + m;
 }
-function scanContentBounds() {
+var offcv = null, offctx = null;
+function scanBoundsIn(c2d, w, h) {
   try {
-    var w = cv.width, h = cv.height;
     if (!w || !h) return null;
-    var data = ctx.getImageData(0, 0, w, h).data;
+    var data = c2d.getImageData(0, 0, w, h).data;
     var minX = w, minY = h, maxX = 0, maxY = 0;
     var thr = 240, step = 3;
     for (var y = 0; y < h; y += step) {
       for (var x = 0; x < w; x += step) {
         var i = (y * w + x) * 4;
-        if ((data[i] + data[i+1] + data[i+2]) / 3 < thr) {
+        if ((data[i] + data[i + 1] + data[i + 2]) / 3 < thr) {
           if (x < minX) minX = x; if (x > maxX) maxX = x;
           if (y < minY) minY = y; if (y > maxY) maxY = y;
         }
@@ -980,6 +980,7 @@ function scanContentBounds() {
     return { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
   } catch (e) { return null; }
 }
+function scanContentBounds() { return scanBoundsIn(ctx, cv.width, cv.height); }
 function applyCompact(page) {
   if (!compactOn()) { setCompactInfo('关闭'); return null; }
   if (compactPass || docKind !== 'pdf' || !page) return null;
@@ -1047,22 +1048,87 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
+function renderFullPage(page, rot, dpr) {
+  var vp = page.getViewport({ scale: scale, rotation: rot });
+  curVp = vp;
+  cv.width = Math.floor(vp.width * dpr);
+  cv.height = Math.floor(vp.height * dpr);
+  cv.style.width = Math.floor(vp.width) + 'px';
+  cv.style.height = Math.floor(vp.height) + 'px';
+  var opts = { canvasContext: ctx, viewport: vp };
+  if (dpr !== 1) opts.transform = [dpr, 0, 0, dpr, 0, 0];
+  return page.render(opts).promise;
+}
+
+function renderCompactPage(page, rot, dpr) {
+  if (!offcv) { offcv = document.createElement('canvas'); offctx = offcv.getContext('2d'); }
+  var probe = page.getViewport({ scale: 1, rotation: rot });
+  var pad0 = 16;
+  var fit = Math.max(0.5, Math.min(4, Math.min((stage.clientWidth - pad0) / probe.width, (stage.clientHeight - pad0) / probe.height)));
+  var vp1 = page.getViewport({ scale: fit, rotation: rot });
+  offcv.width = Math.max(1, Math.floor(vp1.width * dpr));
+  offcv.height = Math.max(1, Math.floor(vp1.height * dpr));
+  var o1 = { canvasContext: offctx, viewport: vp1 };
+  if (dpr !== 1) o1.transform = [dpr, 0, 0, dpr, 0, 0];
+  return page.render(o1).promise.then(function () {
+    // 检测永远在「整页」上进行（在已裁剪画布上检测会自证错误）
+    var b = scanBoundsIn(offctx, offcv.width, offcv.height);
+    if (!b) throw new Error('compact: 无内容');
+    var q1 = vp1.convertToPdfPoint(b.minX / dpr, b.minY / dpr);
+    var q2 = vp1.convertToPdfPoint(b.maxX / dpr, b.maxY / dpr);
+    var cx = Math.min(q1[0], q2[0]), cy = Math.min(q1[1], q2[1]);
+    var cw = Math.abs(q2[0] - q1[0]), ch = Math.abs(q2[1] - q1[1]);
+    if (cw < 20 || ch < 20) throw new Error('compact: 内容过小');
+    var pad = 2;
+    cx = Math.max(0, cx - pad); cy = Math.max(0, cy - pad); cw += pad * 2; ch += pad * 2;
+    var sw = stage.clientWidth - 2, sh = stage.clientHeight - 2;
+    var kx = cw / probe.width, ky = ch / probe.height;
+    var ns = Math.max(0.5, Math.min(6, Math.min(sw / (probe.width * kx), sh / (probe.height * ky))));
+    var full = page.getViewport({ scale: ns, rotation: rot });
+    var r1 = full.convertToViewportPoint(cx, cy);
+    var r2 = full.convertToViewportPoint(cx + cw, cy + ch);
+    var leftPx = Math.min(r1[0], r2[0]), topPx = Math.min(r1[1], r2[1]);
+    var wPx = Math.abs(r2[0] - r1[0]), hPx = Math.abs(r2[1] - r1[1]);
+    if (wPx < 20 || hPx < 20) throw new Error('compact: 裁剪区过小');
+    var vp2 = page.getViewport({ scale: ns, rotation: rot, offsetX: -leftPx, offsetY: -topPx });
+    offcv.width = Math.max(1, Math.floor(wPx * dpr));
+    offcv.height = Math.max(1, Math.floor(hPx * dpr));
+    var o2 = { canvasContext: offctx, viewport: vp2 };
+    if (dpr !== 1) o2.transform = [dpr, 0, 0, dpr, 0, 0];
+    return page.render(o2).promise.then(function () {
+      // 原子换页：可见画布全程不出现中间态
+      cv.width = offcv.width;
+      cv.height = offcv.height;
+      cv.style.width = Math.floor(wPx) + 'px';
+      cv.style.height = Math.floor(hPx) + 'px';
+      try { ctx.setTransform(1, 0, 0, 1, 0, 0); } catch (e) {}
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      ctx.drawImage(offcv, 0, 0);
+      curVp = vp2;
+      scale = ns;
+      updZoom();
+      cv.style.visibility = '';
+      compactPass = true;
+      setCompactInfo('已裁剪 ' + Math.floor(wPx) + 'x' + Math.floor(hPx) + '（原页 ' + Math.floor(probe.width) + 'x' + Math.floor(probe.height) + '）');
+    });
+  });
+}
+
 function render() {
   if (!pdf || rendering) { pending = pageNum; return; }
   compactPass = false;
   rendering = true;
   pdf.getPage(pageNum).then(function (page) {
     var rot = (((page.rotate || 0) + (rotDelta[pageNum] || 0)) % 360 + 360) % 360;
-    var vp = page.getViewport({ scale: scale, rotation: rot });
-    curVp = vp;
     var dpr = window.devicePixelRatio || 1;
-    cv.width = Math.floor(vp.width * dpr);
-    cv.height = Math.floor(vp.height * dpr);
-    cv.style.width = Math.floor(vp.width) + 'px';
-    cv.style.height = Math.floor(vp.height) + 'px';
-    var opts = { canvasContext: ctx, viewport: vp };
-    if (dpr !== 1) opts.transform = [dpr, 0, 0, dpr, 0, 0];
-    return page.render(opts).promise;
+    if (compactOn() && docKind === 'pdf') {
+      return renderCompactPage(page, rot, dpr).catch(function () {
+        compactPass = false;
+        cv.style.visibility = 'hidden';
+        return renderFullPage(page, rot, dpr);
+      });
+    }
+    return renderFullPage(page, rot, dpr);
   }).then(function () {
     rendering = false;
     syncOverlay(); drawAnns();
