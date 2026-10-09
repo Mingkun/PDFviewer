@@ -613,7 +613,6 @@ var contentEl = document.getElementById('content');
 function resetView() {
   document.body.classList.remove('hidebar');
   document.body.classList.remove('ctrcontent');
-  docSeq++; cropCache = {}; lastCrop = null; curRect = null;
   cv.style.display = 'none';
   contentEl.style.display = 'none';
   contentEl.innerHTML = '';
@@ -1014,28 +1013,6 @@ function displayPage(n) {
   if (docKind === 'pptx') { showSlide(n); document.getElementById('pageInput').value = n; document.getElementById('pslider').value = n; return; }
 }
 var compactPass = false;
-var cropCache = {}, lastCrop = null, curRect = null, docSeq = 0;
-function cropRectFor(idx) { return cropCache[docSeq + '#' + idx] || null; }
-function rectClose(a, b) {
-  return !!a && !!b && Math.abs(a.cx - b.cx) < 4 && Math.abs(a.cy - b.cy) < 4 &&
-         Math.abs(a.cw - b.cw) < 4 && Math.abs(a.ch - b.ch) < 4;
-}
-function scaleForRect(page, rect, rot) {
-  var sw = stage.clientWidth - 2, sh = stage.clientHeight - 2;
-  var probe = page.getViewport({ scale: 1, rotation: rot });
-  var kx = rect.cw / probe.width, ky = rect.ch / probe.height;
-  return Math.max(0.5, Math.min(6, Math.min(sw / (probe.width * kx), sh / (probe.height * ky))));
-}
-function croppedViewport(page, rect, ns, rot) {
-  var full = page.getViewport({ scale: ns, rotation: rot });
-  var c1 = full.convertToViewportPoint(rect.cx, rect.cy);
-  var c2 = full.convertToViewportPoint(rect.cx + rect.cw, rect.cy + rect.ch);
-  var leftPx = Math.min(c1[0], c2[0]), topPx = Math.min(c1[1], c2[1]);
-  var wPx = Math.abs(c2[0] - c1[0]), hPx = Math.abs(c2[1] - c1[1]);
-  if (wPx < 20 || hPx < 20) return null;
-  var vp = page.getViewport({ scale: ns, rotation: rot, offsetX: -leftPx, offsetY: -topPx });
-  return { vp: vp, w: wPx, h: hPx };
-}
 function updateStageCenter() {
   try {
     var cvs = cv.style.display !== 'none';
@@ -1070,10 +1047,10 @@ function scanContentBounds() {
   } catch (e) { return null; }
 }
 function applyCompact(page) {
-  if (!compactOn()) { setCompactInfo('关闭'); cv.style.visibility = ''; return null; }
+  if (!compactOn()) { setCompactInfo('关闭'); return null; }
   if (compactPass || docKind !== 'pdf' || !page) return null;
   var b = scanContentBounds();
-  if (!b) { setCompactInfo('未触发：扫描不到内容'); cv.style.visibility = ''; return null; }
+  if (!b) { setCompactInfo('未触发：扫描不到内容'); return null; }
   var dpr = window.devicePixelRatio || 1;
   var rot = curVp.rotation;
   // ① 内容边界 → PDF 坐标
@@ -1081,19 +1058,10 @@ function applyCompact(page) {
   var p2 = curVp.convertToPdfPoint(b.maxX / dpr, b.maxY / dpr);
   var cx = Math.min(p1[0], p2[0]), cy = Math.min(p1[1], p2[1]);
   var cw = Math.abs(p2[0] - p1[0]), ch = Math.abs(p2[1] - p1[1]);
-  if (cw < 20 || ch < 20) { setCompactInfo('未触发：内容过小'); cv.style.visibility = ''; return null; }
+  if (cw < 20 || ch < 20) { setCompactInfo('未触发：内容过小'); return null; }
   var pad = 2;
   cx = Math.max(0, cx - pad); cy = Math.max(0, cy - pad);
   cw += pad * 2; ch += pad * 2;
-  var detected = { cx: cx, cy: cy, cw: cw, ch: ch };
-  cropCache[docSeq + '#' + pageNum] = detected;
-  lastCrop = detected;
-  if (curRect && rectClose(curRect, detected)) {
-    setCompactInfo('已裁剪 ' + Math.floor(parseFloat(cv.style.width)) + 'x' + Math.floor(parseFloat(cv.style.height)));
-    cv.style.visibility = '';
-    updateStageCenter();
-    return null;
-  }
   // ② 缩放到「裁剪后内容」刚好铺满屏幕
   var sw = stage.clientWidth - 2, sh = stage.clientHeight - 2;
   var probe = page.getViewport({ scale: 1, rotation: rot });
@@ -1105,7 +1073,7 @@ function applyCompact(page) {
   var c2 = full.convertToViewportPoint(cx + cw, cy + ch);
   var leftPx = Math.min(c1[0], c2[0]), topPx = Math.min(c1[1], c2[1]);
   var wPx = Math.abs(c2[0] - c1[0]), hPx = Math.abs(c2[1] - c1[1]);
-  if (wPx < 20 || hPx < 20) { setCompactInfo('未触发：裁剪区过小'); cv.style.visibility = ''; return null; }
+  if (wPx < 20 || hPx < 20) { setCompactInfo('未触发：裁剪区过小'); return null; }
   setCompactInfo('已裁剪 ' + Math.floor(wPx) + 'x' + Math.floor(hPx) + '（原页 ' + Math.floor(probe.width) + 'x' + Math.floor(probe.height) + '）');
   compactPass = true;
   scale = newScale;
@@ -1116,8 +1084,6 @@ function applyCompact(page) {
   cv.style.width = Math.floor(wPx) + 'px';
   cv.style.height = Math.floor(hPx) + 'px';
   curVp = vp;
-  curRect = detected;
-  cv.style.visibility = '';
   var opts = { canvasContext: ctx, viewport: vp };
   if (dpr !== 1) opts.transform = [dpr, 0, 0, dpr, 0, 0];
   return page.render(opts).promise.then(function () { updateStageCenter(); });
@@ -1153,34 +1119,9 @@ function render() {
   rendering = true;
   pdf.getPage(pageNum).then(function (page) {
     var rot = (((page.rotate || 0) + (rotDelta[pageNum] || 0)) % 360 + 360) % 360;
-    var dpr = window.devicePixelRatio || 1;
-    if (compactOn() && docKind === 'pdf') {
-      var rect = cropRectFor(pageNum) || lastCrop;
-      if (rect) {
-        var ns = scaleForRect(page, rect, rot);
-        var cr = croppedViewport(page, rect, ns, rot);
-        if (cr) {
-          scale = ns; updZoom();
-          cv.width = Math.floor(cr.w * dpr);
-          cv.height = Math.floor(cr.h * dpr);
-          cv.style.width = Math.floor(cr.w) + 'px';
-          cv.style.height = Math.floor(cr.h) + 'px';
-          curVp = cr.vp;
-          curRect = rect;
-          compactPass = !!cropRectFor(pageNum);
-          cv.style.visibility = '';
-          setCompactInfo('已裁剪 ' + Math.floor(cr.w) + 'x' + Math.floor(cr.h));
-          var co = { canvasContext: ctx, viewport: cr.vp };
-          if (dpr !== 1) co.transform = [dpr, 0, 0, dpr, 0, 0];
-          return page.render(co).promise;
-        }
-      } else {
-        cv.style.visibility = 'hidden';
-      }
-    }
     var vp = page.getViewport({ scale: scale, rotation: rot });
     curVp = vp;
-    curRect = null;
+    var dpr = window.devicePixelRatio || 1;
     cv.width = Math.floor(vp.width * dpr);
     cv.height = Math.floor(vp.height * dpr);
     cv.style.width = Math.floor(vp.width) + 'px';
