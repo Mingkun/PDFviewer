@@ -107,7 +107,8 @@ window.addEventListener('keydown', function (e) {
   #total { font-size:11px; color:#8e959f; font-variant-numeric:tabular-nums; }
   #hint { color:#8a94a6; font-size:13px; text-align:center; padding-top:40%; }
   #recentBar { display:none; padding:16px 14px 0; }
-  #recentBar .rbItem { width:64px; flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:4px 0; }
+  #recentBar .rbItem { width:64px; flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:4px 0; position:relative; -webkit-user-select:none; user-select:none; }
+  #recentBar .rbPin { position:absolute; top:0; right:2px; font-size:11px; pointer-events:none; }
   #recentBar .rbIcon { font-size:26px; line-height:1; }
   #recentBar .rbName { font-size:10px; color:#8a94a6; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   body.dark #recentBar .rbName { color:#8a93a3; }
@@ -2006,11 +2007,15 @@ function renderRecentBar() {
   var nat = null;
   try { if (window.AppBridge && AppBridge.getRecent) nat = JSON.parse(AppBridge.getRecent() || '[]'); } catch (e) { nat = null; }
   if (nat && nat.length) {
-    for (var i = 0; i < nat.length && i < 15; i++) {
-      (function (idx, nm) {
-        items.push({ name: nm, open: function () { try { AppBridge.openRecent(idx); } catch (e) { setInfo('打开失败'); } } });
-      })(i, nat[i].name);
-    }
+    var pinL = [], restL = [];
+    nat.forEach(function (r, i) { (r.pin ? pinL : restL).push({ r: r, i: i }); });
+    pinL.sort(function (a, b) { return (b.r.time || 0) - (a.r.time || 0); });
+    restL.sort(function (a, b) { return (b.r.time || 0) - (a.r.time || 0); });
+    pinL.concat(restL).slice(0, 15).forEach(function (e2) {
+      (function (idx, nm, pn) {
+        items.push({ name: nm, pinned: pn, nativeIdx: idx, open: function () { try { AppBridge.openRecent(idx); } catch (e) { setInfo('打开失败'); } } });
+      })(e2.i, e2.r.name, !!e2.r.pin);
+    });
   } else {
     var rec = [];
     try { rec = JSON.parse(localStorage.getItem('pv_recent') || '[]'); } catch (e) {}
@@ -2043,12 +2048,27 @@ function renderRecentBar() {
   if (!show) return;
   var h = '<div style="display:flex;flex-wrap:wrap;gap:14px 10px;justify-content:center">';
   items.forEach(function (it) {
-    h += '<div class="rbItem" title="' + esc(it.name || '') + '"><div class="rbIcon">' + fileIconOf(it.name) + '</div><div class="rbName">' + esc(it.name || '?') + '</div></div>';
+    h += '<div class="rbItem"' + (it.pinned ? ' data-pin="1"' : '') + ' title="' + esc(it.name || '') + (it.pinned ? '（长按取消钉住）' : (it.nativeIdx !== undefined ? '（长按钉住）' : '')) + '"><div class="rbIcon">' + fileIconOf(it.name) + '</div>' + (it.pinned ? '<span class="rbPin">📌</span>' : '') + '<div class="rbName">' + esc(it.name || '?') + '</div></div>';
   });
   h += '</div>';
   bar.innerHTML = h;
   Array.prototype.forEach.call(bar.querySelectorAll('.rbItem'), function (el, idx) {
-    el.onclick = function () { items[idx].open(); };
+    var it = items[idx];
+    var timer = null;
+    el.addEventListener('pointerdown', function () {
+      timer = setTimeout(function () {
+        timer = null; el.__pin = true;
+        if (it.nativeIdx !== undefined && window.AppBridge && AppBridge.pinRecent) {
+          try { AppBridge.pinRecent(it.nativeIdx, !it.pinned); } catch (e) {}
+          setInfo(it.pinned ? '已取消钉住：' + it.name : '已钉住：' + it.name);
+          renderRecentBar();
+        }
+      }, 550);
+    });
+    el.addEventListener('pointermove', function () { if (timer) { clearTimeout(timer); timer = null; } });
+    el.addEventListener('pointerup', function () { if (timer) { clearTimeout(timer); timer = null; } });
+    el.addEventListener('pointercancel', function () { if (timer) { clearTimeout(timer); timer = null; } });
+    el.onclick = function () { if (el.__pin) { el.__pin = false; return; } it.open(); };
   });
 }
 

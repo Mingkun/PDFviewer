@@ -205,7 +205,7 @@ class MainActivity : Activity() {
             for (i in 0 until arr.length()) {
                 val o = arr.optJSONObject(i) ?: continue
                 if (o.optString("uri") == uri.toString()) continue
-                if (out.length() >= 20) break
+                if (out.length() >= 20 && !o.optBoolean("pin")) continue
                 out.put(o)
             }
             recentPrefs().edit().putString("list", out.toString()).apply()
@@ -296,6 +296,16 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun getRecent(): String = loadRecentJson()
+
+        @JavascriptInterface
+        fun pinRecent(index: Int, pinned: Boolean) {
+            try {
+                val arr = org.json.JSONArray(loadRecentJson())
+                val o = arr.optJSONObject(index) ?: return
+                o.put("pin", pinned)
+                recentPrefs().edit().putString("list", arr.toString()).apply()
+            } catch (_: Exception) {}
+        }
 
         @JavascriptInterface
         fun openRecent(index: Int) {
