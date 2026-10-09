@@ -951,7 +951,7 @@ function updateStageCenter() {
   try {
     var cvs = cv.style.display !== 'none';
     var fits = cvs && cv.clientHeight > 0 &&
-               cv.clientHeight <= stage.clientHeight + 1 && cv.clientWidth <= stage.clientWidth + 1;
+               cv.clientHeight <= stage.clientHeight + 3 && cv.clientWidth <= stage.clientWidth + 3;
     document.body.classList.toggle('ctrcontent', fits);
   } catch (e) {
   }
@@ -998,7 +998,8 @@ function applyCompact(page) {
   cx = Math.max(0, cx - pad); cy = Math.max(0, cy - pad);
   cw += pad * 2; ch += pad * 2;
   // ② 缩放到「裁剪后内容」刚好铺满屏幕
-  var sw = stage.clientWidth - 2, sh = stage.clientHeight - 2;
+  var extra0 = 2;
+  var sw = stage.clientWidth - 2 - extra0 * 2, sh = stage.clientHeight - 2 - extra0 * 2;
   var probe = page.getViewport({ scale: 1, rotation: rot });
   var kx = cw / probe.width, ky = ch / probe.height;   // 内容占整页比例
   var newScale = Math.max(0.5, Math.min(6, Math.min(sw / (probe.width * kx), sh / (probe.height * ky))));
@@ -1084,7 +1085,8 @@ function renderCompactPage(page, rot, dpr) {
     if (cw < 20 || ch < 20) throw new Error('compact: 内容过小');
     var pad = 2;
     cx = Math.max(0, cx - pad); cy = Math.max(0, cy - pad); cw += pad * 2; ch += pad * 2;
-    var sw = stage.clientWidth - 2, sh = stage.clientHeight - 2;
+    var extra0 = 2;
+    var sw = stage.clientWidth - 2 - extra0 * 2, sh = stage.clientHeight - 2 - extra0 * 2;
     var kx = cw / probe.width, ky = ch / probe.height;
     var ns = Math.max(0.5, Math.min(6, Math.min(sw / (probe.width * kx), sh / (probe.height * ky))));
     var full = page.getViewport({ scale: ns, rotation: rot });
