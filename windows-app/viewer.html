@@ -611,6 +611,7 @@ function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').
 var docKind = null, docPages = [];
 var contentEl = document.getElementById('content');
 function resetView() {
+  frameToken++; docFrame = null; frameBusy = false; frameCount = 0;
   document.body.classList.remove('hidebar');
   document.body.classList.remove('ctrcontent');
   cv.style.display = 'none';
@@ -665,6 +666,7 @@ function openPdf(buf) {
     setTotal(doc.numPages);
     cv.style.display = '';
     fitPage();
+    buildDocFrame();
     if (autoReadOn()) readerToggle();
   }).catch(function (e) { setInfo('打开失败'); });
 }
@@ -1013,6 +1015,7 @@ function displayPage(n) {
   if (docKind === 'pptx') { showSlide(n); document.getElementById('pageInput').value = n; document.getElementById('pslider').value = n; return; }
 }
 var compactPass = false;
+var docFrame = null, frameBusy = false, frameToken = 0, frameCount = 0;
 function updateStageCenter() {
   try {
     var cvs = cv.style.display !== 'none';
@@ -1118,6 +1121,64 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
+function buildDocFrame() {
+  if (!pdf || docKind !== 'pdf' || frameBusy || docFrame || pdf.numPages < 2) return;
+  frameBusy = true;
+  var my = frameToken;
+  var n = pdf.numPages, picks = [], i;
+  if (n <= 10) { for (i = 1; i <= n; i++) picks.push(i); }
+  else { while (picks.length < 10) { var r = 1 + Math.floor(Math.random() * n); if (picks.indexOf(r) < 0) picks.push(r); } }
+  var acc = null;
+  var sc = document.createElement('canvas'), sctx = sc.getContext('2d');
+  function next(k) {
+    if (k >= picks.length || my !== frameToken) {
+      frameBusy = false;
+      if (acc && my === frameToken) {
+        // 安全余量：每边 1.5% 页面尺寸，避免"只宽一点点"的页被误判为异形页
+        var mx = 0.015, my2 = 0.015;
+        acc.x0 = Math.max(0, acc.x0 - mx);
+        acc.y0 = Math.max(0, acc.y0 - my2);
+        acc.w = Math.min(1 - acc.x0, acc.w + mx * 2);
+        acc.h = Math.min(1 - acc.y0, acc.h + my2 * 2);
+        docFrame = acc;                 // {x0,y0,w,h} 归一化比例
+        frameCount = picks.length;
+        if (compactOn() && docKind === 'pdf') render();
+      }
+      return;
+    }
+    pdf.getPage(picks[k]).then(function (pg) {
+      if (my !== frameToken) { frameBusy = false; return; }
+      var rt = (((pg.rotate || 0)) % 360 + 360) % 360;
+      var vp1 = pg.getViewport({ scale: 0.5, rotation: rt });
+      sc.width = Math.max(1, Math.floor(vp1.width));
+      sc.height = Math.max(1, Math.floor(vp1.height));
+      var oo = { canvasContext: sctx, viewport: vp1 };
+      return pg.render(oo).promise.then(function () {
+        var b = scanBoundsIn(sctx, sc.width, sc.height);
+        if (b) {
+          var a1 = vp1.convertToPdfPoint(b.minX, b.minY);
+          var a2 = vp1.convertToPdfPoint(b.maxX, b.maxY);
+          var x0 = Math.min(a1[0], a2[0]), y0 = Math.min(a1[1], a2[1]);
+          var w = Math.abs(a2[0] - a1[0]), h = Math.abs(a2[1] - a1[1]);
+          var vpn = pg.getViewport({ scale: 1, rotation: rt });
+          if (vpn.width > 0 && vpn.height > 0 && w > 10 && h > 10) {
+            var cand = { x0: x0 / vpn.width, y0: y0 / vpn.height, w: w / vpn.width, h: h / vpn.height };
+            if (!acc) acc = cand;
+            else acc = {
+              x0: Math.min(acc.x0, cand.x0),
+              y0: Math.min(acc.y0, cand.y0),
+              w: Math.max(acc.w, cand.w),      // 取最大尺寸
+              h: Math.max(acc.h, cand.h)
+            };
+          }
+        }
+        next(k + 1);
+      });
+    }).catch(function () { next(k + 1); });
+  }
+  next(0);
+}
+
 function renderFullPage(page, rot, dpr) {
   var vp = page.getViewport({ scale: scale, rotation: rot });
   curVp = vp;
@@ -1151,6 +1212,17 @@ function renderCompactPage(page, rot, dpr) {
     if (cw < 20 || ch < 20) throw new Error('compact: 内容过小');
     var pad = 2;
     cx = Math.max(0, cx - pad); cy = Math.max(0, cy - pad); cw += pad * 2; ch += pad * 2;
+    var useFrame = false, outlier = false;
+    if (docFrame && docFrame.w > 0 && docFrame.h > 0) {
+      var fx = docFrame.x0 * probe.width, fy = docFrame.y0 * probe.height;
+      var fw = docFrame.w * probe.width, fh = docFrame.h * probe.height;
+      if (cx >= fx - 2 && cy >= fy - 2 && cx + cw <= fx + fw + 2 && cy + ch <= fy + fh + 2) {
+        cx = fx; cy = fy; cw = fw; ch = fh;      // 统一内容框 → 全书同尺寸同倍率
+        useFrame = true;
+      } else {
+        outlier = true;                          // 异形页 → 回退逐页裁剪
+      }
+    }
     var extra0 = 2;
     var sw = stage.clientWidth - 2 - extra0 * 2, sh = stage.clientHeight - 2 - extra0 * 2;
     var kx = cw / probe.width, ky = ch / probe.height;
@@ -1182,7 +1254,7 @@ function renderCompactPage(page, rot, dpr) {
       updZoom();
       cv.style.visibility = '';
       compactPass = true;
-      setCompactInfo('已裁剪 ' + Math.floor(wPx) + 'x' + Math.floor(hPx) + '（原页 ' + Math.floor(probe.width) + 'x' + Math.floor(probe.height) + '）');
+      setCompactInfo((outlier ? '异形页·逐页裁剪 ' : (useFrame ? '统一框(' + frameCount + '页样本) ' : '逐页 ')) + Math.floor(wPx) + 'x' + Math.floor(hPx) + '（原页 ' + Math.floor(probe.width) + 'x' + Math.floor(probe.height) + '）');
     });
   });
 }
