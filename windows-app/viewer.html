@@ -103,6 +103,11 @@ window.addEventListener('keydown', function (e) {
   #pageInput { width:28px; text-align:center; border-radius:6px; border:none; padding:4px 1px; font-size:11px; }
   #total { font-size:11px; color:#9aa3b0; }
   #hint { color:#8a94a6; font-size:13px; text-align:center; padding-top:40%; }
+  #recentBar { display:none; padding:16px 14px 0; }
+  #recentBar .rbItem { width:64px; flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:4px 0; }
+  #recentBar .rbIcon { font-size:26px; line-height:1; }
+  #recentBar .rbName { font-size:10px; color:#8a94a6; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  body.dark #recentBar .rbName { color:#8a93a3; }
   #fpick { display:none; }
   .mdwrap { display:inline-block; text-align:left; max-width:100%; padding:12px 14px;
             font-size:15px; line-height:1.85; color:#1f2630; word-break:break-word; }
@@ -182,7 +187,7 @@ window.addEventListener('keydown', function (e) {
     </div>
   </div>
 </div>
-<div id="stage"><div id="hint">点击「📂 打开」选择文件（PDF/EPUB/TXT/Markdown/Word/Excel/PPT/图片）<div style="margin-top:8px;font-size:12px;opacity:.8">屏幕下划：显示操作菜单，上划隐藏</div></div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
+<div id="stage"><div id="hint">点击「📂 打开」选择文件（PDF/EPUB/TXT/Markdown/Word/Excel/PPT/图片）<div style="margin-top:8px;font-size:12px;opacity:.8">屏幕下划：显示操作菜单，上划隐藏</div></div><div id="recentBar"></div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
 <div id="bottomInfo"></div>
 <div id="smodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:97;align-items:center;justify-content:center">
   <div style="width:min(360px,90vw);background:#fff;border-radius:12px;padding:14px;max-height:70vh;display:flex;flex-direction:column">
@@ -215,6 +220,10 @@ window.addEventListener('keydown', function (e) {
         <button id="compactBtn" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">关</button>
       </div>
       <div id="compactInfo" style="font-size:11px;color:#8a94a6;padding:0 0 8px">紧凑模式：—</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px dashed #e3e8ef;">
+        <span style="font-size:14px;color:#1f2630">首页显示最近文件</span>
+        <button id="recentBarBtn" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">开</button>
+      </div>
     </div>
     <div style="font-size:12px;color:#5a6472;font-weight:600;margin:10px 2px 6px">🔊 朗读设置</div>
     <div style="background:#f6f8fb;border:1px solid #e3e8ef;border-radius:10px;padding:2px 12px;margin-bottom:4px">
@@ -615,6 +624,8 @@ function resetView() {
   contentEl.style.background = '';
   var h = document.getElementById('hint');
   if (h) h.style.display = 'none';
+  var rb = document.getElementById('recentBar');
+  if (rb) rb.style.display = 'none';
   pdf = null; docKind = null; docPages = []; txtRaw = null; txtIsMd = false;
   cv.style.transform = '';
   window.epubBook = null; window.epubRendition = null;
@@ -1125,6 +1136,13 @@ document.addEventListener('DOMContentLoaded', function() {
     compactPass = false;
     render();
   });
+  var rb2 = document.getElementById('recentBarBtn');
+  if (rb2) rb2.addEventListener('click', function() {
+    localStorage.setItem('pv_recentbar', recentBarOn() ? '0' : '1');
+    updateRecentBarBtn();
+    renderRecentBar();
+  });
+  renderRecentBar();
 });
 
 
@@ -1827,6 +1845,65 @@ function fmtRecentTime(t) {
     return (sameYear ? '' : d.getFullYear() + '-') + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
   } catch (e) { return ''; }
 }
+function recentBarOn() { return localStorage.getItem('pv_recentbar') !== '0'; }
+function updateRecentBarBtn() {
+  var b = document.getElementById('recentBarBtn');
+  if (b) { b.textContent = recentBarOn() ? '开' : '关'; b.style.color = recentBarOn() ? '#2563eb' : '#5a6472'; }
+}
+function fileIconOf(nm) {
+  nm = (nm || '').toLowerCase();
+  if (nm.indexOf('.pdf') >= 0) return '📕';
+  if (nm.indexOf('.epub') >= 0) return '📗';
+  if (nm.indexOf('.doc') >= 0) return '📘';
+  if (nm.indexOf('.xls') >= 0 || nm.indexOf('.csv') >= 0) return '📊';
+  if (nm.indexOf('.ppt') >= 0) return '📽️';
+  if (/\.(md|markdown|mdown|mkd)$/.test(nm)) return '📝';
+  if (/\.(png|jpe?g|gif|webp|bmp)$/.test(nm)) return '🖼️';
+  return '📄';
+}
+function renderRecentBar() {
+  var bar = document.getElementById('recentBar'); if (!bar) return;
+  var items = [];
+  var nat = null;
+  try { if (window.AppBridge && AppBridge.getRecent) nat = JSON.parse(AppBridge.getRecent() || '[]'); } catch (e) { nat = null; }
+  if (nat && nat.length) {
+    for (var i = 0; i < nat.length && i < 10; i++) {
+      (function (idx, nm) {
+        items.push({ name: nm, open: function () { try { AppBridge.openRecent(idx); } catch (e) { setInfo('打开失败'); } } });
+      })(i, nat[i].name);
+    }
+  } else {
+    var rec = [];
+    try { rec = JSON.parse(localStorage.getItem('pv_recent') || '[]'); } catch (e) {}
+    rec.slice(0, 10).forEach(function (r) {
+      items.push({ name: r.name, open: function () {
+        if (r.data) {
+          try {
+            var bin = atob(r.data), u8 = new Uint8Array(bin.length);
+            for (var k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+            openByBytes(r.name, u8.buffer, '', '');
+            return;
+          } catch (e) {}
+        }
+        setInfo('「' + r.name + '」需重新选择文件');
+        try { document.getElementById('fpick').click(); } catch (e) {}
+      }});
+    });
+  }
+  var show = recentBarOn() && !docKind && items.length > 0;
+  bar.style.display = show ? '' : 'none';
+  if (!show) return;
+  var h = '<div style="display:flex;flex-wrap:wrap;gap:14px 10px;justify-content:center">';
+  items.forEach(function (it) {
+    h += '<div class="rbItem" title="' + esc(it.name || '') + '"><div class="rbIcon">' + fileIconOf(it.name) + '</div><div class="rbName">' + esc(it.name || '?') + '</div></div>';
+  });
+  h += '</div>';
+  bar.innerHTML = h;
+  Array.prototype.forEach.call(bar.querySelectorAll('.rbItem'), function (el, idx) {
+    el.onclick = function () { items[idx].open(); };
+  });
+}
+
 function renderRecent() {
   var w = document.getElementById('recentWrap'); if (!w) return;
   var nat = null;
