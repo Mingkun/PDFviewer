@@ -121,7 +121,7 @@
     </div>
   </div>
 </div>
-<div id="stage"><div id="hint">点击「📂 打开」选择文件（PDF/EPUB/TXT/Markdown/Word/Excel/PPT/图片）<div style="margin-top:8px;font-size:12px;opacity:.8">屏幕下划：显示操作菜单，上划隐藏</div></div><div id="recentBar"></div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
+<div id="stage"><div id="hint">点击「📂 打开」选择文件（PDF/EPUB/TXT/Markdown/Word/Excel/PPT/图片）<div style="margin-top:8px;font-size:12px;opacity:.8">屏幕下划：显示操作菜单，上划隐藏</div><div style="margin-top:4px;font-size:12px;opacity:.8">双指右划：关闭当前文件</div></div><div id="recentBar"></div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
 <div id="bottomInfo"></div>
 <div id="smodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:97;align-items:center;justify-content:center">
   <div style="width:min(360px,90vw);background:#fff;border-radius:12px;padding:14px;max-height:70vh;display:flex;flex-direction:column">
@@ -474,11 +474,41 @@ function fitPage() {
   });
 }
 var touchX = 0, touchY = 0, lastTap = 0, swipeFired = false;
+var tf0 = null, tf1 = null, twoFired = false;
 var pinchActive = false, pinchDist = 0, pinchScale = 0, vizK = 1;
 function zoomEl() { return docKind === 'img' ? (document.getElementById('imgView') || cv) : cv; }
 function dist2(t1, t2) {
   var dx = t1.clientX - t2.clientX, dy = t1.clientY - t2.clientY;
   return Math.sqrt(dx * dx + dy * dy);
+}
+function twoFingerCheck(e) {
+  if (twoFired || !tf0 || !tf1) return false;
+  var a = e.touches[0], b = e.touches[1];
+  var dx0 = a.clientX - tf0.x, dy0 = a.clientY - tf0.y;
+  var dx1 = b.clientX - tf1.x, dy1 = b.clientY - tf1.y;
+  var dNow = dist2(a, b);
+  var d0x = tf0.x - tf1.x, d0y = tf0.y - tf1.y;
+  var d0 = Math.sqrt(d0x * d0x + d0y * d0y);
+  if (dx0 > 90 && dx1 > 90 && Math.abs(dy0) < 50 && Math.abs(dy1) < 50 && dNow > d0 * 0.7 && dNow < d0 * 1.3) {
+    twoFired = true;
+    pinchActive = false;
+    try { e.preventDefault(); } catch (err) {}
+    closeDoc();
+    return true;
+  }
+  return false;
+}
+function attachTwoFinger(d) {
+  if (!d || d.__tf) return;
+  d.__tf = 1;
+  d.addEventListener('touchstart', function (e) {
+    if (e.touches.length === 2) {
+      tf0 = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      tf1 = { x: e.touches[1].clientX, y: e.touches[1].clientY };
+      twoFired = false;
+    }
+  }, { passive: true });
+  d.addEventListener('touchmove', function (e) { if (e.touches.length === 2) twoFingerCheck(e); }, { passive: false });
 }
 stage.addEventListener('touchstart', function (e) {
   if (e.touches.length === 2) {
@@ -486,9 +516,13 @@ stage.addEventListener('touchstart', function (e) {
     pinchDist = dist2(e.touches[0], e.touches[1]);
     pinchScale = scale;
     vizK = 1;
+    tf0 = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    tf1 = { x: e.touches[1].clientX, y: e.touches[1].clientY };
+    twoFired = false;
   } else if (e.touches.length === 1) { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; swipeFired = false; }
 }, { passive: true });
 stage.addEventListener('touchmove', function (e) {
+  if (e.touches.length === 2 && twoFingerCheck(e)) return;
   if (!pinchActive && e.touches.length === 1) {
     var mdy = e.touches[0].clientY - touchY;
     var mdx = e.touches[0].clientX - touchX;
@@ -510,6 +544,7 @@ stage.addEventListener('touchmove', function (e) {
   }
 }, { passive: false });
 stage.addEventListener('touchend', function (e) {
+  if (e.touches.length === 0) { tf0 = tf1 = null; twoFired = false; }
   if (pinchActive) {
     if (e.touches.length < 2) {
       pinchActive = false;
@@ -565,6 +600,19 @@ function resetView() {
   window.epubBook = null; window.epubRendition = null;
   document.getElementById('total').textContent = '/ 0';
   document.getElementById('pageInput').value = 0;
+}
+function closeDoc() {
+  if (!docKind) return;
+  try { savePos(); } catch (e) {}
+  try { stopReading(); } catch (e) {}
+  var ta = document.getElementById('tarea');
+  if (ta) ta.style.display = 'none';
+  resetView();
+  document.body.classList.remove('hidebar');
+  var h = document.getElementById('hint');
+  if (h) h.style.display = '';
+  renderRecentBar();
+  setInfo('已关闭当前文件');
 }
 function setTotal(n) {
   document.getElementById('total').textContent = '/ ' + n;
@@ -924,6 +972,16 @@ function openEpub(buf) {
       epubBytes = buf.slice(0);
       var book = ePub(buf);
       var rendition = book.renderTo(document.getElementById('epubBox'), { width: '100%', height: '100%', flow: 'paginated' });
+      try {
+        rendition.on('rendered', function () {
+          setTimeout(function () {
+            try {
+              var ifs = document.querySelectorAll('#epubBox iframe');
+              for (var q = 0; q < ifs.length; q++) attachTwoFinger(ifs[q].contentDocument);
+            } catch (err) {}
+          }, 50);
+        });
+      } catch (err) {}
       window.epubBook = book;
       window.epubRendition = rendition;
       rendition.on('rendered', function (section) { window.epubSectionHref = section && section.href; if (editMode && docKind === 'epub') setEpubEditable(true); });
