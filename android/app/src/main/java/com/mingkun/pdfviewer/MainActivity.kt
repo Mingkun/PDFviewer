@@ -49,6 +49,14 @@ class MainActivity : Activity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 方案A：系统导航栏配色与应用深色底一致（避免底部出现白块），图标用浅色
+        try {
+            window.navigationBarColor = android.graphics.Color.parseColor("#1e2126")
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                window.decorView.systemUiVisibility =
+                    window.decorView.systemUiVisibility and android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.inv()
+            }
+        } catch (_: Exception) {}
         Thread.setDefaultUncaughtExceptionHandler { t, e ->
             try {
                 java.io.File(getExternalFilesDir(null), "crash.txt").writeText(
