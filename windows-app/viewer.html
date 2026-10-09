@@ -1746,15 +1746,24 @@ function recordRecent(name, buf) {
     localStorage.setItem('pv_recent', JSON.stringify(rec));
   } catch (e) {}
 }
+function fmtRecentTime(t) {
+  try {
+    var d = new Date(t), p = function (n) { return (n < 10 ? '0' : '') + n; };
+    var now = new Date();
+    var sameYear = d.getFullYear() === now.getFullYear();
+    return (sameYear ? '' : d.getFullYear() + '-') + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  } catch (e) { return ''; }
+}
 function renderRecent() {
   var w = document.getElementById('recentWrap'); if (!w) return;
   try {
     var rec = JSON.parse(localStorage.getItem('pv_recent') || '[]');
+    rec.sort(function (a, b) { return (b.time || 0) - (a.time || 0); });   // 最近打开的排最前
     if (!rec.length) { w.style.display = 'none'; w.innerHTML = ''; return; }
     w.style.display = '';
     var h = '<div style="font-size:11px;color:#9aa3b0;margin-bottom:4px">最近打开（⚡=可直开，其余需重新选择文件）</div>';
     rec.forEach(function (r, i) {
-      h += '<div class="recentItem" data-i="' + i + '" style="display:flex;justify-content:space-between;gap:8px;padding:6px 4px;' + (i ? 'border-top:1px dashed #e3e8ef;' : '') + 'font-size:13px;color:#1f2630;cursor:pointer"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.name || '?') + '</span><span style="color:#9aa3b0;font-size:11px;white-space:nowrap">' + (r.data ? '⚡ ' : '') + new Date(r.time).toISOString().slice(5, 16).replace('T', ' ') + '</span></div>';
+      h += '<div class="recentItem" data-i="' + i + '" style="display:flex;justify-content:space-between;gap:8px;padding:6px 4px;' + (i ? 'border-top:1px dashed #e3e8ef;' : '') + 'font-size:13px;color:#1f2630;cursor:pointer"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.name || '?') + '</span><span style="color:#9aa3b0;font-size:11px;white-space:nowrap">' + (r.data ? '⚡ ' : '') + fmtRecentTime(r.time) + '</span></div>';
     });
     w.innerHTML = h;
     Array.prototype.forEach.call(w.querySelectorAll('.recentItem'), function (el) {
@@ -1764,6 +1773,7 @@ function renderRecent() {
           var bin = atob(item.data), u8 = new Uint8Array(bin.length);
           for (var k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
           var nm = (item.name || '').toLowerCase(), ab = u8.buffer;
+          try { recordRecent(item.name, ab); } catch (e) {}
           if (/\.csv$/.test(nm)) openXlsx(ab);
           else if (/\.(md|markdown)$/.test(nm)) openMd(ab);
           else openTxt(ab);
