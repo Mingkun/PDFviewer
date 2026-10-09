@@ -474,6 +474,8 @@ class MainActivity : Activity() {
                             })
                             pendingUtter?.let { speakNow(it.first, it.second) }
                         } else {
+                            try { tts?.shutdown() } catch (_: Exception) {}
+                            tts = null
                             jsCall("window.onTtsFail && window.onTtsFail()")
                         }
                         pendingUtter = null
@@ -505,24 +507,33 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun ttsFail(msg: String) {
+        try { tts?.stop() } catch (_: Exception) {}
+        runOnUiThread { android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_LONG).show() }
+        jsCall("window.onTtsFail && window.onTtsFail()")
+    }
+
     private fun speakNow(text: String, id: String) {
         val t = tts ?: return
         val zh = text.any { it.code in 0x4E00..0x9FFF }
         try {
-            t.language = if (zh) java.util.Locale.CHINA else java.util.Locale.US
+            val lang = t.setLanguage(if (zh) java.util.Locale.CHINA else java.util.Locale.US)
+            if (lang == TextToSpeech.LANG_MISSING_DATA || lang == TextToSpeech.LANG_NOT_SUPPORTED) {
+                ttsFail("缺少" + (if (zh) "中文" else "英文") + "语音数据：请到 系统设置→文字转语音 安装语音引擎")
+                return
+            }
             t.setSpeechRate(1.0f)
             if (ttsGender != "default") {
                 val picked = pickVoice(t, zh, ttsGender == "female")
-                if (picked != null) {
-                    t.voice = picked
-                    t.setPitch(1.0f)
-                } else {
-                    t.setPitch(if (ttsGender == "female") 1.25f else 0.8f)
-                }
-            } else {
-                t.setPitch(1.0f)
+                if (picked != null) { t.voice = picked; t.setPitch(1.0f) }
+                else t.setPitch(if (ttsGender == "female") 1.25f else 0.8f)
+            } else t.setPitch(1.0f)
+            val r = t.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
+            if (r != TextToSpeech.SUCCESS) {
+                try { t.setPitch(1.0f); t.voice = t.defaultVoice } catch (_: Exception) {}
+                val r2 = t.speak(text, TextToSpeech.QUEUE_FLUSH, null, id + "r")
+                if (r2 != TextToSpeech.SUCCESS) ttsFail("语音引擎无法发声（错误码 " + r2 + "）：请检查媒体音量与文字转语音设置")
             }
-            t.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
         } catch (e: Exception) {
             jsCall("window.onTtsDone && window.onTtsDone()")
         }

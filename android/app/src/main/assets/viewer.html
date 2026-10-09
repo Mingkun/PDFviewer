@@ -335,7 +335,7 @@ function joinItems(items) {
 function toChunks(sents) {
   var out = [], cur = '';
   for (var i = 0; i < sents.length; i++) {
-    if (cur.length + sents[i].length > 180 && cur) { out.push(cur); cur = sents[i]; }
+    if (cur.length + sents[i].length > 110 && cur) { out.push(cur); cur = sents[i]; }
     else cur = cur ? cur + ' ' + sents[i] : sents[i];
   }
   if (cur) out.push(cur);
@@ -354,6 +354,7 @@ function stopReading(msg) {
   readQueue = []; readIdx = 0;
   try { AppBridge.ttsStop(); } catch (e) {}
   try { if (cloudAudio) { cloudAudio.pause(); cloudAudio = null; } } catch (e) {}
+  cloudCache = {};
   document.getElementById('speak').innerHTML = ic('volume') + '<i>朗读</i>'; document.getElementById('speak').classList.remove('onb');
   if (msg) setInfo(msg);
 }
@@ -361,24 +362,40 @@ var CLOUD_TTS = 'https://5130599.best/Translator/api/tts';
 var TTS_TOKEN = '54a0d81280ac26c1932bc6f30158a0df';
 var cloudAudio = null;
 var localLocked = false;
-function speakText(text, id, attempt) {
-  attempt = attempt || 0;
-  var g = voiceGender();
-  if (g === 'default' || localLocked) {
-    try { AppBridge.ttsSpeak(text, id); } catch (e) { stopReading(); }
-    return;
-  }
+var engineLocked = false;
+try { engineLocked = localStorage.getItem('pv_cloudonly') === '1'; } catch (e) {}
+var cloudCache = {};
+var lastItem = null;
+function cloudUrl(text) {
   var zh = /[\u4e00-\u9fff]/.test(text);
-  var voice = g === 'male' ? (zh ? 'zh-CN-YunxiNeural' : 'en-US-AndrewNeural') : (zh ? 'zh-CN-XiaoxiaoNeural' : 'en-US-AriaNeural');
+  var g = voiceGender();
+  var voice = (g === 'female') ? (zh ? 'zh-CN-XiaoxiaoNeural' : 'en-US-AriaNeural') : (zh ? 'zh-CN-YunyangNeural' : 'en-US-AndrewNeural');
   var qs = '?text=' + encodeURIComponent(text);
   qs += '&lang=' + (zh ? 'zh-CN' : 'en');
   qs += '&voice=' + voice;
+  qs += (g === 'female' ? '' : '&rate=-8%');
   qs += '&token=' + TTS_TOKEN;
-  qs += '&_a=' + attempt;
-  try { if (cloudAudio) { cloudAudio.pause(); } } catch (e) {}
-  cloudAudio = new Audio(CLOUD_TTS + qs);
-  cloudAudio.onended = function () { if (reading) feedNext(); };
+  return CLOUD_TTS + qs;
+}
+function cloudUse() { var g = voiceGender(); return engineLocked || (g !== 'default' && !localLocked); }
+function prefetchCloud(i) {
+  if (!cloudUse() || i >= readQueue.length || cloudCache['u' + (i + 1)]) return;
+  try { var a = new Audio(cloudUrl(readQueue[i].s)); a.preload = 'auto'; a.load(); cloudCache['u' + (i + 1)] = a; } catch (e) {}
+}
+function speakText(text, id, attempt) {
+  attempt = attempt || 0;
+  var g = voiceGender();
+  if ((g === 'default' || localLocked) && !engineLocked) {
+    try { AppBridge.ttsSpeak(text, id); } catch (e) { stopReading(); }
+    return;
+  }
+  var a = cloudCache[id];
+  if (!a) { a = new Audio(cloudUrl(text) + '&_a=' + attempt); cloudCache[id] = a; }
+  try { if (cloudAudio && cloudAudio !== a) cloudAudio.pause(); } catch (e) {}
+  cloudAudio = a;
+  a.onended = function () { if (reading) feedNext(); };
   var fallback = function () {
+    delete cloudCache[id];
     if (attempt < 5) {
       setTimeout(function () { if (reading) speakText(text, id, attempt + 1); }, 700);
     } else {
@@ -386,8 +403,9 @@ function speakText(text, id, attempt) {
       try { AppBridge.ttsSpeak(text, id); } catch (e) { stopReading(); }
     }
   };
-  cloudAudio.onerror = fallback;
-  cloudAudio.play().catch(fallback);
+  a.onerror = fallback;
+  try { a.currentTime = 0; } catch (e) {}
+  a.play().catch(fallback);
 }
 function collectPage(n) {
   if (docKind === 'pdf') {
@@ -431,7 +449,10 @@ function feedNext() {
   var item = readQueue[readIdx];
   if (docKind === 'pdf' || docKind === 'pptx') displayPage(item.p);
   readIdx += 1;
-  speakText(item.s, 'u' + readIdx);
+  lastItem = { s: item.s, id: 'u' + readIdx };
+  speakText(item.s, lastItem.id);
+  prefetchCloud(readIdx);
+  prefetchCloud(readIdx + 1);
 }
 function readerToggle() {
   if (reading) { stopReading(); return; }
@@ -442,7 +463,15 @@ function readerToggle() {
   collectPage(pageNum);
 }
 window.onTtsDone = function () { feedNext(); };
-window.onTtsFail = function () { stopReading('语音引擎不可用'); };
+window.onTtsFail = function () {
+  if (!engineLocked) {
+    engineLocked = true;
+    try { localStorage.setItem('pv_cloudonly', '1'); } catch (e) {}
+    setInfo('本机无语音引擎，已切换在线朗读');
+    if (reading && lastItem) { speakText(lastItem.s, lastItem.id); return; }
+  }
+  stopReading('语音引擎不可用');
+};
 document.getElementById('fpick').onchange = function () {
   var f = this.files && this.files[0];
   if (!f) return;
