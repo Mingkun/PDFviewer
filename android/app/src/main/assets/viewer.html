@@ -465,7 +465,7 @@ function fitPage() {
     var vp1 = page.getViewport({ scale: 1 });
     var pad = compactOn() ? 0 : 16;
     var s = Math.min((stage.clientWidth - pad) / vp1.width, (stage.clientHeight - pad) / vp1.height);
-    scale = Math.max(0.5, Math.min(4, s));
+    scale = Math.max(0.1, Math.min(4, s));
     updZoom();
     render();
   });
@@ -512,7 +512,7 @@ stage.addEventListener('touchend', function (e) {
       pinchActive = false;
       if (docKind === 'img') return;
       cv.style.transform = '';
-      scale = Math.max(0.5, Math.min(4, pinchScale * vizK));
+      scale = Math.max(0.1, Math.min(4, pinchScale * vizK));
       if (pdf) render();
     }
     return;
@@ -1005,7 +1005,7 @@ function applyCompact(page) {
   var sw = stage.clientWidth - 2 - extra0 * 2, sh = stage.clientHeight - 2 - extra0 * 2;
   var probe = page.getViewport({ scale: 1, rotation: rot });
   var kx = cw / probe.width, ky = ch / probe.height;   // 内容占整页比例
-  var newScale = Math.max(0.5, Math.min(6, Math.min(sw / (probe.width * kx), sh / (probe.height * ky))));
+  var newScale = Math.max(0.1, Math.min(6, Math.min(sw / (probe.width * kx), sh / (probe.height * ky))));
   // ③ 平移视口：把内容左上角移到画布 (0,0)，实现真裁剪
   var full = page.getViewport({ scale: newScale, rotation: rot });
   var c1 = full.convertToViewportPoint(cx, cy);
@@ -1129,7 +1129,7 @@ function renderCompactPage(page, rot, dpr) {
   if (!offcv) { offcv = document.createElement('canvas'); offctx = offcv.getContext('2d'); }
   var probe = page.getViewport({ scale: 1, rotation: rot });
   var pad0 = 16;
-  var fit = Math.max(0.5, Math.min(4, Math.min((stage.clientWidth - pad0) / probe.width, (stage.clientHeight - pad0) / probe.height)));
+  var fit = Math.max(0.1, Math.min(4, Math.min((stage.clientWidth - pad0) / probe.width, (stage.clientHeight - pad0) / probe.height)));
   var vp1 = page.getViewport({ scale: fit, rotation: rot });
   offcv.width = Math.max(1, Math.floor(vp1.width * dpr));
   offcv.height = Math.max(1, Math.floor(vp1.height * dpr));
@@ -1160,7 +1160,7 @@ function renderCompactPage(page, rot, dpr) {
     var extra0 = 2;
     var sw = stage.clientWidth - 2 - extra0 * 2, sh = stage.clientHeight - 2 - extra0 * 2;
     var kx = cw / probe.width, ky = ch / probe.height;
-    var ns = Math.max(0.5, Math.min(6, Math.min(sw / (probe.width * kx), sh / (probe.height * ky))));
+    var ns = Math.max(0.1, Math.min(6, Math.min(sw / (probe.width * kx), sh / (probe.height * ky))));
     var full = page.getViewport({ scale: ns, rotation: rot });
     var r1 = full.convertToViewportPoint(cx, cy);
     var r2 = full.convertToViewportPoint(cx + cw, cy + ch);
@@ -1635,7 +1635,7 @@ document.getElementById('wsave').onclick = function () {
 /* ============ 顶栏增强：缩放/滑杆/夜间/搜索/最近文件/收缩/朗读进度 ============ */
 function updZoom() { document.getElementById('zoomlab').textContent = Math.round(scale * 100) + '%'; }
 document.getElementById('zoomin').onclick = function () { if (docKind !== 'pdf') { setInfo('缩放仅支持 PDF'); return; } scale = Math.min(4, scale * 1.25); updZoom(); render(); };
-document.getElementById('zoomout').onclick = function () { if (docKind !== 'pdf') { setInfo('缩放仅支持 PDF'); return; } scale = Math.max(0.5, scale / 1.25); updZoom(); render(); };
+document.getElementById('zoomout').onclick = function () { if (docKind !== 'pdf') { setInfo('缩放仅支持 PDF'); return; } scale = Math.max(0.1, scale / 1.25); updZoom(); render(); };
 var psl = document.getElementById('pslider');
 psl.oninput = function () { document.getElementById('pageInput').value = psl.value; };
 psl.onchange = function () { var v = parseInt(psl.value, 10); if (v >= 1) displayPage(Math.min(v, readTotal() || 1)); };
