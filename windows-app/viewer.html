@@ -1943,7 +1943,7 @@ function renderRecentBar() {
   var nat = null;
   try { if (window.AppBridge && AppBridge.getRecent) nat = JSON.parse(AppBridge.getRecent() || '[]'); } catch (e) { nat = null; }
   if (nat && nat.length) {
-    for (var i = 0; i < nat.length && i < 20; i++) {
+    for (var i = 0; i < nat.length && i < 15; i++) {
       (function (idx, nm) {
         items.push({ name: nm, open: function () { try { AppBridge.openRecent(idx); } catch (e) { setInfo('打开失败'); } } });
       })(i, nat[i].name);
@@ -1951,8 +1951,17 @@ function renderRecentBar() {
   } else {
     var rec = [];
     try { rec = JSON.parse(localStorage.getItem('pv_recent') || '[]'); } catch (e) {}
-    rec.slice(0, 20).forEach(function (r) {
+    rec.slice(0, 15).forEach(function (r) {
       items.push({ name: r.name, open: function () {
+        try {
+          var rl = JSON.parse(localStorage.getItem('pv_recent') || '[]');
+          for (var k2 = 0; k2 < rl.length; k2++) {
+            if (rl[k2].name === r.name && rl[k2].time === r.time) {
+              if (k2 > 0) { var mv = rl.splice(k2, 1)[0]; rl.unshift(mv); localStorage.setItem('pv_recent', JSON.stringify(rl)); }
+              break;
+            }
+          }
+        } catch (e) {}
         if (r.data) {
           try {
             var bin = atob(r.data), u8 = new Uint8Array(bin.length);

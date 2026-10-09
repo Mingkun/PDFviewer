@@ -303,7 +303,10 @@ class MainActivity : Activity() {
                 val arr = org.json.JSONArray(loadRecentJson())
                 val o = arr.optJSONObject(index)
                 if (o == null) { jsCall("window.onRecentFail && window.onRecentFail('')"); return }
-                readUriAndSend(Uri.parse(o.optString("uri")), o.optString("name"), true)
+                val uri = Uri.parse(o.optString("uri"))
+                val nm = o.optString("name")
+                saveRecentUri(uri, nm)
+                readUriAndSend(uri, nm, true)
             } catch (_: Exception) {
                 jsCall("window.onRecentFail && window.onRecentFail('')")
             }
