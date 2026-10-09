@@ -670,6 +670,7 @@ function resetView() {
 function closeDoc() {
   if (!docKind) return;
   try { savePos(); } catch (e) {}
+  curFileKey = '';
   try { stopReading(); } catch (e) {}
   var ta = document.getElementById('tarea');
   if (ta) ta.style.display = 'none';
@@ -1842,7 +1843,7 @@ function openByBytes(name, buf, mime, key) {
 }
 function posStore() { return 'pv_pos:' + curFileKey; }
 function savePos() {
-  if (!curFileKey) return;
+  if (!curFileKey || !docKind) return;
   try {
     var p = { t: Date.now() };
     if (docKind === 'pdf' || docKind === 'pptx') { p.page = pageNum; p.scale = scale; }
