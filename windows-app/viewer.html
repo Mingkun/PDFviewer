@@ -1075,6 +1075,8 @@ function applyCompact(page) {
   var leftPx = Math.min(c1[0], c2[0]), topPx = Math.min(c1[1], c2[1]);
   var wPx = Math.abs(c2[0] - c1[0]), hPx = Math.abs(c2[1] - c1[1]);
   if (wPx < 20 || hPx < 20) { setCompactInfo('未触发：裁剪区过小'); return null; }
+  var extra = 1;                       // 四边各再多留 1px
+  leftPx -= extra; topPx -= extra; wPx += extra * 2; hPx += extra * 2;
   setCompactInfo('已裁剪 ' + Math.floor(wPx) + 'x' + Math.floor(hPx) + '（原页 ' + Math.floor(probe.width) + 'x' + Math.floor(probe.height) + '）');
   compactPass = true;
   scale = newScale;
@@ -1156,6 +1158,8 @@ function renderCompactPage(page, rot, dpr) {
     var leftPx = Math.min(r1[0], r2[0]), topPx = Math.min(r1[1], r2[1]);
     var wPx = Math.abs(r2[0] - r1[0]), hPx = Math.abs(r2[1] - r1[1]);
     if (wPx < 20 || hPx < 20) throw new Error('compact: 裁剪区过小');
+    var extra = 1;                       // 四边各再多留 1px
+    leftPx -= extra; topPx -= extra; wPx += extra * 2; hPx += extra * 2;
     var vp2 = page.getViewport({ scale: ns, rotation: rot, offsetX: -leftPx, offsetY: -topPx });
     offcv.width = Math.max(1, Math.floor(wPx * dpr));
     offcv.height = Math.max(1, Math.floor(hPx * dpr));
