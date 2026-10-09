@@ -107,7 +107,7 @@ window.addEventListener('keydown', function (e) {
   #total { font-size:11px; color:#8e959f; font-variant-numeric:tabular-nums; }
   #hint { color:#8a94a6; font-size:13px; text-align:center; padding-top:40%; }
   #recentBar { display:none; padding:16px 14px 0; }
-  #recentBar .rbItem { width:64px; flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:4px 0; position:relative; -webkit-user-select:none; user-select:none; }
+  #recentBar .rbItem { width:64px; flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:4px 0; position:relative; -webkit-user-select:none; user-select:none; touch-action:manipulation; }
   #recentBar .rbPin { position:absolute; top:0; right:2px; font-size:11px; pointer-events:none; }
   #recentBar .rbIcon { font-size:26px; line-height:1; }
   #recentBar .rbName { font-size:10px; color:#8a94a6; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -2055,6 +2055,7 @@ function renderRecentBar() {
   Array.prototype.forEach.call(bar.querySelectorAll('.rbItem'), function (el, idx) {
     var it = items[idx];
     var timer = null;
+    el.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
     el.addEventListener('pointerdown', function () {
       timer = setTimeout(function () {
         timer = null; el.__pin = true;
@@ -2063,7 +2064,7 @@ function renderRecentBar() {
           setInfo(it.pinned ? '已取消钉住：' + it.name : '已钉住：' + it.name);
           renderRecentBar();
         }
-      }, 550);
+      }, 400);
     });
     el.addEventListener('pointermove', function () { if (timer) { clearTimeout(timer); timer = null; } });
     el.addEventListener('pointerup', function () { if (timer) { clearTimeout(timer); timer = null; } });
