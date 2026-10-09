@@ -38,6 +38,7 @@ import kotlin.concurrent.thread
 
 class MainActivity : Activity() {
     private var fileCallback: ValueCallback<Array<Uri>>? = null
+    private val REQ_OPEN = 2001
     private lateinit var web: WebView
     private var downloadId: Long = -1
     private var pendingInstall = false
@@ -191,6 +192,73 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun recentPrefs() = getSharedPreferences("pv_recent", MODE_PRIVATE)
+
+    private fun loadRecentJson(): String =
+        try { recentPrefs().getString("list", "[]") ?: "[]" } catch (_: Exception) { "[]" }
+
+    private fun saveRecentUri(uri: Uri, name: String) {
+        try {
+            val arr = org.json.JSONArray(loadRecentJson())
+            val out = org.json.JSONArray()
+            out.put(org.json.JSONObject().put("uri", uri.toString()).put("name", name).put("time", System.currentTimeMillis()))
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                if (o.optString("uri") == uri.toString()) continue
+                if (out.length() >= 20) break
+                out.put(o)
+            }
+            recentPrefs().edit().putString("list", out.toString()).apply()
+        } catch (_: Exception) {}
+    }
+
+    private fun displayNameOf(uri: Uri): String {
+        var nm: String? = null
+        try {
+            contentResolver.query(uri, null, null, null, null)?.use { c ->
+                val idx = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (idx >= 0 && c.moveToFirst()) nm = c.getString(idx)
+            }
+        } catch (_: Exception) {}
+        if (nm.isNullOrBlank()) nm = uri.lastPathSegment ?: "文件"
+        return nm!!
+    }
+
+    private fun jsonq(v: String?): String = org.json.JSONObject.quote(v ?: "")
+
+    fun readUriAndSend(uri: Uri, name: String, retryWithPermission: Boolean) {
+        Thread {
+            var sent = false
+            try {
+                val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                if (bytes != null) { sent = true; runOnUiThread { sendFileToPage(name, uri.toString(), bytes) } }
+            } catch (_: Exception) {}
+            if (!sent && retryWithPermission) {
+                try {
+                    contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    if (bytes != null) { sent = true; runOnUiThread { sendFileToPage(name, uri.toString(), bytes) } }
+                } catch (_: Exception) {}
+            }
+            if (!sent) runOnUiThread { jsCall("window.onRecentFail && window.onRecentFail(" + jsonq(name) + ")") }
+        }.start()
+    }
+
+    private fun sendFileToPage(name: String, key: String, bytes: ByteArray) {
+        jsCall("window.onFileStart && window.onFileStart(" + jsonq(name) + "," + jsonq(key) + "," + bytes.size + ")")
+        val chunk = 384 * 1024
+        var off = 0
+        var seq = 0
+        while (off < bytes.size) {
+            val n = minOf(chunk, bytes.size - off)
+            val b64 = android.util.Base64.encodeToString(bytes, off, n, android.util.Base64.NO_WRAP)
+            jsCall("window.onFileChunk && window.onFileChunk(" + seq + "," + jsonq(b64) + ")")
+            off += n
+            seq++
+        }
+        jsCall("window.onFileEnd && window.onFileEnd()")
+    }
+
     private fun jsCall(code: String) {
         runOnUiThread { web.evaluateJavascript(code, null) }
     }
@@ -206,6 +274,41 @@ class MainActivity : Activity() {
     }
 
     inner class Bridge {
+        @JavascriptInterface
+        fun openFile() {
+            try {
+                val i = Intent(Intent.ACTION_OPEN_DOCUMENT)
+                i.addCategory(Intent.CATEGORY_OPENABLE)
+                i.type = "*/*"
+                i.putExtra(Intent.EXTRA_MIME_TYPES, arrayOf(
+                    "application/pdf", "application/epub+zip", "text/*", "application/csv",
+                    "application/msword", "application/vnd.ms-excel",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    "image/*"))
+                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                startActivityForResult(i, REQ_OPEN)
+            } catch (_: Exception) {
+                jsCall("window.onRecentFail && window.onRecentFail('')")
+            }
+        }
+
+        @JavascriptInterface
+        fun getRecent(): String = loadRecentJson()
+
+        @JavascriptInterface
+        fun openRecent(index: Int) {
+            try {
+                val arr = org.json.JSONArray(loadRecentJson())
+                val o = arr.optJSONObject(index)
+                if (o == null) { jsCall("window.onRecentFail && window.onRecentFail('')"); return }
+                readUriAndSend(Uri.parse(o.optString("uri")), o.optString("name"), true)
+            } catch (_: Exception) {
+                jsCall("window.onRecentFail && window.onRecentFail('')")
+            }
+        }
+
         @JavascriptInterface
         fun appVersion(): String {
             val info = packageManager.getPackageInfo(packageName, 0)
@@ -507,6 +610,15 @@ class MainActivity : Activity() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == REQ_OPEN) {
+            val uri: Uri? = if (resultCode == RESULT_OK) data?.data else null
+            if (uri == null) return
+            try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
+            val nm = displayNameOf(uri)
+            saveRecentUri(uri, nm)
+            readUriAndSend(uri, nm, false)
+            return
+        }
         if (requestCode == 1001) {
             val cb = fileCallback
             fileCallback = null

@@ -280,7 +280,10 @@ function setInfo(s) {
   infoTimer = setTimeout(function () { el.style.display = 'none'; el.textContent = ''; }, 4000);
 }
 
-document.getElementById('open').onclick = function () { document.getElementById('fpick').click(); };
+document.getElementById('open').onclick = function () {
+  try { if (window.AppBridge && AppBridge.openFile) { AppBridge.openFile(); return; } } catch (e) {}
+  document.getElementById('fpick').click();
+};
 document.getElementById('print').onclick = function () {
   if (docKind !== 'pdf') { if (docKind) setInfo('打印仅支持 PDF'); return; }
   try { AppBridge.printPdf(); } catch (e) {}
@@ -496,17 +499,7 @@ document.getElementById('fpick').onchange = function () {
   fr.onload = function () {
     var buf = fr.result;
     try { recordRecent(f.name, buf); } catch (e) {}
-    try {
-      if (name.indexOf('.pdf') >= 0 || mime === 'application/pdf') openPdf(buf);
-      else if (/\.(png|jpe?g|gif|webp|bmp)$/.test(name) || mime.indexOf('image/') === 0) openImage(buf);
-      else if (name.indexOf('.epub') >= 0) openEpub(buf);
-      else if (name.indexOf('.docx') >= 0) openDocx(buf);
-      else if (name.indexOf('.doc') >= 0) openDoc(buf);
-      else if (name.indexOf('.xlsx') >= 0 || name.indexOf('.csv') >= 0) openXlsx(buf);
-      else if (name.indexOf('.pptx') >= 0) openPptx(buf);
-      else if (/\.(md|markdown|mdown|mkd)$/.test(name) || mime === 'text/markdown' || mime === 'text/x-markdown') openMd(buf);
-      else openTxt(buf);
-    } catch (e) { setInfo('打开失败'); }
+    openByBytes(f.name, buf, mime, '');
   };
   fr.readAsArrayBuffer(f);
 };
@@ -667,7 +660,10 @@ function openPdf(buf) {
     pageNum = 1;
     setTotal(doc.numPages);
     cv.style.display = '';
-    fitPage();
+    var _p = loadPos();
+    if (_p && _p.page && _p.page > 1) pageNum = Math.min(_p.page, doc.numPages);
+    if (_p && _p.scale) { scale = _p.scale; updZoom(); render(); }
+    else fitPage();
     buildDocFrame();
     if (autoReadOn()) readerToggle();
   }).catch(function (e) { setInfo('打开失败'); });
@@ -1744,6 +1740,71 @@ setInterval(function () {
   window.addEventListener('scroll', chk, { passive: true });
   if (contentEl) contentEl.addEventListener('scroll', chk, { passive: true });
 })();
+var curFileKey = '', rxChunks = [], rxName = '', rxKey = '', rxTotal = 0;
+function openByBytes(name, buf, mime, key) {
+  var nm = (name || '').toLowerCase();
+  curFileKey = key || nm;
+  try {
+    if (nm.indexOf('.pdf') >= 0 || mime === 'application/pdf') openPdf(buf);
+    else if (/\.(png|jpe?g|gif|webp|bmp)$/.test(nm) || (mime || '').indexOf('image/') === 0) openImage(buf);
+    else if (nm.indexOf('.epub') >= 0) openEpub(buf);
+    else if (nm.indexOf('.docx') >= 0) openDocx(buf);
+    else if (nm.indexOf('.doc') >= 0) openDoc(buf);
+    else if (nm.indexOf('.xlsx') >= 0 || nm.indexOf('.csv') >= 0) openXlsx(buf);
+    else if (nm.indexOf('.pptx') >= 0) openPptx(buf);
+    else if (/\.(md|markdown|mdown|mkd)$/.test(nm) || mime === 'text/markdown' || mime === 'text/x-markdown') openMd(buf);
+    else openTxt(buf);
+  } catch (e) { setInfo('打开失败'); }
+  // 文本/图片类：恢复滚动位置
+  setTimeout(function () {
+    try {
+      var q = loadPos();
+      if (q && q.cTop && contentEl && contentEl.style.display !== 'none') contentEl.scrollTop = q.cTop;
+    } catch (e) {}
+  }, 350);
+}
+function posStore() { return 'pv_pos:' + curFileKey; }
+function savePos() {
+  if (!curFileKey) return;
+  try {
+    var p = { t: Date.now() };
+    if (docKind === 'pdf' || docKind === 'pptx') { p.page = pageNum; p.scale = scale; }
+    p.sTop = stage.scrollTop || 0; p.sLeft = stage.scrollLeft || 0;
+    if (contentEl && contentEl.style.display !== 'none') p.cTop = contentEl.scrollTop || 0;
+    localStorage.setItem(posStore(), JSON.stringify(p));
+  } catch (e) {}
+}
+function loadPos() { try { return JSON.parse(localStorage.getItem(posStore()) || 'null'); } catch (e) { return null; } }
+setInterval(savePos, 4000);
+window.addEventListener('pagehide', savePos);
+document.addEventListener('visibilitychange', function () { if (document.hidden) savePos(); });
+
+window.onFileStart = function (name, key, total) {
+  rxChunks = []; rxName = name || ''; rxKey = key || ''; rxTotal = total || 0;
+  setInfo('正在打开 ' + rxName + ' …');
+};
+window.onFileChunk = function (seq, b64) {
+  try {
+    var bin = atob(b64), u8 = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    rxChunks[seq] = u8;
+    if (rxTotal > 0) setInfo('正在打开 ' + rxName + ' … ' + Math.min(99, Math.round((seq + 1) * 393216 * 100 / rxTotal)) + '%');
+  } catch (e) {}
+};
+window.onFileEnd = function () {
+  var i, total = 0;
+  for (i = 0; i < rxChunks.length; i++) { if (rxChunks[i]) total += rxChunks[i].length; }
+  if (!total) { setInfo('打开失败：内容为空'); return; }
+  var all = new Uint8Array(total), off = 0;
+  for (i = 0; i < rxChunks.length; i++) { if (rxChunks[i]) { all.set(rxChunks[i], off); off += rxChunks[i].length; } }
+  rxChunks = [];
+  setInfo('');
+  openByBytes(rxName, all.buffer, '', rxKey);
+};
+window.onRecentFail = function (name) {
+  setInfo((name ? ('「' + name + '」') : '') + ' 已失效（文件被移动或权限已收回），请重新选择');
+};
+
 function recordRecent(name, buf) {
   try {
     var rec = JSON.parse(localStorage.getItem('pv_recent') || '[]');
@@ -1768,6 +1829,25 @@ function fmtRecentTime(t) {
 }
 function renderRecent() {
   var w = document.getElementById('recentWrap'); if (!w) return;
+  var nat = null;
+  try { if (window.AppBridge && AppBridge.getRecent) nat = JSON.parse(AppBridge.getRecent() || '[]'); } catch (e) { nat = null; }
+  if (nat && nat.length) {
+    nat.sort(function (a, b) { return (b.time || 0) - (a.time || 0); });
+    w.style.display = '';
+    var h2 = '<div style="font-size:11px;color:#9aa3b0;margin-bottom:4px">最近打开（点击直接打开 · 已记住阅读位置）</div>';
+    nat.forEach(function (r, i) {
+      h2 += '<div class="recentItem" data-i="' + i + '" style="display:flex;justify-content:space-between;gap:8px;padding:6px 4px;' + (i ? 'border-top:1px dashed #e3e8ef;' : '') + 'font-size:13px;color:#1f2630;cursor:pointer"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.name || '?') + '</span><span style="color:#9aa3b0;font-size:11px;white-space:nowrap">⚡ ' + fmtRecentTime(r.time) + '</span></div>';
+    });
+    w.innerHTML = h2;
+    Array.prototype.forEach.call(w.querySelectorAll('.recentItem'), function (el) {
+      el.onclick = function () {
+        var i = +el.getAttribute('data-i');
+        try { document.getElementById('mclose').click(); } catch (e) {}
+        try { AppBridge.openRecent(i); } catch (e) { setInfo('打开失败'); }
+      };
+    });
+    return;
+  }
   try {
     var rec = JSON.parse(localStorage.getItem('pv_recent') || '[]');
     rec.sort(function (a, b) { return (b.time || 0) - (a.time || 0); });   // 最近打开的排最前
