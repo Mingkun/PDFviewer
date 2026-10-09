@@ -21,6 +21,7 @@
   body.slimbar #bar, body.slimbar #ebar { padding-top:2px; padding-bottom:2px; }
   body.hidebar #bar, body.hidebar #ebar { display:none !important; }
   body.ctrcontent #stage { display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  body.ctrcontent #content { display:flex !important; flex-direction:column; align-items:center; justify-content:center; }
   body.slimbar #bar .bb { height:34px; }
   body.slimbar #bar .bb i { display:none; }
   body.dark { background:#12141a; }
@@ -541,6 +542,7 @@ stage.addEventListener('touchend', function (e) {
   }
 }, { passive: true });
 stage.addEventListener('dblclick', function () { fitAll(); });
+window.addEventListener('resize', function () { updateStageCenter(); });
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 var docKind = null, docPages = [];
 var contentEl = document.getElementById('content');
@@ -610,9 +612,9 @@ function openImage(buf) {
   var blob = new Blob([buf]);
   var url = URL.createObjectURL(blob);
   contentEl.innerHTML = '<div id="imgWrap" style="position:relative;display:block;width:fit-content;margin:8px auto"><img id="imgView" src="' + url + '" style="max-width:100%;display:block;box-shadow:0 2px 12px rgba(0,0,0,.5)"><canvas id="iocv" style="position:absolute;left:0;top:0;display:none;touch-action:none"></canvas></div>';
-  contentEl.style.display = 'block';
+  contentEl.style.display = 'block'; updateStageCenter();
   var imEl = document.getElementById('imgView');
-  imEl.onload = function () { if (editMode && docKind === 'img') { syncImgOverlay(); drawImgAnns(); } };
+  imEl.onload = function () { if (editMode && docKind === 'img') { syncImgOverlay(); drawImgAnns(); } updateStageCenter(); };
   var ioc = document.getElementById('iocv');
   ioc.addEventListener('pointerdown', iDown);
   ioc.addEventListener('pointermove', iMove);
@@ -765,7 +767,7 @@ function openMd(buf) {
   docPages = chunksFromText(mdPlain(txt));
   contentEl.innerHTML = '<div class="mdwrap">' + mdHtml(txt) + '</div>';
   contentEl.style.background = '#fff';
-  contentEl.style.display = 'block';
+  contentEl.style.display = 'block'; updateStageCenter();
   docKind = 'txt';
   setTotal(docPages.length);
   if (autoReadOn()) readerToggle();
@@ -777,7 +779,7 @@ function openTxt(buf) {
   docPages = chunksFromText(txt);
   contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(txt) + '</div>';
   contentEl.style.background = '#fff';
-  contentEl.style.display = 'block';
+  contentEl.style.display = 'block'; updateStageCenter();
   docKind = 'txt';
   setTotal(docPages.length);
   if (autoReadOn()) readerToggle();
@@ -789,7 +791,7 @@ function openDocx(buf) {
     mammoth.convertToHtml({ arrayBuffer: buf }).then(function (r) {
       contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.8;color:#1f2630">' + (r.value || '') + '</div>';
       contentEl.style.background = '#fff';
-      contentEl.style.display = 'block';
+      contentEl.style.display = 'block'; updateStageCenter();
       docKind = 'docx';
       return mammoth.extractRawText({ arrayBuffer: buf });
     }).then(function (r2) {
@@ -816,7 +818,7 @@ function openXlsx(buf) {
       });
       contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px">' + html.replace(/<td/g, '<td style="border:1px solid #dde4ec;padding:4px 8px"').replace(/<th/g, '<th style="border:1px solid #dde4ec;padding:4px 8px"') + '</div>';
       contentEl.style.background = '#fff';
-      contentEl.style.display = 'block';
+      contentEl.style.display = 'block'; updateStageCenter();
       var t = texts.join('\n');
       docPages = t.trim() ? chunksFromText(t) : [];
       docKind = 'xlsx';
@@ -858,7 +860,7 @@ function finishPptx() {
     html += '<div class="slideCard" data-slide="' + (i + 1) + '" style="display:none;text-align:left;max-width:100%;margin:12px;padding:16px;background:#fff;border-radius:10px;font-size:15px;line-height:1.8;color:#1f2630;white-space:pre-wrap"><div style="font-size:11px;color:#7048a8;margin-bottom:6px">幻灯片 ' + (i + 1) + ' / ' + docPages.length + '</div>' + esc(docPages[i] || '（无文字）') + '</div>';
   }
   contentEl.innerHTML = html;
-  contentEl.style.display = 'block';
+  contentEl.style.display = 'block'; updateStageCenter();
   docKind = 'pptx';
   setTotal(docPages.length);
   showSlide(1);
@@ -900,7 +902,7 @@ function openDoc(buf) {
   docPages = chunksFromText(txt);
   contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(txt) + '</div>';
   contentEl.style.background = '#fff';
-  contentEl.style.display = 'block';
+  contentEl.style.display = 'block'; updateStageCenter();
   docKind = 'doc';
   setTotal(docPages.length);
   if (autoReadOn()) readerToggle();
@@ -910,7 +912,7 @@ function openEpub(buf) {
   loadScript('libs/epub.min.js', function (err) {
     if (err || typeof ePub === 'undefined') { setInfo('打开失败'); return; }
     contentEl.innerHTML = '<div id="epubBox" style="width:100%;height:100%;background:#fff"></div>';
-    contentEl.style.display = 'block';
+    contentEl.style.display = 'block'; updateStageCenter();
     try {
       epubBytes = buf.slice(0);
       var book = ePub(buf);
@@ -952,9 +954,17 @@ var compactPass = false;
 var docFrame = null, frameBusy = false, frameToken = 0, frameCount = 0;
 function updateStageCenter() {
   try {
-    var cvs = cv.style.display !== 'none';
-    var fits = cvs && cv.clientHeight > 0 &&
-               cv.clientHeight <= stage.clientHeight + 3 && cv.clientWidth <= stage.clientWidth + 3;
+    var fits = false;
+    if (cv.style.display !== 'none') {
+      // PDF/PPTX：画布
+      fits = cv.clientHeight > 0 &&
+             cv.clientHeight <= stage.clientHeight + 3 && cv.clientWidth <= stage.clientWidth + 3;
+    } else if (contentEl && contentEl.style.display !== 'none') {
+      // 文字/图片/Word/Excel/EPUB 等：按实际内容高度判定
+      var inner = contentEl.firstElementChild;
+      var ih = inner ? inner.getBoundingClientRect().height : 0;
+      fits = ih > 0 && ih <= stage.clientHeight - 4;
+    }
     document.body.classList.toggle('ctrcontent', fits);
   } catch (e) {
   }
@@ -1291,7 +1301,7 @@ document.getElementById('editb').onclick = function () {
     editMode = !editMode;
     var ta = document.getElementById('tarea');
     if (editMode) { ta.value = txtRaw || ''; ta.style.display = 'block'; contentEl.style.display = 'none'; }
-    else { ta.style.display = 'none'; contentEl.style.display = 'block'; }
+    else { ta.style.display = 'none'; contentEl.style.display = 'block'; updateStageCenter(); }
     document.getElementById('ebar').style.display = editMode ? 'flex' : 'none';
     document.getElementById('bar').style.display = editMode ? 'none' : 'flex';
     document.querySelectorAll('.etp,.etw,.eti,.epe').forEach(function (x) { x.style.display = 'none'; });
