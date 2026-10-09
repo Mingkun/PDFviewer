@@ -14,6 +14,7 @@
   #bar button:active { background:rgba(255,255,255,.14); }
   #bar .bb { flex:1 1 0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; height:46px; padding:0; font-size:18px; line-height:1; overflow:hidden; }
   #bar .bb i { font-style:normal; font-size:10px; font-weight:500; letter-spacing:.2px; color:#8e959f; }
+  #bar .bb svg { width:21px; height:21px; display:block; }
   #bar .bb i { font-style:normal; font-size:9px; opacity:.85; letter-spacing:1px; }
   #pnav { display:flex; align-items:center; gap:7px; flex-basis:100%; order:8; padding-top:1px; }
   #pslider { flex:1; accent-color:#0a84ff; min-width:80px; }
@@ -79,12 +80,12 @@
 </head>
 <body>
 <div id="bar">
-  <button id="open" class="bb">📂<i>打开</i></button>
-  <button id="speak" class="bb">🔊<i>朗读</i></button>
-  <button id="searchb" class="bb">🔍<i>搜索</i></button>
-  <button id="editb" class="bb">✏️<i>编辑</i></button>
-  <button id="nightb" class="bb">🌙<i>夜间</i></button>
-  <button id="gear" class="bb">⚙<i>设置</i></button>
+  <button id="open" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><i>打开</i></button>
+  <button id="speak" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg><i>朗读</i></button>
+  <button id="searchb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><i>搜索</i></button>
+  <button id="editb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg><i>编辑</i></button>
+  <button id="nightb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><i>夜间</i></button>
+  <button id="gear" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><i>设置</i></button>
   <div id="pnav"><button id="zoomout" class="bz">−</button><span id="zoomlab">150%</span><button id="zoomin" class="bz">＋</button><input id="pageInput" type="number" value="0"><span id="total">/ 0</span><input type="range" id="pslider" min="1" max="1" value="1"></div>
   <div id="readbar"></div>
 </div>
@@ -340,13 +341,20 @@ function toChunks(sents) {
   if (cur) out.push(cur);
   return out;
 }
+var ICONS = {
+  volume: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>',
+  moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  sun: '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>'
+};
+function ic(k) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[k] || '') + '</svg>'; }
 function stopReading(msg) {
   reading = false;
   localLocked = false;
   readQueue = []; readIdx = 0;
   try { AppBridge.ttsStop(); } catch (e) {}
   try { if (cloudAudio) { cloudAudio.pause(); cloudAudio = null; } } catch (e) {}
-  document.getElementById('speak').innerHTML = '🔊<i>朗读</i>'; document.getElementById('speak').classList.remove('onb');
+  document.getElementById('speak').innerHTML = ic('volume') + '<i>朗读</i>'; document.getElementById('speak').classList.remove('onb');
   if (msg) setInfo(msg);
 }
 var CLOUD_TTS = 'https://5130599.best/Translator/api/tts';
@@ -430,7 +438,7 @@ function readerToggle() {
   if (!docKind) return;
   reading = true;
   readQueue = []; readIdx = 0; readPage = pageNum;
-  document.getElementById('speak').innerHTML = '⏹<i>停止</i>'; document.getElementById('speak').classList.add('onb');
+  document.getElementById('speak').innerHTML = ic('stop') + '<i>停止</i>'; document.getElementById('speak').classList.add('onb');
   collectPage(pageNum);
 }
 window.onTtsDone = function () { feedNext(); };
@@ -1734,10 +1742,10 @@ document.getElementById('nightb').onclick = function () {
   document.body.classList.toggle('dark');
   var on = document.body.classList.contains('dark');
   try { localStorage.setItem('pv_dark', on ? '1' : '0'); } catch (e) {}
-  this.innerHTML = (on ? '☀️<i>日间</i>' : '🌙<i>夜间</i>');
+  this.innerHTML = (on ? ic('sun') + '<i>日间</i>' : ic('moon') + '<i>夜间</i>');
   setInfo(on ? '夜间模式已开启' : '已切回日间模式');
 };
-try { if (localStorage.getItem('pv_dark') === '1') { document.body.classList.add('dark'); document.getElementById('nightb').innerHTML = '☀️<i>日间</i>'; } } catch (e) {}
+try { if (localStorage.getItem('pv_dark') === '1') { document.body.classList.add('dark'); document.getElementById('nightb').innerHTML = ic('sun') + '<i>日间</i>'; } } catch (e) {}
 updZoom();
 setInterval(function () {
   var rb = document.getElementById('readbar'); if (!rb) return;
