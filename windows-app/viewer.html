@@ -1891,7 +1891,7 @@ function renderRecentBar() {
     });
   }
   var show = recentBarOn() && !docKind && items.length > 0;
-  bar.style.display = show ? '' : 'none';
+  bar.style.display = show ? 'block' : 'none';
   if (!show) return;
   var h = '<div style="display:flex;flex-wrap:wrap;gap:14px 10px;justify-content:center">';
   items.forEach(function (it) {
