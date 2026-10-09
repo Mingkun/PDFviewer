@@ -543,7 +543,7 @@ function fitPage() {
     var vp1 = page.getViewport({ scale: 1 });
     var pad = compactOn() ? 0 : 16;
     var s = Math.min((stage.clientWidth - pad) / vp1.width, (stage.clientHeight - pad) / vp1.height);
-    scale = Math.max(0.1, Math.min(4, s));
+    scale = Math.max(0.01, Math.min(4, s));
     updZoom();
     render();
   });
@@ -625,7 +625,7 @@ stage.addEventListener('touchend', function (e) {
       pinchActive = false;
       if (docKind === 'img') return;
       cv.style.transform = '';
-      scale = Math.max(0.1, Math.min(4, pinchScale * vizK));
+      scale = Math.max(0.01, Math.min(4, pinchScale * vizK));
       if (pdf) render();
     }
     return;
@@ -1796,7 +1796,7 @@ document.getElementById('wsave').onclick = function () {
 /* ============ 顶栏增强：缩放/滑杆/夜间/搜索/最近文件/收缩/朗读进度 ============ */
 function updZoom() { document.getElementById('zoomlab').textContent = Math.round(scale * 100) + '%'; }
 document.getElementById('zoomin').onclick = function () { if (docKind !== 'pdf') { setInfo('缩放仅支持 PDF'); return; } scale = Math.min(4, scale * 1.25); updZoom(); render(); };
-document.getElementById('zoomout').onclick = function () { if (docKind !== 'pdf') { setInfo('缩放仅支持 PDF'); return; } scale = Math.max(0.1, scale / 1.25); updZoom(); render(); };
+document.getElementById('zoomout').onclick = function () { if (docKind !== 'pdf') { setInfo('缩放仅支持 PDF'); return; } scale = Math.max(0.01, scale / 1.25); updZoom(); render(); };
 var psl = document.getElementById('pslider');
 psl.oninput = function () { document.getElementById('pageInput').value = psl.value; };
 psl.onchange = function () { var v = parseInt(psl.value, 10); if (v >= 1) displayPage(Math.min(v, readTotal() || 1)); };
