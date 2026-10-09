@@ -398,6 +398,8 @@ function speakText(text, id, attempt) {
     delete cloudCache[id];
     if (attempt < 5) {
       setTimeout(function () { if (reading) speakText(text, id, attempt + 1); }, 700);
+    } else if (engineLocked) {
+      stopReading('在线语音失败：请检查网络后重试');
     } else {
       localLocked = true;
       try { AppBridge.ttsSpeak(text, id); } catch (e) { stopReading(); }
