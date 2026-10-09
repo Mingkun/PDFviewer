@@ -372,7 +372,7 @@ bindVg('vgMale', 'male');
 bindVg('vgFemale', 'female');
 updateVgUI();
 function splitS(t) {
-  var s = t.replace(/[ \t]+/g, ' ').replace(/\n+/g, ' ').trim(), out = [], cur = '';
+  var s = t.replace(/\r\n|\r|\n+/g, ' ').replace(/[ \t]+/g, ' ').trim(), out = [], cur = '';
   for (var i = 0; i < s.length; i++) {
     var c = s.charAt(i);
     cur += c;
@@ -405,7 +405,17 @@ function toChunks(sents) {
     else cur = cur ? cur + ' ' + sents[i] : sents[i];
   }
   if (cur) out.push(cur);
-  return out;
+  var fin = [];
+  out.forEach(function (x) {
+    while (x.length > 185) {
+      var c = Math.max(x.lastIndexOf('，', 185), x.lastIndexOf('、', 185), x.lastIndexOf('·', 185), x.lastIndexOf('：', 185), x.lastIndexOf(' ', 185));
+      if (c < 60) c = 185;
+      fin.push(x.slice(0, c + 1));
+      x = x.slice(c + 1);
+    }
+    fin.push(x);
+  });
+  return fin;
 }
 var ICONS = {
   volume: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>',
