@@ -21,7 +21,7 @@
   body.slimbar #bar, body.slimbar #ebar { padding-top:2px; padding-bottom:2px; }
   body.hidebar #bar, body.hidebar #ebar { display:none !important; }
   body.ctrcontent #stage { display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  body.ctrcontent #content { display:flex !important; flex-direction:column; align-items:center; justify-content:center; }
+  #content.ctr { display:flex !important; flex-direction:column; align-items:center; justify-content:center; }
   body.slimbar #bar .bb { height:34px; }
   body.slimbar #bar .bb i { display:none; }
   body.dark { background:#12141a; }
@@ -954,9 +954,9 @@ var compactPass = false;
 var docFrame = null, frameBusy = false, frameToken = 0, frameCount = 0;
 function updateStageCenter() {
   try {
-    var fits = false;
+    var fits = false, ctrContent = false;
     if (cv.style.display !== 'none') {
-      // PDF/PPTX：画布
+      // PDF/PPTX：画布（#content 保持隐藏，绝不能加 ctr，否则会留白边）
       fits = cv.clientHeight > 0 &&
              cv.clientHeight <= stage.clientHeight + 3 && cv.clientWidth <= stage.clientWidth + 3;
     } else if (contentEl && contentEl.style.display !== 'none') {
@@ -964,8 +964,10 @@ function updateStageCenter() {
       var inner = contentEl.firstElementChild;
       var ih = inner ? inner.getBoundingClientRect().height : 0;
       fits = ih > 0 && ih <= stage.clientHeight - 4;
+      ctrContent = fits;
     }
     document.body.classList.toggle('ctrcontent', fits);
+    if (contentEl) contentEl.classList.toggle('ctr', ctrContent);
   } catch (e) {
   }
 }
