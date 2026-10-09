@@ -150,7 +150,7 @@
     <div style="font-size:12px;color:#5a6472;font-weight:600;margin:10px 2px 6px">📄 显示设置</div>
     <div style="background:#f6f8fb;border:1px solid #e3e8ef;border-radius:10px;padding:2px 12px;margin-bottom:4px">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
-        <span style="font-size:14px;color:#1f2630">紧凑视图（去除页面空白边距）</span>
+        <span style="font-size:14px;color:#1f2630">紧凑视图（减少空白边距）</span>
         <button id="compactBtn" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">关</button>
       </div>
       <div id="compactInfo" style="font-size:11px;color:#8a94a6;padding:0 0 8px">紧凑模式：—</div>
@@ -1134,6 +1134,7 @@ document.addEventListener('DOMContentLoaded', function() {
     updateRecentBarBtn();
     renderRecentBar();
   });
+  updateRecentBarBtn();
   renderRecentBar();
 });
 
@@ -1840,7 +1841,12 @@ function fmtRecentTime(t) {
 function recentBarOn() { return localStorage.getItem('pv_recentbar') !== '0'; }
 function updateRecentBarBtn() {
   var b = document.getElementById('recentBarBtn');
-  if (b) { b.textContent = recentBarOn() ? '开' : '关'; b.style.color = recentBarOn() ? '#2563eb' : '#5a6472'; }
+  if (!b) return;
+  var on = recentBarOn();
+  b.textContent = on ? '开' : '关';
+  b.style.background = on ? '#d3f9d8' : '#f0f4fa';
+  b.style.color = on ? '#2b8a3e' : '#5a6472';
+  b.style.borderColor = on ? '#8ce99a' : '#d5dbe4';
 }
 function fileIconOf(nm) {
   nm = (nm || '').toLowerCase();
