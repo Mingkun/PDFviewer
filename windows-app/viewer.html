@@ -2100,7 +2100,7 @@ function renderRecentBar() {
   if (!show) return;
   var h = '<div style="display:flex;flex-wrap:wrap;gap:14px 10px;justify-content:center">';
   items.forEach(function (it) {
-    h += '<div class="rbItem"' + (it.pinned ? ' data-pin="1"' : '') + ' title="' + esc(it.name || '') + (it.pinned ? '（长按取消钉住）' : (it.nativeIdx !== undefined ? '（长按钉住）' : '')) + '"><div class="rbIcon">' + fileIconOf(it.name) + '</div>' + (it.pinned ? '<span class="rbPin">📌</span>' : '') + '<div class="rbName">' + esc(it.name || '?') + '</div></div>';
+    h += '<div class="rbItem"' + (it.pinned ? ' data-pin="1"' : '') + ' title="' + esc(it.name || '') + (it.pinned ? '（长按3秒取消钉住）' : (it.nativeIdx !== undefined ? '（长按3秒钉住）' : '')) + '"><div class="rbIcon">' + fileIconOf(it.name) + '</div>' + (it.pinned ? '<span class="rbPin">📌</span>' : '') + '<div class="rbName">' + esc(it.name || '?') + '</div></div>';
   });
   h += '</div>';
   bar.innerHTML = h;
@@ -2120,7 +2120,7 @@ function renderRecentBar() {
     }
     // 方式1：touchstart/touchend（安卓 WebView 最可靠）
     el.addEventListener('touchstart', function (e) {
-      timer = setTimeout(function () { timer = null; doPin(); }, 350);
+      timer = setTimeout(function () { timer = null; doPin(); }, 3000);
     }, { passive: true });
     el.addEventListener('touchmove', function () { if (timer) { clearTimeout(timer); timer = null; } }, { passive: true });
     el.addEventListener('touchend', function () { if (timer) { clearTimeout(timer); timer = null; } }, { passive: true });
@@ -2128,7 +2128,7 @@ function renderRecentBar() {
     // 方式2：pointerdown 兜底（桌面/Windows）
     el.addEventListener('pointerdown', function (e) {
       if (e.pointerType === 'touch') return; // 触屏走方式1
-      timer = setTimeout(function () { timer = null; doPin(); }, 400);
+      timer = setTimeout(function () { timer = null; doPin(); }, 3000);
     });
     el.addEventListener('pointerup', function (e) { if (e.pointerType !== 'touch' && timer) { clearTimeout(timer); timer = null; } });
     el.onclick = function () { if (el.__pin) { el.__pin = false; return; } it.open(); };
