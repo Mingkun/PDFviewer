@@ -2045,6 +2045,16 @@ function renderRecentBar() {
     function doPin() {
       el.__pin = true;
       try { AppBridge.vibrate(80); } catch (e) {}
+      try { navigator.vibrate(200); } catch (e) {}
+      try {
+        var _ac = new (window.AudioContext || window.webkitAudioContext)();
+        var _osc = _ac.createOscillator();
+        var _gain = _ac.createGain();
+        _osc.connect(_gain); _gain.connect(_ac.destination);
+        _osc.frequency.value = 800; _gain.gain.value = 0.3;
+        _osc.start(); _osc.stop(_ac.currentTime + 0.15);
+        setTimeout(function(){ _ac.close(); }, 500);
+      } catch (e) {}
       el.style.background = 'rgba(0,132,255,.2)';
       setTimeout(function () { el.style.background = ''; }, 300);
       if (it.nativeIdx !== undefined && window.AppBridge && AppBridge.pinRecent) {
