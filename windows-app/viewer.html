@@ -109,6 +109,12 @@ window.addEventListener('keydown', function (e) {
   #recentBar { display:none; padding:16px 14px 0; }
   #recentBar .rbItem { width:64px; flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:4px 0; position:relative; -webkit-user-select:none; user-select:none; touch-action:manipulation; }
   #recentBar .rbPin { position:absolute; top:0; right:2px; font-size:11px; pointer-events:none; }
+  #audioPlayer { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:16px; padding:20px; }
+  #audioPlayer .aIcon { font-size:64px; }
+  #audioPlayer .aTitle { font-size:16px; color:#c8cdd5; text-align:center; word-break:break-all; max-width:90%; }
+  #audioPlayer .aBar { width:min(85%,380px); }
+  #audioPlayer audio { width:100%; }
+  #audioPlayer .aInfo { font-size:12px; color:#8e959f; }
   #recentBar .rbIcon { font-size:26px; line-height:1; }
   #recentBar .rbName { font-size:10px; color:#8a94a6; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   body.dark #recentBar .rbName { color:#8a93a3; }
@@ -248,14 +254,14 @@ window.addEventListener('keydown', function (e) {
     <div style="font-size:12px;color:#5a6472;font-weight:600;margin:10px 2px 6px">📥 客户端下载</div>
     <div style="background:#f6f8fb;border:1px solid #e3e8ef;border-radius:10px;padding:10px 12px;margin-bottom:4px">
       <div style="display:flex;gap:8px">
-        <a href="http://43.165.188.170/Translator/downloads/pdfviewer-android-debug.apk" onclick="return dlExt(this.href);" style="flex:1;display:flex;align-items:center;gap:6px;justify-content:center;border:1px solid #d5dbe4;border-radius:8px;padding:8px 6px;text-decoration:none;font-size:13px;color:#1f2630;background:#f6f8fb"><span style="font-size:16px">📱</span>安卓/鸿蒙</a>
-        <a href="http://43.165.188.170/Translator/downloads/pdfviewer-windows-x64.zip" onclick="return dlExt(this.href);" style="flex:1;display:flex;align-items:center;gap:6px;justify-content:center;border:1px solid #d5dbe4;border-radius:8px;padding:8px 6px;text-decoration:none;font-size:13px;color:#1f2630;background:#f6f8fb"><span style="font-size:16px">💻</span>Windows</a>
+        <a href="https://5130599.best/Translator/downloads/pdfviewer-android-debug.apk" onclick="return dlExt(this.href);" style="flex:1;display:flex;align-items:center;gap:6px;justify-content:center;border:1px solid #d5dbe4;border-radius:8px;padding:8px 6px;text-decoration:none;font-size:13px;color:#1f2630;background:#f6f8fb"><span style="font-size:16px">📱</span>安卓/鸿蒙</a>
+        <a href="https://5130599.best/Translator/downloads/pdfviewer-windows-x64.zip" onclick="return dlExt(this.href);" style="flex:1;display:flex;align-items:center;gap:6px;justify-content:center;border:1px solid #d5dbe4;border-radius:8px;padding:8px 6px;text-decoration:none;font-size:13px;color:#1f2630;background:#f6f8fb"><span style="font-size:16px">💻</span>Windows</a>
       </div>
       <div style="font-size:11px;color:#5a6472;margin-top:10px">安卓 APK 下载地址（可长按复制）</div>
-      <input id="dlUrlAndroid" readonly value="http://43.165.188.170/Translator/downloads/pdfviewer-android-debug.apk" onclick="this.select()" onfocus="this.select()" style="width:100%;margin-top:4px;padding:7px 9px;border:1px solid #d5dbe4;border-radius:8px;font-size:11px;color:#5a6472;background:#fff;box-sizing:border-box">
+      <input id="dlUrlAndroid" readonly value="https://5130599.best/Translator/downloads/pdfviewer-android-debug.apk" onclick="this.select()" onfocus="this.select()" style="width:100%;margin-top:4px;padding:7px 9px;border:1px solid #d5dbe4;border-radius:8px;font-size:11px;color:#5a6472;background:#fff;box-sizing:border-box">
       <button type="button" onclick="dlCopyUrl('dlUrlAndroid')" style="margin-top:6px;border:1px solid #d5dbe4;background:#fff;border-radius:8px;padding:6px 12px;font-size:12px;color:#1f2630;cursor:pointer">📋 复制链接</button>
       <div style="font-size:11px;color:#5a6472;margin-top:10px">Windows 客户端 下载地址（可长按复制）</div>
-      <input id="dlUrlWindows" readonly value="http://43.165.188.170/Translator/downloads/pdfviewer-windows-x64.zip" onclick="this.select()" onfocus="this.select()" style="width:100%;margin-top:4px;padding:7px 9px;border:1px solid #d5dbe4;border-radius:8px;font-size:11px;color:#5a6472;background:#fff;box-sizing:border-box">
+      <input id="dlUrlWindows" readonly value="https://5130599.best/Translator/downloads/pdfviewer-windows-x64.zip" onclick="this.select()" onfocus="this.select()" style="width:100%;margin-top:4px;padding:7px 9px;border:1px solid #d5dbe4;border-radius:8px;font-size:11px;color:#5a6472;background:#fff;box-sizing:border-box">
       <button type="button" onclick="dlCopyUrl('dlUrlWindows')" style="margin-top:6px;border:1px solid #d5dbe4;background:#fff;border-radius:8px;padding:6px 12px;font-size:12px;color:#1f2630;cursor:pointer">📋 复制链接</button>
       <div id="dlCopyOut" style="font-size:11px;color:#5a6472;margin-top:6px"></div>
     </div>
@@ -438,7 +444,7 @@ function stopReading(msg) {
   document.getElementById('speak').innerHTML = ic('volume') + '<i>朗读</i>'; document.getElementById('speak').classList.remove('onb');
   if (msg) setInfo(msg);
 }
-var CLOUD_TTS = 'http://43.165.188.170/Translator/api/tts';
+var CLOUD_TTS = 'https://5130599.best/Translator/api/tts';
 var TTS_TOKEN = '54a0d81280ac26c1932bc6f30158a0df';
 var cloudAudio = null;
 var localLocked = false;
@@ -730,6 +736,7 @@ function resetView() {
   document.body.classList.remove('ctrcontent');
   cv.style.display = 'none';
   contentEl.style.display = 'none';
+  try { if (curAudioEl) { curAudioEl.pause(); curAudioEl = null; } } catch (e) {}
   contentEl.innerHTML = '';
   contentEl.style.background = '';
   var h = document.getElementById('hint');
@@ -744,6 +751,7 @@ function resetView() {
 }
 function closeDoc() {
   if (!docKind) return;
+  try { if (curAudioEl) curAudioEl.pause(); } catch (e) {}
   try { savePos(); } catch (e) {}
   curFileKey = '';
   try { stopReading(); } catch (e) {}
@@ -1893,6 +1901,25 @@ setInterval(function () {
   window.addEventListener('scroll', chk, { passive: true });
   if (contentEl) contentEl.addEventListener('scroll', chk, { passive: true });
 })();
+var curAudioEl = null;
+function openAudio(buf, name) {
+  docKind = 'audio';
+  resetView();
+  contentEl.style.display = 'block';
+  contentEl.style.background = '#1e2126';
+  var blob = new Blob([buf]);
+  var url = URL.createObjectURL(blob);
+  contentEl.innerHTML = '<div id="audioPlayer">' +
+    '<div class="aIcon">🎵</div>' +
+    '<div class="aTitle">' + esc(name) + '</div>' +
+    '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
+    '<div class="aInfo">支持后台播放 · 双指右划关闭</div>' +
+    '</div>';
+  curAudioEl = contentEl.querySelector('#curAudio');
+  setTotal(1); document.getElementById('pageInput').value = 1;
+  updateStageCenter();
+  try { curAudioEl.play(); } catch (e) {}
+}
 var curFileKey = '', rxChunks = [], rxName = '', rxKey = '', rxTotal = 0;
 function openByBytes(name, buf, mime, key) {
   var nm = (name || '').toLowerCase();
@@ -1900,6 +1927,7 @@ function openByBytes(name, buf, mime, key) {
   try {
     if (nm.indexOf('.pdf') >= 0 || mime === 'application/pdf') openPdf(buf);
     else if (/\.(png|jpe?g|gif|webp|bmp)$/.test(nm) || (mime || '').indexOf('image/') === 0) openImage(buf);
+    else if (/\.(mp3|wav|ogg|m4a|flac|aac|wma|opus)$/i.test(nm)) openAudio(buf, nm);
     else if (nm.indexOf('.epub') >= 0) openEpub(buf);
     else if (nm.indexOf('.docx') >= 0) openDocx(buf);
     else if (nm.indexOf('.doc') >= 0) openDoc(buf);
@@ -1999,6 +2027,7 @@ function fileIconOf(nm) {
   if (nm.indexOf('.ppt') >= 0) return '📽️';
   if (/\.(md|markdown|mdown|mkd)$/.test(nm)) return '📝';
   if (/\.(png|jpe?g|gif|webp|bmp)$/.test(nm)) return '🖼️';
+  if (/\.(mp3|wav|ogg|m4a|flac|aac|wma|opus)$/i.test(nm)) return '🎵';
   return '📄';
 }
 function renderRecentBar() {

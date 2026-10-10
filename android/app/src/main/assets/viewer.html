@@ -43,6 +43,12 @@
   #recentBar { display:none; padding:16px 14px 0; }
   #recentBar .rbItem { width:64px; flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:4px 0; position:relative; -webkit-user-select:none; user-select:none; touch-action:manipulation; }
   #recentBar .rbPin { position:absolute; top:0; right:2px; font-size:11px; pointer-events:none; }
+  #audioPlayer { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:16px; padding:20px; }
+  #audioPlayer .aIcon { font-size:64px; }
+  #audioPlayer .aTitle { font-size:16px; color:#c8cdd5; text-align:center; word-break:break-all; max-width:90%; }
+  #audioPlayer .aBar { width:min(85%,380px); }
+  #audioPlayer audio { width:100%; }
+  #audioPlayer .aInfo { font-size:12px; color:#8e959f; }
   #recentBar .rbIcon { font-size:26px; line-height:1; }
   #recentBar .rbName { font-size:10px; color:#8a94a6; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   body.dark #recentBar .rbName { color:#8a93a3; }
@@ -664,6 +670,7 @@ function resetView() {
   document.body.classList.remove('ctrcontent');
   cv.style.display = 'none';
   contentEl.style.display = 'none';
+  try { if (curAudioEl) { curAudioEl.pause(); curAudioEl = null; } } catch (e) {}
   contentEl.innerHTML = '';
   contentEl.style.background = '';
   var h = document.getElementById('hint');
@@ -678,6 +685,7 @@ function resetView() {
 }
 function closeDoc() {
   if (!docKind) return;
+  try { if (curAudioEl) curAudioEl.pause(); } catch (e) {}
   try { savePos(); } catch (e) {}
   curFileKey = '';
   try { stopReading(); } catch (e) {}
@@ -1827,6 +1835,25 @@ setInterval(function () {
   window.addEventListener('scroll', chk, { passive: true });
   if (contentEl) contentEl.addEventListener('scroll', chk, { passive: true });
 })();
+var curAudioEl = null;
+function openAudio(buf, name) {
+  docKind = 'audio';
+  resetView();
+  contentEl.style.display = 'block';
+  contentEl.style.background = '#1e2126';
+  var blob = new Blob([buf]);
+  var url = URL.createObjectURL(blob);
+  contentEl.innerHTML = '<div id="audioPlayer">' +
+    '<div class="aIcon">🎵</div>' +
+    '<div class="aTitle">' + esc(name) + '</div>' +
+    '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
+    '<div class="aInfo">支持后台播放 · 双指右划关闭</div>' +
+    '</div>';
+  curAudioEl = contentEl.querySelector('#curAudio');
+  setTotal(1); document.getElementById('pageInput').value = 1;
+  updateStageCenter();
+  try { curAudioEl.play(); } catch (e) {}
+}
 var curFileKey = '', rxChunks = [], rxName = '', rxKey = '', rxTotal = 0;
 function openByBytes(name, buf, mime, key) {
   var nm = (name || '').toLowerCase();
@@ -1834,6 +1861,7 @@ function openByBytes(name, buf, mime, key) {
   try {
     if (nm.indexOf('.pdf') >= 0 || mime === 'application/pdf') openPdf(buf);
     else if (/\.(png|jpe?g|gif|webp|bmp)$/.test(nm) || (mime || '').indexOf('image/') === 0) openImage(buf);
+    else if (/\.(mp3|wav|ogg|m4a|flac|aac|wma|opus)$/i.test(nm)) openAudio(buf, nm);
     else if (nm.indexOf('.epub') >= 0) openEpub(buf);
     else if (nm.indexOf('.docx') >= 0) openDocx(buf);
     else if (nm.indexOf('.doc') >= 0) openDoc(buf);
@@ -1933,6 +1961,7 @@ function fileIconOf(nm) {
   if (nm.indexOf('.ppt') >= 0) return '📽️';
   if (/\.(md|markdown|mdown|mkd)$/.test(nm)) return '📝';
   if (/\.(png|jpe?g|gif|webp|bmp)$/.test(nm)) return '🖼️';
+  if (/\.(mp3|wav|ogg|m4a|flac|aac|wma|opus)$/i.test(nm)) return '🎵';
   return '📄';
 }
 function renderRecentBar() {
