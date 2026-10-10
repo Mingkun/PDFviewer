@@ -1990,19 +1990,29 @@ function renderRecentBar() {
     var it = items[idx];
     var timer = null;
     el.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
-    el.addEventListener('pointerdown', function () {
-      timer = setTimeout(function () {
-        timer = null; el.__pin = true;
-        if (it.nativeIdx !== undefined && window.AppBridge && AppBridge.pinRecent) {
-          try { AppBridge.pinRecent(it.nativeIdx, !it.pinned); } catch (e) {}
-          setInfo(it.pinned ? '已取消钉住：' + it.name : '已钉住：' + it.name);
-          renderRecentBar();
-        }
-      }, 400);
+    function doPin() {
+      el.__pin = true;
+      el.style.background = 'rgba(0,132,255,.2)';
+      setTimeout(function () { el.style.background = ''; }, 300);
+      if (it.nativeIdx !== undefined && window.AppBridge && AppBridge.pinRecent) {
+        try { AppBridge.pinRecent(it.nativeIdx, !it.pinned); } catch (e) {}
+        setInfo(it.pinned ? '已取消钉住：' + it.name : '已钉住：' + it.name);
+        renderRecentBar();
+      }
+    }
+    // 方式1：touchstart/touchend（安卓 WebView 最可靠）
+    el.addEventListener('touchstart', function (e) {
+      timer = setTimeout(function () { timer = null; doPin(); }, 350);
+    }, { passive: true });
+    el.addEventListener('touchmove', function () { if (timer) { clearTimeout(timer); timer = null; } }, { passive: true });
+    el.addEventListener('touchend', function () { if (timer) { clearTimeout(timer); timer = null; } }, { passive: true });
+    el.addEventListener('touchcancel', function () { if (timer) { clearTimeout(timer); timer = null; } }, { passive: true });
+    // 方式2：pointerdown 兜底（桌面/Windows）
+    el.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'touch') return; // 触屏走方式1
+      timer = setTimeout(function () { timer = null; doPin(); }, 400);
     });
-    el.addEventListener('pointermove', function () { if (timer) { clearTimeout(timer); timer = null; } });
-    el.addEventListener('pointerup', function () { if (timer) { clearTimeout(timer); timer = null; } });
-    el.addEventListener('pointercancel', function () { if (timer) { clearTimeout(timer); timer = null; } });
+    el.addEventListener('pointerup', function (e) { if (e.pointerType !== 'touch' && timer) { clearTimeout(timer); timer = null; } });
     el.onclick = function () { if (el.__pin) { el.__pin = false; return; } it.open(); };
   });
 }
