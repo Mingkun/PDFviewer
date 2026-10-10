@@ -2044,6 +2044,7 @@ function renderRecentBar() {
     el.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
     function doPin() {
       el.__pin = true;
+      try { AppBridge.vibrate(80); } catch (e) {}
       el.style.background = 'rgba(0,132,255,.2)';
       setTimeout(function () { el.style.background = ''; }, 300);
       if (it.nativeIdx !== undefined && window.AppBridge && AppBridge.pinRecent) {

@@ -300,6 +300,19 @@ class MainActivity : Activity() {
         fun getRecent(): String = loadRecentJson()
 
         @JavascriptInterface
+        fun vibrate(ms: Int) {
+            try {
+                val v = getSystemService(VIBRATOR_SERVICE) as android.os.Vibrator
+                if (android.os.Build.VERSION.SDK_INT >= 26) {
+                    v.vibrate(android.os.VibrationEffect.createOneShot(ms.toLong(), android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    v.vibrate(ms.toLong())
+                }
+            } catch (_: Exception) {}
+        }
+
+        @JavascriptInterface
         fun pinRecent(index: Int, pinned: Boolean) {
             try {
                 val arr = org.json.JSONArray(loadRecentJson())
