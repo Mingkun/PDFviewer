@@ -303,11 +303,12 @@ class MainActivity : Activity() {
         fun vibrate(ms: Int) {
             try {
                 val v = getSystemService(VIBRATOR_SERVICE) as android.os.Vibrator
+                val timings = longArrayOf(0, 150, 80, 150)
                 if (android.os.Build.VERSION.SDK_INT >= 26) {
-                    v.vibrate(android.os.VibrationEffect.createOneShot(ms.toLong(), android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                    v.vibrate(android.os.VibrationEffect.createWaveform(timings, -1))
                 } else {
                     @Suppress("DEPRECATION")
-                    v.vibrate(ms.toLong())
+                    v.vibrate(timings, -1)
                 }
             } catch (_: Exception) {}
         }
