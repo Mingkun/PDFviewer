@@ -2054,7 +2054,7 @@ function renderRecentBar() {
     }
     // 方式1：touchstart/touchend（安卓 WebView 最可靠）
     el.addEventListener('touchstart', function (e) {
-      timer = setTimeout(function () { timer = null; doPin(); }, 3000);
+      timer = setTimeout(function () { timer = null; doPin(); }, 2000);
     }, { passive: true });
     el.addEventListener('touchmove', function () { if (timer) { clearTimeout(timer); timer = null; } }, { passive: true });
     el.addEventListener('touchend', function () { if (timer) { clearTimeout(timer); timer = null; } }, { passive: true });
@@ -2062,7 +2062,7 @@ function renderRecentBar() {
     // 方式2：pointerdown 兜底（桌面/Windows）
     el.addEventListener('pointerdown', function (e) {
       if (e.pointerType === 'touch') return; // 触屏走方式1
-      timer = setTimeout(function () { timer = null; doPin(); }, 3000);
+      timer = setTimeout(function () { timer = null; doPin(); }, 2000);
     });
     el.addEventListener('pointerup', function (e) { if (e.pointerType !== 'touch' && timer) { clearTimeout(timer); timer = null; } });
     el.onclick = function () { if (el.__pin) { el.__pin = false; return; } it.open(); };
