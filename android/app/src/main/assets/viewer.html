@@ -49,6 +49,9 @@
   #audioPlayer .aBar { width:min(85%,380px); }
   #audioPlayer audio { width:100%; }
   #audioPlayer .aInfo { font-size:12px; color:#8e959f; }
+  #videoPlayer { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:8px; padding:10px; }
+  #videoPlayer video { max-width:100%; max-height:calc(100vh - 120px); border-radius:8px; outline:none; }
+  #videoPlayer .vTitle { font-size:13px; color:#8e959f; text-align:center; padding:4px 12px; }
   #recentBar .rbIcon { font-size:26px; line-height:1; }
   #recentBar .rbName { font-size:10px; color:#8a94a6; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   body.dark #recentBar .rbName { color:#8a93a3; }
@@ -671,6 +674,7 @@ function resetView() {
   cv.style.display = 'none';
   contentEl.style.display = 'none';
   try { if (curAudioEl) { curAudioEl.pause(); curAudioEl = null; } } catch (e) {}
+  try { if (curVideoEl) { curVideoEl.pause(); curVideoEl = null; } } catch (e) {}
   contentEl.innerHTML = '';
   contentEl.style.background = '';
   var h = document.getElementById('hint');
@@ -1835,6 +1839,23 @@ setInterval(function () {
   window.addEventListener('scroll', chk, { passive: true });
   if (contentEl) contentEl.addEventListener('scroll', chk, { passive: true });
 })();
+var curAudioEl = null, curVideoEl = null;
+function openVideo(buf, name) {
+  docKind = 'video';
+  resetView();
+  contentEl.style.display = 'block';
+  contentEl.style.background = '#000';
+  var blob = new Blob([buf]);
+  var url = URL.createObjectURL(blob);
+  contentEl.innerHTML = '<div id="videoPlayer">' +
+    '<video id="curVideo" controls preload="auto" playsinline src="' + url + '"></video>' +
+    '<div class="vTitle">🎬 ' + esc(name) + '</div>' +
+    '</div>';
+  curVideoEl = contentEl.querySelector('#curVideo');
+  setTotal(1); document.getElementById('pageInput').value = 1;
+  updateStageCenter();
+  try { curVideoEl.play(); } catch (e) {}
+}
 var curAudioEl = null;
 function openAudio(buf, name) {
   docKind = 'audio';
@@ -1862,6 +1883,7 @@ function openByBytes(name, buf, mime, key) {
     if (nm.indexOf('.pdf') >= 0 || mime === 'application/pdf') openPdf(buf);
     else if (/\.(png|jpe?g|gif|webp|bmp)$/.test(nm) || (mime || '').indexOf('image/') === 0) openImage(buf);
     else if (/\.(mp3|wav|ogg|m4a|flac|aac|wma|opus)$/i.test(nm)) openAudio(buf, nm);
+    else if (/\.(mp4|webm|mkv|avi|mov|3gp|m4v|ts|flv)$/i.test(nm)) openVideo(buf, nm);
     else if (nm.indexOf('.epub') >= 0) openEpub(buf);
     else if (nm.indexOf('.docx') >= 0) openDocx(buf);
     else if (nm.indexOf('.doc') >= 0) openDoc(buf);
@@ -1962,6 +1984,7 @@ function fileIconOf(nm) {
   if (/\.(md|markdown|mdown|mkd)$/.test(nm)) return '📝';
   if (/\.(png|jpe?g|gif|webp|bmp)$/.test(nm)) return '🖼️';
   if (/\.(mp3|wav|ogg|m4a|flac|aac|wma|opus)$/i.test(nm)) return '🎵';
+  if (/\.(mp4|webm|mkv|avi|mov|3gp|m4v|ts|flv)$/i.test(nm)) return '🎬';
   return '📄';
 }
 function renderRecentBar() {

@@ -98,7 +98,8 @@ class MainActivity : Activity() {
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
                     "image/*",
-                    "audio/*"
+                    "audio/*",
+                    "video/*"
                 ))
                 startActivityForResult(intent, 1001)
                 return true
@@ -287,7 +288,7 @@ class MainActivity : Activity() {
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                    "image/*", "audio/*"))
+                    "image/*", "audio/*", "video/*"))
                 i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                 startActivityForResult(i, REQ_OPEN)
             } catch (_: Exception) {
