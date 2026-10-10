@@ -109,6 +109,8 @@ window.addEventListener('keydown', function (e) {
   #recentBar { display:none; padding:16px 14px 0; }
   #recentBar .rbItem { width:64px; flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:4px 0; position:relative; -webkit-user-select:none; user-select:none; touch-action:manipulation; }
   #recentBar .rbPin { position:absolute; top:0; right:2px; font-size:11px; pointer-events:none; }
+  #recentBar .rbItem .rbHold { position:absolute; top:50%; left:50%; width:56px; height:56px; border-radius:50%; background:rgba(0,132,255,.25); border:2px solid rgba(0,132,255,.5); transform:translate(-50%,-50%) scale(0); transition:transform .15s ease; pointer-events:none; z-index:2; }
+  #recentBar .rbItem.holding .rbHold { transform:translate(-50%,-50%) scale(1); }
   #audioPlayer { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:16px; padding:20px; }
   #audioPlayer .aIcon { font-size:64px; }
   #audioPlayer .aTitle { font-size:16px; color:#c8cdd5; text-align:center; word-break:break-all; max-width:90%; }
@@ -2108,40 +2110,38 @@ function renderRecentBar() {
     var it = items[idx];
     var timer = null;
     el.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
+    function clearHold() { el.classList.remove('holding'); }
+    function startHold() { el.classList.add('holding'); }
+    function cancelTimer() { if (timer) { clearTimeout(timer); timer = null; } clearHold(); }
     function doPin() {
       el.__pin = true;
+      clearHold();
       try { AppBridge.vibrate(80); } catch (e) {}
       try { navigator.vibrate(200); } catch (e) {}
       try {
         var _ac = new (window.AudioContext || window.webkitAudioContext)();
-        var _osc = _ac.createOscillator();
-        var _gain = _ac.createGain();
+        var _osc = _ac.createOscillator(); var _gain = _ac.createGain();
         _osc.connect(_gain); _gain.connect(_ac.destination);
         _osc.frequency.value = 800; _gain.gain.value = 0.3;
         _osc.start(); _osc.stop(_ac.currentTime + 0.15);
         setTimeout(function(){ _ac.close(); }, 500);
       } catch (e) {}
-      el.style.background = 'rgba(0,132,255,.2)';
-      setTimeout(function () { el.style.background = ''; }, 300);
       if (it.nativeIdx !== undefined && window.AppBridge && AppBridge.pinRecent) {
         try { AppBridge.pinRecent(it.nativeIdx, !it.pinned); } catch (e) {}
-        setInfo(it.pinned ? '已取消钉住：' + it.name : '已钉住：' + it.name);
-        renderRecentBar();
+        it.pinned = !it.pinned;
+        setInfo(it.pinned ? '已钉住：' + it.name : '已取消钉住：' + it.name);
+        var badge = el.querySelector('.rbPin');
+        if (it.pinned) {
+          if (!badge) { badge = document.createElement('span'); badge.className = 'rbPin'; badge.textContent = '📌'; el.appendChild(badge); }
+        } else if (badge) badge.remove();
       }
     }
-    // 方式1：touchstart/touchend（安卓 WebView 最可靠）
-    el.addEventListener('touchstart', function (e) {
-      timer = setTimeout(function () { timer = null; doPin(); }, 2000);
-    }, { passive: true });
-    el.addEventListener('touchmove', function () { if (timer) { clearTimeout(timer); timer = null; } }, { passive: true });
-    el.addEventListener('touchend', function () { if (timer) { clearTimeout(timer); timer = null; } }, { passive: true });
-    el.addEventListener('touchcancel', function () { if (timer) { clearTimeout(timer); timer = null; } }, { passive: true });
-    // 方式2：pointerdown 兜底（桌面/Windows）
-    el.addEventListener('pointerdown', function (e) {
-      if (e.pointerType === 'touch') return; // 触屏走方式1
-      timer = setTimeout(function () { timer = null; doPin(); }, 2000);
-    });
-    el.addEventListener('pointerup', function (e) { if (e.pointerType !== 'touch' && timer) { clearTimeout(timer); timer = null; } });
+    el.addEventListener('touchstart', function (e) { startHold(); timer = setTimeout(function () { timer = null; doPin(); }, 2000); }, { passive: true });
+    el.addEventListener('touchmove', function () { cancelTimer(); }, { passive: true });
+    el.addEventListener('touchend', function () { cancelTimer(); }, { passive: true });
+    el.addEventListener('touchcancel', function () { cancelTimer(); }, { passive: true });
+    el.addEventListener('pointerdown', function (e) { if (e.pointerType === 'touch') return; startHold(); timer = setTimeout(function () { timer = null; doPin(); }, 2000); });
+    el.addEventListener('pointerup', function (e) { if (e.pointerType !== 'touch') cancelTimer(); });
     el.onclick = function () { if (el.__pin) { el.__pin = false; return; } it.open(); };
   });
 }
