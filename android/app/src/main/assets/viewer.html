@@ -686,6 +686,8 @@ function resetView() {
   if (h) h.style.display = 'none';
   var rb = document.getElementById('recentBar');
   if (rb) rb.style.display = 'none';
+  var hs = document.getElementById('hintSep');
+  if (hs) hs.style.display = 'none';
   pdf = null; docKind = null; docPages = []; txtRaw = null; txtIsMd = false;
   cv.style.transform = '';
   window.epubBook = null; window.epubRendition = null;
