@@ -108,7 +108,7 @@ window.addEventListener('keydown', function (e) {
   #hint { color:#8a94a6; font-size:13px; text-align:center; padding-top:40%; }
   #recentBar { display:none; padding:16px 14px 0; }
   #recentBar .rbItem { width:64px; flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:4px 0; position:relative; -webkit-user-select:none; user-select:none; touch-action:manipulation; }
-  #recentBar .rbPin { position:absolute; top:-6px; left:-6px; font-size:11px; pointer-events:none; transform:scaleX(-1); z-index:3; filter:drop-shadow(-1px 2px 2px rgba(0,0,0,.35)); }
+  #recentBar .rbPin { position:absolute; top:8px; left:12px; font-size:18px; pointer-events:none; transform:rotate(-15deg); z-index:3; filter:drop-shadow(1px 1px 1px rgba(0,0,0,.25)); }
   #recentBar .rbItem .rbHold { position:absolute; top:50%; left:50%; width:56px; height:56px; margin:-28px 0 0 -28px; opacity:0; pointer-events:none; z-index:2; }
   #recentBar .rbItem.holding .rbHold { opacity:1; }
   #audioPlayer { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:16px; padding:20px; }
@@ -2102,7 +2102,7 @@ function renderRecentBar() {
   if (!show) return;
   var h = '<div style="display:flex;flex-wrap:wrap;gap:14px 10px;justify-content:center">';
   items.forEach(function (it) {
-    h += '<div class="rbItem"' + (it.pinned ? ' data-pin="1"' : '') + ' title="' + esc(it.name || '') + (it.pinned ? '（长按3秒取消钉住）' : (it.nativeIdx !== undefined ? '（长按3秒钉住）' : '')) + '"><div class="rbIcon">' + fileIconOf(it.name) + '</div>' + (it.pinned ? '<span class="rbPin">📌</span>' : '') + '<div class="rbName">' + esc(it.name || '?') + '</div></div>';
+    h += '<div class="rbItem"' + (it.pinned ? ' data-pin="1"' : '') + ' title="' + esc(it.name || '') + (it.pinned ? '（长按取消固定）' : (it.nativeIdx !== undefined ? '（长按固定）' : '')) + '"><div class="rbIcon">' + fileIconOf(it.name) + '</div>' + (it.pinned ? '<span class="rbPin">📎</span>' : '') + '<div class="rbName">' + esc(it.name || '?') + '</div></div>';
   });
   h += '</div>';
   bar.innerHTML = h;
@@ -2129,10 +2129,10 @@ function renderRecentBar() {
       if (it.nativeIdx !== undefined && window.AppBridge && AppBridge.pinRecent) {
         try { AppBridge.pinRecent(it.nativeIdx, !it.pinned); } catch (e) {}
         it.pinned = !it.pinned;
-        setInfo(it.pinned ? '已钉住：' + it.name : '已取消钉住：' + it.name);
+        setInfo(it.pinned ? '已固定：' + it.name : '已取消固定：' + it.name);
         var badge = el.querySelector('.rbPin');
         if (it.pinned) {
-          if (!badge) { badge = document.createElement('span'); badge.className = 'rbPin'; badge.textContent = '📌'; el.appendChild(badge); }
+          if (!badge) { badge = document.createElement('span'); badge.className = 'rbPin'; badge.textContent = '📎'; el.appendChild(badge); }
         } else if (badge) badge.remove();
       }
     }
