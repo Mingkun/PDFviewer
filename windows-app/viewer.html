@@ -123,6 +123,11 @@ window.addEventListener('keydown', function (e) {
   #videoPlayer { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:8px; padding:10px; }
   #videoPlayer video { max-width:100%; max-height:calc(100vh - 120px); border-radius:8px; outline:none; }
   #videoPlayer .vTitle { font-size:13px; color:#8e959f; text-align:center; padding:4px 12px; }
+  #audioPlayer .aLoop { display:flex; gap:8px; align-items:center; }
+  #audioPlayer .aLoop button { border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.08); color:#c8cdd5; border-radius:14px; padding:4px 12px; font-size:12px; cursor:pointer; font-family:inherit; }
+  #audioPlayer .aLoop button.on { background:#0a84ff; color:#fff; border-color:#0a84ff; }
+  #audioPlayer .aLrc { width:min(90%,400px); max-height:200px; overflow-y:auto; text-align:center; font-size:14px; line-height:2.2; color:#8e959f; }
+  #audioPlayer .aLrc .on { color:#4ade80; font-size:16px; font-weight:600; }
   #recentBar .rbIcon { font-size:26px; line-height:1; }
   #recentBar .rbName { font-size:10px; color:#8a94a6; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   body.dark #recentBar .rbName { color:#8a93a3; }
@@ -1937,16 +1942,66 @@ function openAudio(buf, name) {
   contentEl.style.background = '#1e2126';
   var blob = new Blob([buf]);
   var url = URL.createObjectURL(blob);
+  var base = name.replace(/\.[^.]+$/, '');
   contentEl.innerHTML = '<div id="audioPlayer">' +
     '<div class="aIcon">🎵</div>' +
     '<div class="aTitle">' + esc(name) + '</div>' +
     '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
-    '<div class="aInfo">支持后台播放 · 双指右划关闭</div>' +
+    '<div class="aLoop"><button id="loopBtn" onclick="toggleLoop()">🔁 循环</button></div>' +
+    '<div class="aLrc" id="aLrc"></div>' +
+    '<div class="aInfo">支持循环/歌词 · 双指右划关闭</div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
   setTotal(1); document.getElementById('pageInput').value = 1;
   updateStageCenter();
+  // 循环播放
+  curAudioEl.loop = localStorage.getItem('pv_audioLoop') === '1';
+  updateLoopBtn();
+  curAudioEl.addEventListener('ended', function () { if (!curAudioEl.loop) { curAudioEl.currentTime = 0; } });
+  // 歌词：加载同名 .lrc 或 .txt
+  _loadLrc(base);
+  // 歌词同步
+  curAudioEl.addEventListener('timeupdate', _syncLrc);
   try { curAudioEl.play(); } catch (e) {}
+}
+function toggleLoop() {
+  if (!curAudioEl) return;
+  curAudioEl.loop = !curAudioEl.loop;
+  localStorage.setItem('pv_audioLoop', curAudioEl.loop ? '1' : '0');
+  updateLoopBtn();
+}
+function updateLoopBtn() {
+  var b = document.getElementById('loopBtn');
+  if (b && curAudioEl) { b.classList.toggle('on', curAudioEl.loop); b.textContent = curAudioEl.loop ? '🔁 循环中' : '🔁 循环'; }
+}
+var _lrcLines = [];
+function _loadLrc(base) {
+  _lrcLines = [];
+  var el = document.getElementById('aLrc');
+  if (el) el.innerHTML = '';
+}
+function _parseLrc(txt) {
+  var out = [];
+  txt.split('\n').forEach(function (ln) {
+    var m = ln.match(/\[(\d+):(\d+(?:\.\d+)?)\](.*)/);
+    if (m) out.push({ t: parseInt(m[1]) * 60 + parseFloat(m[2]), s: m[3].trim() });
+  });
+  return out.sort(function (a, b) { return a.t - b.t; });
+}
+function _syncLrc() {
+  if (!_lrcLines.length || !curAudioEl) return;
+  var now = curAudioEl.currentTime;
+  var idx = -1;
+  for (var i = 0; i < _lrcLines.length; i++) { if (_lrcLines[i].t <= now) idx = i; else break; }
+  var el = document.getElementById('aLrc');
+  if (!el) return;
+  if (el._curIdx === idx) return;
+  el._curIdx = idx;
+  el.innerHTML = _lrcLines.map(function (l, i2) {
+    return '<div' + (i2 === idx ? ' class="on"' : '') + '>' + esc(l.s || ' ') + '</div>';
+  }).join('');
+  var active = el.querySelector('.on');
+  if (active) el.scrollTop = active.offsetTop - el.clientHeight / 2 + active.offsetHeight / 2;
 }
 var curFileKey = '', rxChunks = [], rxName = '', rxKey = '', rxTotal = 0;
 function openByBytes(name, buf, mime, key) {
