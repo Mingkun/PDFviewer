@@ -319,16 +319,31 @@ function _fbLoadCache(type) {
   } catch (e) { return null; }
 }
 
+function _fbSaveState() {
+  try { localStorage.setItem('pv_fbState', JSON.stringify({ tab: fbTab, type: fbType, order: fbOrder, asc: fbAsc, path: fbCurrent })); } catch (e) {}
+}
+function _fbLoadState() {
+  try { return JSON.parse(localStorage.getItem('pv_fbState') || '{}') || {}; } catch (e) { return {}; }
+}
+function fbApplyState() {
+  document.getElementById('tabFolder').classList.toggle('on', fbTab === 'folder');
+  document.getElementById('tabType').classList.toggle('on', fbTab === 'type');
+  document.getElementById('fbSortBar').style.display = fbTab === 'type' ? 'flex' : 'none';
+  var _sb = document.getElementById('fbSearchBar'); if (_sb) _sb.style.display = fbTab === 'type' ? 'block' : 'none';
+  document.getElementById('fbOrderBy').style.display = fbTab === 'type' ? 'flex' : 'none';
+  var up = document.querySelector('#fileBrowser .fbHeader button[onclick="fbGoUp()"]'); if (up) up.style.display = fbTab === 'folder' ? '' : 'none';
+  document.querySelectorAll('#fbOrderBy button').forEach(function(b) { b.classList.remove('on'); });
+  var oe = document.getElementById(fbOrder === 'time' ? 'ordTime' : fbOrder === 'name' ? 'ordName' : 'ordSize');
+  if (oe) oe.classList.add('on');
+  document.querySelectorAll('#fbSortBar button').forEach(function(b) { b.classList.remove('on'); });
+  var id = fbType === '' ? 'sortAll' : fbType.indexOf('pdf') >= 0 ? 'sortPdf' : fbType.indexOf('epub') >= 0 ? 'sortEpub' : fbType.indexOf('doc') >= 0 ? 'sortDoc' : fbType.indexOf('xls') >= 0 ? 'sortXls' : fbType.indexOf('mp3') >= 0 ? 'sortAudio' : fbType.indexOf('mp4') >= 0 ? 'sortVideo' : 'sortImg';
+  var te = document.getElementById(id); if (te) te.classList.add('on');
+  if (fbTab === 'folder') { fbLoad(fbCurrent); } else { fbLoadType(); }
+}
 function fbSwitchTab(tab) {
   fbTab = tab;
-  document.getElementById('tabFolder').classList.toggle('on', tab === 'folder');
-  document.getElementById('tabType').classList.toggle('on', tab === 'type');
-  document.getElementById('fbSortBar').style.display = tab === 'type' ? 'flex' : 'none';
-  var _sb = document.getElementById('fbSearchBar'); if (_sb) _sb.style.display = tab === 'type' ? 'block' : 'none';
-  document.getElementById('fbOrderBy').style.display = tab === 'type' ? 'flex' : 'none';
-  document.querySelector('#fileBrowser .fbHeader button[onclick="fbGoUp()"]').style.display = tab === 'folder' ? '' : 'none';
-  if (tab === 'folder') { fbLoad(fbCurrent); }
-  else { fbLoadType(); }
+  _fbSaveState();
+  fbApplyState();
 }
 function fbSetType(t) {
   fbType = t;
@@ -337,6 +352,7 @@ function fbSetType(t) {
   var id = t === '' ? 'sortAll' : t.indexOf('pdf') >= 0 ? 'sortPdf' : t.indexOf('epub') >= 0 ? 'sortEpub' : t.indexOf('doc') >= 0 ? 'sortDoc' : t.indexOf('xls') >= 0 ? 'sortXls' : t.indexOf('mp3') >= 0 ? 'sortAudio' : t.indexOf('mp4') >= 0 ? 'sortVideo' : 'sortImg';
   var el = document.getElementById(id);
   if (el) el.classList.add('on');
+  _fbSaveState();
   fbLoadType();
 }
 function fbSetOrder(o) {
@@ -345,6 +361,7 @@ function fbSetOrder(o) {
   document.querySelectorAll('#fbOrderBy button').forEach(function(b) { b.classList.remove('on'); });
   var el = document.getElementById(o === 'time' ? 'ordTime' : o === 'name' ? 'ordName' : 'ordSize');
   if (el) el.classList.add('on');
+  _fbSaveState();
   if (fbTypeCache) fbRenderTypeList(fbTypeCache);
 }
 function fbLoadType() {
@@ -382,6 +399,7 @@ function fbLoadType() {
 var fbAsc = false;
 function fbToggleOrder() {
   fbAsc = !fbAsc;
+  _fbSaveState();
   if (fbTypeCache) fbRenderTypeList(fbTypeCache);
 }
 function fbFilterList() {
@@ -416,9 +434,14 @@ function fbRenderTypeList(items) {
 }
 
 function fbOpen() {
-  var b = document.getElementById('fileBrowser');
-  b.style.display = 'flex';
-  fbLoad('');
+  var st = _fbLoadState();
+  if (st.tab) fbTab = st.tab;
+  if (st.type !== undefined) fbType = st.type;
+  if (st.order) fbOrder = st.order;
+  fbAsc = !!st.asc;
+  if (st.path) fbCurrent = st.path;
+  document.getElementById('fileBrowser').style.display = 'flex';
+  fbApplyState();
 }
 function fbReqPerm() {
   try { AppBridge.requestStoragePermission(); } catch (e) {}
@@ -433,6 +456,7 @@ function fbGoUp() {
 }
 function fbLoad(path) {
   fbCurrent = path;
+  _fbSaveState();
   var list = document.getElementById('fbList');
   var title = document.getElementById('fbPath');
   title.textContent = path ? path.split('/').pop() || '内部存储' : '内部存储';
