@@ -317,7 +317,7 @@ class MainActivity : Activity() {
                 } catch (_: Exception) {}
                 val skipDirs = setOf("Android", "LOST.DIR", "obb", ".thumbnails", "cache")
                 var count = 0
-                while (queue.isNotEmpty() && count < 3000) {
+                while (queue.isNotEmpty() && count < 100000) {
                     val dir = queue.removeFirst()
                     val files = dir.listFiles() ?: continue
                     for (f in files) {
