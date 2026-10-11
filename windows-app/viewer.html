@@ -688,8 +688,23 @@ stage.addEventListener('touchmove', function (e) {
     var mdx = e.touches[0].clientX - touchX;
     if (!swipeFired && Math.abs(mdy) > 60 && Math.abs(mdy) > Math.abs(mdx) * 1.5) {
       swipeFired = true;
-      if (mdy < 0) document.body.classList.add('hidebar');
-      else document.body.classList.remove('hidebar');
+      var _ap = document.getElementById('audioPlayer');
+      var _inLrc = e.target && e.target.closest && e.target.closest('.aLrc');
+      if (mdy < 0) {
+        if (docKind === 'audio' && _ap && document.body.classList.contains('hidebar') && !_inLrc) {
+          _ap.classList.add('compact');
+          setInfo('紧凑模式 · 下划恢复');
+        } else {
+          document.body.classList.add('hidebar');
+        }
+      } else {
+        if (docKind === 'audio' && _ap && _ap.classList.contains('compact')) {
+          _ap.classList.remove('compact');
+          setInfo('已恢复布局');
+        } else {
+          document.body.classList.remove('hidebar');
+        }
+      }
       setTimeout(updateStageCenter, 30);
     }
   }
