@@ -277,6 +277,41 @@ class MainActivity : Activity() {
 
     inner class Bridge {
         @JavascriptInterface
+        fun searchFiles(ext: String): String {
+            try {
+                val root = java.io.File("/storage/emulated/0")
+                val exts = ext.lowercase().split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+                val results = org.json.JSONArray()
+                val queue = ArrayDeque<java.io.File>()
+                queue.add(root)
+                var count = 0
+                while (queue.isNotEmpty() && count < 500) {
+                    val dir = queue.removeFirst()
+                    val files = dir.listFiles() ?: continue
+                    for (f in files) {
+                        if (f.name.startsWith(".")) continue
+                        if (f.isDirectory) {
+                            if (f.name !in setOf("Android", "LOST.DIR", "DCIM/.thumbnails")) queue.add(f)
+                        } else {
+                            val fe = f.extension.lowercase()
+                            if (exts.isEmpty() || exts.contains(fe)) {
+                                val o = org.json.JSONObject()
+                                o.put("n", f.name)
+                                o.put("d", false)
+                                o.put("s", f.length())
+                                o.put("t", f.lastModified())
+                                o.put("p", f.absolutePath)
+                                results.put(o)
+                                count++
+                            }
+                        }
+                    }
+                }
+                return results.toString()
+            } catch (_: Exception) { return "[]" }
+        }
+
+        @JavascriptInterface
         fun listFiles(path: String): String {
             try {
                 val dir = if (path.isEmpty()) java.io.File("/storage/emulated/0") else java.io.File(path)

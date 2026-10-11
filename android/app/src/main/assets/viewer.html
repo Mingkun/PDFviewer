@@ -58,6 +58,12 @@
   #fileBrowser .fbName { font-size:14px; color:#dfe3ea; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #fileBrowser .fbSub { font-size:11px; color:#8e959f; flex-shrink:0; }
   #fileBrowser .fbEmpty { text-align:center; padding:40px; color:#8e959f; font-size:13px; }
+  #fileBrowser .fbTabs { display:flex; gap:0; border-bottom:1px solid rgba(255,255,255,.08); }
+  #fileBrowser .fbTab { flex:1; text-align:center; padding:10px 0; font-size:13px; color:#8e959f; cursor:pointer; border-bottom:2px solid transparent; }
+  #fileBrowser .fbTab.on { color:#0a84ff; border-bottom-color:#0a84ff; }
+  #fileBrowser .fbSortBar { display:flex; gap:6px; padding:6px 14px; border-bottom:1px solid rgba(255,255,255,.05); }
+  #fileBrowser .fbSortBar button { border:none; background:rgba(255,255,255,.06); color:#8e959f; border-radius:10px; padding:3px 10px; font-size:11px; cursor:pointer; font-family:inherit; }
+  #fileBrowser .fbSortBar button.on { color:#0a84ff; background:rgba(10,132,255,.15); }
   #recentBar .rbItem .rbHold { position:absolute; top:50%; left:50%; width:56px; height:56px; margin:-28px 0 0 -28px; opacity:0; pointer-events:none; z-index:2; }
   #recentBar .rbItem.holding .rbHold { opacity:1; }
   #audioPlayer { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:16px; padding:20px; }
@@ -182,6 +188,25 @@
     <div class="fbTitle" id="fbPath">内部存储</div>
     <button onclick="fbClose()">✕</button>
   </div>
+  <div class="fbTabs">
+    <div class="fbTab on" id="tabFolder" onclick="fbSwitchTab('folder')">📁 文件夹</div>
+    <div class="fbTab" id="tabType" onclick="fbSwitchTab('type')">📄 按类型</div>
+  </div>
+  <div class="fbSortBar" id="fbSortBar" style="display:none">
+    <button id="sortAll" class="on" onclick="fbSetType('')">全部</button>
+    <button id="sortPdf" onclick="fbSetType('pdf')">📕 PDF</button>
+    <button id="sortEpub" onclick="fbSetType('epub')">📗 EPUB</button>
+    <button id="sortDoc" onclick="fbSetType('doc,docx')">📘 Word</button>
+    <button id="sortXls" onclick="fbSetType('xlsx,xls,csv')">📊 Excel</button>
+    <button id="sortAudio" onclick="fbSetType('mp3,wav,ogg,m4a,flac,aac,wma,opus')">🎵 音频</button>
+    <button id="sortVideo" onclick="fbSetType('mp4,webm,mkv,avi,mov,3gp,m4v,ts,flv')">🎬 视频</button>
+    <button id="sortImg" onclick="fbSetType('png,jpg,jpeg,gif,webp,bmp')">🖼️ 图片</button>
+  </div>
+  <div class="fbSortBar" id="fbOrderBy" style="display:none">
+    <button id="ordTime" class="on" onclick="fbSetOrder('time')">按日期</button>
+    <button id="ordName" onclick="fbSetOrder('name')">按名称</button>
+    <button id="ordSize" onclick="fbSetOrder('size')">按大小</button>
+  </div>
   <div class="fbList" id="fbList"></div>
 </div>
 <div id="menu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99;align-items:center;justify-content:center;">
@@ -274,7 +299,69 @@ function setInfo(s) {
   infoTimer = setTimeout(function () { el.style.display = 'none'; el.textContent = ''; }, 4000);
 }
 
-var fbCurrent = '';
+var fbCurrent = '', fbTab = 'folder', fbType = '', fbOrder = 'time', fbTypeCache = null;
+
+function fbSwitchTab(tab) {
+  fbTab = tab;
+  document.getElementById('tabFolder').classList.toggle('on', tab === 'folder');
+  document.getElementById('tabType').classList.toggle('on', tab === 'type');
+  document.getElementById('fbSortBar').style.display = tab === 'type' ? 'flex' : 'none';
+  document.getElementById('fbOrderBy').style.display = tab === 'type' ? 'flex' : 'none';
+  document.querySelector('#fileBrowser .fbHeader button[onclick="fbGoUp()"]').style.display = tab === 'folder' ? '' : 'none';
+  if (tab === 'folder') { fbLoad(fbCurrent); }
+  else { fbLoadType(); }
+}
+function fbSetType(t) {
+  fbType = t;
+  fbTypeCache = null;
+  document.querySelectorAll('#fbSortBar button').forEach(function(b) { b.classList.remove('on'); });
+  var id = t === '' ? 'sortAll' : t.indexOf('pdf') >= 0 ? 'sortPdf' : t.indexOf('epub') >= 0 ? 'sortEpub' : t.indexOf('doc') >= 0 ? 'sortDoc' : t.indexOf('xls') >= 0 ? 'sortXls' : t.indexOf('mp3') >= 0 ? 'sortAudio' : t.indexOf('mp4') >= 0 ? 'sortVideo' : 'sortImg';
+  var el = document.getElementById(id);
+  if (el) el.classList.add('on');
+  fbLoadType();
+}
+function fbSetOrder(o) {
+  fbOrder = o;
+  document.querySelectorAll('#fbOrderBy button').forEach(function(b) { b.classList.remove('on'); });
+  var el = document.getElementById(o === 'time' ? 'ordTime' : o === 'name' ? 'ordName' : 'ordSize');
+  if (el) el.classList.add('on');
+  if (fbTypeCache) fbRenderTypeList(fbTypeCache);
+}
+function fbLoadType() {
+  var list = document.getElementById('fbList');
+  document.getElementById('fbPath').textContent = fbType === '' ? '全部文件' : document.querySelector('#fbSortBar button.on') ? document.querySelector('#fbSortBar button.on').textContent : '文件';
+  if (fbTypeCache) { fbRenderTypeList(fbTypeCache); return; }
+  list.innerHTML = '<div class="fbEmpty">🔍 扫描中…</div>';
+  setTimeout(function() {
+    try {
+      var json = AppBridge.searchFiles(fbType);
+      fbTypeCache = JSON.parse(json);
+      fbRenderTypeList(fbTypeCache);
+    } catch (e) { list.innerHTML = '<div class="fbEmpty">扫描失败</div>'; }
+  }, 50);
+}
+function fbRenderTypeList(items) {
+  var list = document.getElementById('fbList');
+  if (!items.length) { list.innerHTML = '<div class="fbEmpty">没有找到文件</div>'; return; }
+  var sorted = items.slice();
+  if (fbOrder === 'time') sorted.sort(function(a, b) { return b.t - a.t; });
+  else if (fbOrder === 'name') sorted.sort(function(a, b) { return a.n.localeCompare(b.n, 'zh'); });
+  else if (fbOrder === 'size') sorted.sort(function(a, b) { return b.s - a.s; });
+  list.innerHTML = sorted.map(function(it) {
+    var icon = fileIconOf(it.n);
+    var sub = fbOrder === 'time' ? new Date(it.t).toLocaleDateString() : fbOrder === 'size' ? fmtSize(it.s) : fmtSize(it.s);
+    return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="0">' +
+      '<div class="fbIcon">' + icon + '</div>' +
+      '<div class="fbName">' + esc(it.n) + '</div>' +
+      '<div class="fbSub">' + sub + '</div></div>';
+  }).join('');
+  list.querySelectorAll('.fbItem').forEach(function(el) {
+    el.onclick = function() {
+      fbOpenFile(el.getAttribute('data-p'), el.querySelector('.fbName').textContent);
+    };
+  });
+}
+
 function fbOpen() {
   var b = document.getElementById('fileBrowser');
   b.style.display = 'flex';
@@ -282,6 +369,7 @@ function fbOpen() {
 }
 function fbClose() {
   document.getElementById('fileBrowser').style.display = 'none';
+  fbTypeCache = null;
 }
 function fbGoUp() {
   if (!fbCurrent || fbCurrent === '/storage/emulated/0') { fbClose(); return; }
