@@ -124,12 +124,14 @@ window.addEventListener('keydown', function (e) {
   #fileBrowser .fbName { font-size:14px; color:#dfe3ea; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #fileBrowser .fbSub { font-size:11px; color:#8e959f; flex-shrink:0; }
   #fileBrowser .fbEmpty { text-align:center; padding:40px; color:#8e959f; font-size:13px; }
-  #fileBrowser .fbTabs { display:flex; gap:0; border-bottom:1px solid rgba(255,255,255,.08); }
-  #fileBrowser .fbTab { flex:1; text-align:center; padding:10px 0; font-size:13px; color:#8e959f; cursor:pointer; border-bottom:2px solid transparent; }
+  #fileBrowser .fbTabs { display:flex; gap:0; border-bottom:1px solid rgba(255,255,255,.08); overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  #fileBrowser .fbTabs::-webkit-scrollbar { display:none; }
+  #fileBrowser .fbTab { flex-shrink:0; min-width:64px; text-align:center; padding:10px 8px; font-size:13px; color:#8e959f; cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap; }
   #fileBrowser .fbTab.on { color:#0a84ff; border-bottom-color:#0a84ff; }
-  #fileBrowser .fbSortBar { display:flex; gap:6px; padding:6px 14px; border-bottom:1px solid rgba(255,255,255,.05); }
-  #fileBrowser .fbSortBar button { border:none; background:rgba(255,255,255,.06); color:#8e959f; border-radius:10px; padding:3px 10px; font-size:11px; cursor:pointer; font-family:inherit; }
-  #fileBrowser .fbSortBar button.on { color:#0a84ff; background:rgba(10,132,255,.15); }
+  #fileBrowser .fbSortBar { display:flex; gap:4px; padding:6px 10px; border-bottom:1px solid rgba(255,255,255,.05); overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  #fileBrowser .fbSortBar::-webkit-scrollbar { display:none; }
+  #fileBrowser .fbSortBar button { flex-shrink:0; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.06); color:#8e959f; border-radius:14px; padding:4px 10px; font-size:11px; cursor:pointer; font-family:inherit; white-space:nowrap; min-height:26px; display:flex; align-items:center; }
+  #fileBrowser .fbSortBar button.on { color:#0a84ff; background:rgba(10,132,255,.15); border-color:rgba(10,132,255,.3); }
   #recentBar .rbItem .rbHold { position:absolute; top:50%; left:50%; width:56px; height:56px; margin:-28px 0 0 -28px; opacity:0; pointer-events:none; z-index:2; }
   #recentBar .rbItem.holding .rbHold { opacity:1; }
   #audioPlayer { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:16px; padding:20px; }
@@ -366,6 +368,17 @@ function setInfo(s) {
 }
 
 var fbCurrent = '', fbTab = 'folder', fbType = '', fbOrder = 'time', fbTypeCache = null;
+function _fbSaveCache(type, items) {
+  try { localStorage.setItem('pv_fbCache_' + type, JSON.stringify({ d: Date.now(), i: items })); } catch (e) {}
+}
+function _fbLoadCache(type) {
+  try {
+    var raw = localStorage.getItem('pv_fbCache_' + type);
+    if (!raw) return null;
+    var j = JSON.parse(raw);
+    return (j && j.i && j.i.length) ? j.i : null;
+  } catch (e) { return null; }
+}
 
 function fbSwitchTab(tab) {
   fbTab = tab;
@@ -395,15 +408,26 @@ function fbSetOrder(o) {
 }
 function fbLoadType() {
   var list = document.getElementById('fbList');
-  document.getElementById('fbPath').textContent = fbType === '' ? '全部文件' : document.querySelector('#fbSortBar button.on') ? document.querySelector('#fbSortBar button.on').textContent : '文件';
-  if (fbTypeCache) { fbRenderTypeList(fbTypeCache); return; }
-  list.innerHTML = '<div class="fbEmpty">🔍 扫描中…</div>';
+  var label = fbType === '' ? '全部文件' : (document.querySelector('#fbSortBar button.on') || {}).textContent || '文件';
+  document.getElementById('fbPath').textContent = label;
+  // 先显示缓存
+  var cached = _fbLoadCache(fbType);
+  if (cached) {
+    fbTypeCache = cached;
+    fbRenderTypeList(cached);
+    list.insertAdjacentHTML('afterbegin', '<div style="text-align:center;padding:4px;font-size:11px;color:#8e959f">⏳ 后台更新中…</div>');
+  } else {
+    list.innerHTML = '<div class="fbEmpty">🔍 首次扫描中…</div>';
+  }
+  // 后台扫描
   setTimeout(function() {
     try {
       var json = AppBridge.searchFiles(fbType);
-      fbTypeCache = JSON.parse(json);
-      fbRenderTypeList(fbTypeCache);
-    } catch (e) { list.innerHTML = '<div class="fbEmpty">扫描失败</div>'; }
+      var fresh = JSON.parse(json);
+      fbTypeCache = fresh;
+      _fbSaveCache(fbType, fresh);
+      fbRenderTypeList(fresh);
+    } catch (e) { if (!cached) list.innerHTML = '<div class="fbEmpty">扫描失败</div>'; }
   }, 50);
 }
 function fbRenderTypeList(items) {
@@ -435,7 +459,6 @@ function fbOpen() {
 }
 function fbClose() {
   document.getElementById('fileBrowser').style.display = 'none';
-  fbTypeCache = null;
 }
 function fbGoUp() {
   if (!fbCurrent || fbCurrent === '/storage/emulated/0') { fbClose(); return; }
