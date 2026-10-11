@@ -1920,25 +1920,29 @@ function _autoSearchLrc(base) {
   var artist = '', track = base;
   var m = base.match(/^(.+?)\s*[-–—]\s*(.+)$/);
   if (m) { artist = m[1].trim(); track = m[2].trim(); }
-  var url = 'https://lrclib.net/api/search?track_name=' + encodeURIComponent(track) + (artist ? '&artist_name=' + encodeURIComponent(artist) : '');
-  fetch(url, { headers: { 'Accept': 'application/json' } })
+  var q = 'track=' + encodeURIComponent(track) + (artist ? '&artist=' + encodeURIComponent(artist) : '');
+  var tk = TTS_TOKEN;
+  fetch(CLOUD_TTS.replace('/api/tts', '/api/lrc-lookup') + '?' + q + '&token=*** + tk)
     .then(function (r) { return r.json(); })
     .then(function (j) {
-      if (j && j.length > 0 && j[0].syncedLyrics) {
-        _lrcLines = _parseLrc(j[0].syncedLyrics);
-        _lrcCache[base] = _lrcLines;
-        _renderLrcList();
-        setInfo('歌词：' + (j[0].trackName || track));
-      } else if (j && j.length > 0 && j[0].plainLyrics) {
-        _lrcLines = j[0].plainLyrics.split('\n').map(function (ln, i) { return { t: -1, s: ln }; });
-        _lrcCache[base] = _lrcLines;
-        _renderLrcList();
-        setInfo('歌词（无时间轴）：' + (j[0].trackName || track));
+      if (j && j.ok && j.lrc) {
+        var hasTs = j.lrc.indexOf('[') >= 0;
+        if (hasTs) {
+          _lrcLines = _parseLrc(j.lrc);
+          _lrcCache[base] = _lrcLines;
+          _renderLrcList();
+          setInfo('歌词（' + (j.source || '') + '）：' + (j.name || track));
+        } else {
+          _lrcLines = j.lrc.split('\n').map(function (ln) { return { t: -1, s: ln }; });
+          _lrcCache[base] = _lrcLines;
+          _renderLrcList();
+          setInfo('歌词（' + (j.source || '') + ' · 无时间轴）：' + (j.name || track));
+        }
       } else {
         _renderLrcList('未找到歌词');
       }
     })
-    .catch(function () { _renderLrcList('歌词搜索失败（网络）'); });
+    .catch(function () { _renderLrcList('歌词搜索失败'); });
 }
 function _renderLrcList(msg) {
   var el = document.getElementById('aLrc');
