@@ -2041,9 +2041,16 @@ function _syncLrc() {
 var curFileKey = '', rxChunks = [], rxName = '', rxKey = '', rxTotal = 0;
 function openByBytes(name, buf, mime, key) {
   var nm = (name || '').toLowerCase();
-  // DRM 加密检测（优先于所有格式分支）
-  if (/\.(mgg2?|mflac|mmp3|ncm|qmcflac|qmcmp3|qmcogg|kgm|kuwo)(\.|$)/i.test(nm) || /\[mqms|\[qqmusic|\[kugou/i.test(nm)) {
-    setInfo('🔒 DRM加密文件，无法播放——请在原平台打开');
+  // DRM 加密检测：只匹配已知加密后缀（不以音频格式结尾的）
+  var ext = nm.split('.').pop();
+  var drmExts = ['mgg', 'mgg2', 'mflac', 'mmp3', 'ncm', 'qmcflac', 'qmcmp3', 'qmcogg', 'kgm', 'kuwo'];
+  if (drmExts.indexOf(ext) >= 0) {
+    setInfo('🔒 DRM加密文件（' + ext + '），无法播放——请在原平台打开');
+    return;
+  }
+  // 双后缀检测：xxx.mgg2.flac / xxx.mflac.flac 这类加密标记
+  if (/\.(mgg2?|mflac|ncm|qmcflac|kgm)\.(flac|mp3|m4a|ogg|wav)$/i.test(nm)) {
+    setInfo('🔒 DRM加密文件（双后缀），无法播放——请在原平台打开');
     return;
   }
   curFileKey = key || nm;
