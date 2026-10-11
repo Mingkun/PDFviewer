@@ -132,6 +132,9 @@ window.addEventListener('keydown', function (e) {
   #fileBrowser .fbSortBar::-webkit-scrollbar { display:none; }
   #fileBrowser .fbSortBar button { flex-shrink:0; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.06); color:#8e959f; border-radius:14px; padding:4px 10px; font-size:11px; cursor:pointer; font-family:inherit; white-space:nowrap; min-height:26px; display:flex; align-items:center; }
   #fileBrowser .fbSortBar button.on { color:#0a84ff; background:rgba(10,132,255,.15); border-color:rgba(10,132,255,.3); }
+  #fileBrowser .fbSearch { display:none; padding:6px 10px; border-bottom:1px solid rgba(255,255,255,.05); }
+  #fileBrowser .fbSearch input { width:100%; box-sizing:border-box; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.06); color:#dfe3ea; border-radius:10px; padding:8px 12px; font-size:13px; outline:none; font-family:inherit; }
+  #fileBrowser .fbSearch input::placeholder { color:#8e959f; }
   #recentBar .rbItem .rbHold { position:absolute; top:50%; left:50%; width:56px; height:56px; margin:-28px 0 0 -28px; opacity:0; pointer-events:none; z-index:2; }
   #recentBar .rbItem.holding .rbHold { opacity:1; }
   #audioPlayer { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:16px; padding:20px; }
@@ -275,7 +278,7 @@ window.addEventListener('keydown', function (e) {
     <button id="ordName" onclick="fbSetOrder('name')">按名称</button>
     <button id="ordSize" onclick="fbSetOrder('size')">按大小</button>
   </div>
-  <div class="fbList" id="fbList"></div>
+  <div class="fbSearch" id="fbSearchBar"><input type="text" id="fbSearchInput" placeholder="🔍 输入文件名筛选…" oninput="fbFilterList()" /></div><div class="fbList" id="fbList"></div>
 </div>
 <div id="menu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99;align-items:center;justify-content:center;">
   <div style="width:min(340px,88vw);background:#fff;border-radius:12px;padding:14px;max-height:calc(100vh - 60px);overflow-y:auto;box-sizing:border-box">
@@ -385,6 +388,7 @@ function fbSwitchTab(tab) {
   document.getElementById('tabFolder').classList.toggle('on', tab === 'folder');
   document.getElementById('tabType').classList.toggle('on', tab === 'type');
   document.getElementById('fbSortBar').style.display = tab === 'type' ? 'flex' : 'none';
+  var _sb = document.getElementById('fbSearchBar'); if (_sb) _sb.style.display = tab === 'type' ? 'block' : 'none';
   document.getElementById('fbOrderBy').style.display = tab === 'type' ? 'flex' : 'none';
   document.querySelector('#fileBrowser .fbHeader button[onclick="fbGoUp()"]').style.display = tab === 'folder' ? '' : 'none';
   if (tab === 'folder') { fbLoad(fbCurrent); }
@@ -400,6 +404,7 @@ function fbSetType(t) {
   fbLoadType();
 }
 function fbSetOrder(o) {
+  if (fbOrder === o) { fbToggleOrder(); return; }
   fbOrder = o;
   document.querySelectorAll('#fbOrderBy button').forEach(function(b) { b.classList.remove('on'); });
   var el = document.getElementById(o === 'time' ? 'ordTime' : o === 'name' ? 'ordName' : 'ordSize');
@@ -438,13 +443,25 @@ function fbLoadType() {
     } catch (e) { if (!cached) list.innerHTML = '<div class="fbEmpty">扫描失败</div>'; }
   }, 50);
 }
+var fbAsc = false;
+function fbToggleOrder() {
+  fbAsc = !fbAsc;
+  if (fbTypeCache) fbRenderTypeList(fbTypeCache);
+}
+function fbFilterList() {
+  if (fbTypeCache) fbRenderTypeList(fbTypeCache);
+}
 function fbRenderTypeList(items) {
   var list = document.getElementById('fbList');
   if (!items.length) { list.innerHTML = '<div class="fbEmpty">没有找到文件</div>'; return; }
   var sorted = items.slice();
-  if (fbOrder === 'time') sorted.sort(function(a, b) { return b.t - a.t; });
-  else if (fbOrder === 'name') sorted.sort(function(a, b) { return a.n.localeCompare(b.n, 'zh'); });
-  else if (fbOrder === 'size') sorted.sort(function(a, b) { return b.s - a.s; });
+  var _q = '';
+  try { _q = document.getElementById('fbSearchInput').value.toLowerCase(); } catch (e) {}
+  if (_q.trim()) sorted = sorted.filter(function(it) { return it.n.toLowerCase().indexOf(_q) >= 0; });
+  var _dir = fbAsc ? 1 : -1;
+  if (fbOrder === 'time') sorted.sort(function(a, b) { return (a.t - b.t) * _dir; });
+  else if (fbOrder === 'name') sorted.sort(function(a, b) { return a.n.localeCompare(b.n, 'zh') * _dir; });
+  else if (fbOrder === 'size') sorted.sort(function(a, b) { return (a.s - b.s) * _dir; });
   var _drmL = ['mgg','mgg2','mflac','mmp3','ncm','qmcflac','qmcmp3','qmcogg','kgm','kuwo'];
   sorted = sorted.filter(function(it) { var _ln = it.n.toLowerCase(); var _ext = _ln.split('.').pop(); if (_drmL.indexOf(_ext) >= 0) return false; if (/\.(mgg2?|mflac|ncm|qmcflac|kgm)\.(flac|mp3|m4a|ogg|wav)$/.test(_ln)) return false; if (/\[mqms|\[qqmusic/i.test(it.n)) return false; return true; });
   list.innerHTML = sorted.map(function(it) {
