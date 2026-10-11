@@ -632,7 +632,9 @@ stage.addEventListener('touchmove', function (e) {
       var _ap = document.getElementById('audioPlayer');
       var _inLrc = e.target && e.target.closest && e.target.closest('.aLrc');
       if (mdy < 0) {
-        if (docKind === 'audio' && _ap && document.body.classList.contains('hidebar') && !_inLrc) {
+        if (docKind === 'audio' && _ap && _ap.classList.contains('compact')) {
+          // 已在最紧凑，不再处理
+        } else if (docKind === 'audio' && _ap && document.body.classList.contains('hidebar') && !_inLrc) {
           _ap.classList.add('compact');
           setInfo('紧凑模式 · 下划恢复');
         } else {
@@ -647,7 +649,7 @@ stage.addEventListener('touchmove', function (e) {
           document.body.classList.remove('hidebar');
         }
       }
-      setTimeout(updateStageCenter, 30);
+      if (!(docKind === 'audio' && _ap && _ap.classList.contains('compact'))) setTimeout(updateStageCenter, 30);
     }
   }
   if (!pinchActive || e.touches.length !== 2) return;
