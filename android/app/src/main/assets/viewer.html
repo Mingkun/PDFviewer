@@ -712,6 +712,7 @@ function resetView() {
   try { if (curVideoEl) { curVideoEl.pause(); curVideoEl = null; } } catch (e) {}
   contentEl.innerHTML = '';
   contentEl.style.background = '';
+  contentEl.style.overflow = '';
   var h = document.getElementById('hint');
   if (h) h.style.display = 'none';
   var rb = document.getElementById('recentBar');
@@ -1899,6 +1900,7 @@ function openAudio(buf, name) {
   docKind = 'audio';
   contentEl.style.display = 'block';
   contentEl.style.background = '#1e2126';
+  contentEl.style.overflow = 'hidden';
   var blob = new Blob([buf]);
   var url = URL.createObjectURL(blob);
   var base = name.replace(/\.[^.]+$/, '');
