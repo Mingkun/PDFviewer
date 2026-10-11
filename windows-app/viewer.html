@@ -1974,11 +1974,46 @@ function updateLoopBtn() {
   var b = document.getElementById('loopBtn');
   if (b && curAudioEl) { b.classList.toggle('on', curAudioEl.loop); b.textContent = curAudioEl.loop ? '🔁 循环中' : '🔁 循环'; }
 }
-var _lrcLines = [];
+var _lrcLines = [], _lrcCache = {};
 function _loadLrc(base) {
   _lrcLines = [];
   var el = document.getElementById('aLrc');
-  if (el) el.innerHTML = '';
+  if (el) { el.innerHTML = '<div style="color:#8e959f;padding:8px">🔍 搜索歌词中…</div>'; el._curIdx = -1; }
+  if (_lrcCache[base]) { _lrcLines = _lrcCache[base]; _renderLrcList(); return; }
+  _autoSearchLrc(base);
+}
+function _autoSearchLrc(base) {
+  var artist = '', track = base;
+  var m = base.match(/^(.+?)\s*[-–—]\s*(.+)$/);
+  if (m) { artist = m[1].trim(); track = m[2].trim(); }
+  var url = 'https://lrclib.net/api/search?track_name=' + encodeURIComponent(track) + (artist ? '&artist_name=' + encodeURIComponent(artist) : '');
+  fetch(url, { headers: { 'Accept': 'application/json' } })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j && j.length > 0 && j[0].syncedLyrics) {
+        _lrcLines = _parseLrc(j[0].syncedLyrics);
+        _lrcCache[base] = _lrcLines;
+        _renderLrcList();
+        setInfo('歌词：' + (j[0].trackName || track));
+      } else if (j && j.length > 0 && j[0].plainLyrics) {
+        _lrcLines = j[0].plainLyrics.split('\n').map(function (ln, i) { return { t: -1, s: ln }; });
+        _lrcCache[base] = _lrcLines;
+        _renderLrcList();
+        setInfo('歌词（无时间轴）：' + (j[0].trackName || track));
+      } else {
+        _renderLrcList('未找到歌词');
+      }
+    })
+    .catch(function () { _renderLrcList('歌词搜索失败（网络）'); });
+}
+function _renderLrcList(msg) {
+  var el = document.getElementById('aLrc');
+  if (!el) return;
+  if (msg) { el.innerHTML = '<div style="color:#8e959f;padding:8px">' + esc(msg) + '</div>'; return; }
+  el._curIdx = -1;
+  el.innerHTML = _lrcLines.map(function (l) {
+    return '<div>' + esc(l.s || ' ') + '</div>';
+  }).join('');
 }
 function _parseLrc(txt) {
   var out = [];
@@ -1989,7 +2024,7 @@ function _parseLrc(txt) {
   return out.sort(function (a, b) { return a.t - b.t; });
 }
 function _syncLrc() {
-  if (!_lrcLines.length || !curAudioEl) return;
+  if (!_lrcLines.length || !curAudioEl || _lrcLines[0].t < 0) return;
   var now = curAudioEl.currentTime;
   var idx = -1;
   for (var i = 0; i < _lrcLines.length; i++) { if (_lrcLines[i].t <= now) idx = i; else break; }
