@@ -277,6 +277,37 @@ class MainActivity : Activity() {
 
     inner class Bridge {
         @JavascriptInterface
+        fun listFiles(path: String): String {
+            try {
+                val dir = if (path.isEmpty()) java.io.File("/storage/emulated/0") else java.io.File(path)
+                if (!dir.exists() || !dir.isDirectory) return "[]"
+                val items = dir.listFiles()?.sortedWith(compareByDescending<java.io.File> { it.isDirectory }.thenByDescending { it.lastModified() }) ?: emptyList()
+                val arr = org.json.JSONArray()
+                for (f in items.take(500)) {
+                    if (f.name.startsWith(".")) continue
+                    val o = org.json.JSONObject()
+                    o.put("n", f.name)
+                    o.put("d", f.isDirectory)
+                    o.put("s", if (f.isFile) f.length() else 0)
+                    o.put("t", f.lastModified())
+                    o.put("p", f.absolutePath)
+                    arr.put(o)
+                }
+                return arr.toString()
+            } catch (_: Exception) { return "[]" }
+        }
+
+        @JavascriptInterface
+        fun readFile(path: String): String {
+            try {
+                val f = java.io.File(path)
+                if (!f.exists() || f.length() > 100 * 1024 * 1024) return ""
+                val bytes = f.readBytes()
+                return android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+            } catch (_: Exception) { return "" }
+        }
+
+        @JavascriptInterface
         fun openFile() {
             try {
                 val i = Intent(Intent.ACTION_OPEN_DOCUMENT)
