@@ -62,7 +62,7 @@
   #audioPlayer .aLoop button.on { background:#0a84ff; color:#fff; border-color:#0a84ff; }
   #audioPlayer .aLrc { width:min(90%,400px); max-height:200px; overflow-y:auto; text-align:center; font-size:14px; line-height:2.2; color:#8e959f; }
   #audioPlayer .aLrc .on { color:#4ade80; font-size:16px; font-weight:600; }
-  #audioPlayer.compact { gap:4px; padding:6px 10px; justify-content:flex-start; padding-top:12px; }
+  #audioPlayer.compact { gap:4px; padding:6px 10px; justify-content:flex-start; padding-top:32px; }
   #audioPlayer.compact .aIcon { display:none !important; }
   #audioPlayer.compact .aTitle { font-size:12px; margin:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #audioPlayer.compact .aBar { width:min(85%,380px); }
@@ -1955,6 +1955,7 @@ function _autoSearchLrc(base) {
           _lrcCache[base] = _lrcLines;
           _renderLrcList();
           setInfo('歌词（' + (j.source || '') + '）：' + (j.name || track));
+          _saveLrcCache(track, artist, j.lrc);
         } else {
           _lrcLines = j.lrc.split('\n').map(function (ln) { return { t: -1, s: ln }; });
           _lrcCache[base] = _lrcLines;
@@ -1966,6 +1967,14 @@ function _autoSearchLrc(base) {
       }
     })
     .catch(function () { _renderLrcList('歌词搜索失败'); });
+}
+function _saveLrcCache(track, artist, lrc) {
+  try {
+    var tk = TTS_TOKEN;
+    fetch(CLOUD_TTS.replace('/api/tts', '/api/lrc-cache') + '?track=' + encodeURIComponent(track) + '&artist=' + encodeURIComponent(artist || '') + '&token=*** + tk, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: lrc
+    }).catch(function(){});
+  } catch (e) {}
 }
 function _renderLrcList(msg) {
   var el = document.getElementById('aLrc');
