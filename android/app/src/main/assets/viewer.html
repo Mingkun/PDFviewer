@@ -308,7 +308,7 @@ function fbLoad(path) {
     list.querySelectorAll('.fbItem').forEach(function (el) {
       el.onclick = function () {
         var p = el.getAttribute('data-p');
-        if (el.getAttribute('data-d') === '1') { fbLoad(p); return; }
+        var dv = el.getAttribute('data-d'); if (dv === '1' || dv === 'true') { fbLoad(p); return; }
         fbOpenFile(p, el.querySelector('.fbName').textContent);
       };
     });
