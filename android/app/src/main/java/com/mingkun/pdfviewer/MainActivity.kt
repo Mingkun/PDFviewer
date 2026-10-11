@@ -302,36 +302,67 @@ class MainActivity : Activity() {
         fun searchFiles(ext: String): String {
             try {
                 if (!hasStoragePermission()) return "[{\"n\":\"__NEED_PERM__\"}]"
-                val root = java.io.File("/storage/emulated/0")
                 val exts = ext.lowercase().split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+                val audioE = setOf("mp3", "wav", "ogg", "m4a", "flac", "aac", "wma", "opus")
+                val videoE = setOf("mp4", "webm", "mkv", "avi", "mov", "3gp", "m4v", "ts", "flv")
+                val checkMedia = exts.isEmpty() || exts.any { audioE.contains(it) || videoE.contains(it) }
                 val results = org.json.JSONArray()
                 val queue = ArrayDeque<java.io.File>()
-                queue.add(root)
+                // 扫描所有存储根：内部 + 外置SD
+                queue.add(java.io.File("/storage/emulated/0"))
+                try {
+                    java.io.File("/storage").listFiles()?.forEach { d ->
+                        if (d.isDirectory && d.name != "emulated" && d.name != "self") queue.add(d)
+                    }
+                } catch (_: Exception) {}
+                val skipDirs = setOf("Android", "LOST.DIR", "obb", ".thumbnails", "cache")
                 var count = 0
-                while (queue.isNotEmpty() && count < 500) {
+                while (queue.isNotEmpty() && count < 3000) {
                     val dir = queue.removeFirst()
                     val files = dir.listFiles() ?: continue
                     for (f in files) {
                         if (f.name.startsWith(".")) continue
-                        if (f.isDirectory) {
-                            if (f.name !in setOf("Android", "LOST.DIR", "DCIM/.thumbnails")) queue.add(f)
-                        } else {
-                            val fe = f.extension.lowercase()
-                            if (exts.isEmpty() || exts.contains(fe)) {
-                                val o = org.json.JSONObject()
-                                o.put("n", f.name)
-                                o.put("d", false)
-                                o.put("s", f.length())
-                                o.put("t", f.lastModified())
-                                o.put("p", f.absolutePath)
-                                results.put(o)
-                                count++
-                            }
+                        if (f.isDirectory) { if (f.name !in skipDirs) queue.add(f); continue }
+                        val fe = f.extension.lowercase()
+                        if (exts.isNotEmpty() && !exts.contains(fe)) continue
+                        // 媒体文件：读文件头验证真实格式（过滤加密/损坏文件）
+                        if (checkMedia && (audioE.contains(fe) || videoE.contains(fe))) {
+                            if (!isRealMedia(f)) continue
                         }
+                        val o = org.json.JSONObject()
+                        o.put("n", f.name); o.put("d", false)
+                        o.put("s", f.length()); o.put("t", f.lastModified()); o.put("p", f.absolutePath)
+                        results.put(o); count++
                     }
                 }
                 return results.toString()
             } catch (_: Exception) { return "[]" }
+        }
+
+        private fun isRealMedia(f: java.io.File): Boolean {
+            try {
+                java.io.FileInputStream(f).use { fis ->
+                    val h = ByteArray(12)
+                    val n = fis.read(h)
+                    if (n < 4) return false
+                    val b = { i: Int -> h[i].toInt() and 0xFF }
+                    val m4 = String(h, 0, 4, Charsets.ISO_8859_1)
+                    if (m4 == "fLaC") return true   // FLAC
+                    if (m4 == "OggS") return true   // OGG/OPUS
+                    if (m4 == "RIFF") return true   // WAV/AVI
+                    if (m4.startsWith("FLV")) return true
+                    if (m4.startsWith("ID3")) return true  // MP3
+                    if (b(0) == 0xFF && (b(1) and 0xE0) == 0xE0) return true  // MP3帧同步
+                    if (b(0) == 0x1A && b(1) == 0x45 && b(2) == 0xDF && b(3) == 0xA3) return true  // MKV/WebM
+                    if (b(0) == 0x30 && b(1) == 0x26 && b(2) == 0xB2 && b(3) == 0x75) return true  // WMA/ASF
+                    if (b(0) == 0x47) return true   // MPEG-TS
+                    if (n >= 8) {
+                        val tag = String(h, 4, 4, Charsets.ISO_8859_1)
+                        if (tag == "ftyp") return true  // MP4/M4A/MOV
+                    }
+                    return false  // 未知/加密/损坏 → 过滤
+                }
+            } catch (_: Exception) { return true }  // 读取失败时保留（不误杀）
         }
 
         @JavascriptInterface
