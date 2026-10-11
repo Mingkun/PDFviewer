@@ -151,6 +151,8 @@ window.addEventListener('keydown', function (e) {
   #audioPlayer .aLoop button.on { background:#0a84ff; color:#fff; border-color:#0a84ff; }
   #audioPlayer .aLrc { width:min(90%,400px); max-height:200px; overflow-y:auto; text-align:center; font-size:14px; line-height:2.2; color:#8e959f; padding-top:8px; box-sizing:border-box; }
   #audioPlayer .aLrc .on { color:#4ade80; font-size:16px; font-weight:600; }
+  #audioPlayer .asrZh { font-size:15px; color:#dfe3ea; line-height:1.7; }
+  #audioPlayer .asrEn { font-size:11px; color:#727a85; line-height:1.5; margin-top:2px; }
   #audioPlayer.compact { gap:4px; padding:6px 10px; justify-content:flex-start; padding-top:24px; }
   #audioPlayer.compact .aIcon { display:none !important; }
   #audioPlayer.compact .aTitle { font-size:12px; margin:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -2197,13 +2199,15 @@ function openAudio(buf, name) {
   var blob = new Blob([buf]);
   var url = URL.createObjectURL(blob);
   var base = name.replace(/\.[^.]+$/, '');
+  _asrBuf = buf;
+  _asrSegs = [];
   contentEl.innerHTML = '<div id="audioPlayer">' +
     '<div class="aIcon">🎵</div>' +
     '<div class="aTitle">' + esc(name) + '</div>' +
     '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
-    '<div class="aLoop"><button id="loopBtn" onclick="toggleLoop()">🔁 循环</button></div>' +
+    '<div class="aLoop"><button id="loopBtn" onclick="toggleLoop()">🔁 循环</button><button id="asrBtn" onclick="asrTranslate()">🌐 AI翻译</button><button id="asrToggle" style="display:none" onclick="asrToggleView()">📋 歌词</button></div>' +
     '<div class="aLrc" id="aLrc"></div>' +
-    '<div class="aInfo">支持循环/歌词 · 双指右划关闭</div>' +
+    '<div class="aInfo">支持循环/歌词/AI翻译 · 双指右划关闭</div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
   setTotal(1); document.getElementById('pageInput').value = 1;
@@ -2216,7 +2220,64 @@ function openAudio(buf, name) {
   _loadLrc(base);
   // 歌词同步
   curAudioEl.addEventListener('timeupdate', _syncLrc);
+  curAudioEl.addEventListener('timeupdate', _syncAsr);
   try { curAudioEl.play(); } catch (e) {}
+}
+var _asrBuf = null, _asrSegs = [], _asrView = false, _asrBusy = false;
+function asrTranslate() {
+  if (_asrBusy) return;
+  if (!_asrBuf) { setInfo('无可翻译音频'); return; }
+  var el = document.getElementById('aLrc');
+  if (!el) return;
+  _asrBusy = true;
+  _asrView = true;
+  el.innerHTML = '<div style="color:#8e959f;padding:24px 12px;line-height:1.8">🎙 识别+翻译中…<br><span style="font-size:12px">首次较慢（模型加载），请稍候</span></div>';
+  var tk = TTS_TOKEN;
+  var url = CLOUD_TTS.replace('/api/tts', '/api/asr') + '?token=' + tk;
+  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: _asrBuf })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      _asrBusy = false;
+      if (!j || !j.ok) { el.innerHTML = '<div style="color:#e88;padding:20px">识别失败：' + esc((j && j.error) || '') + '</div>'; return; }
+      _asrSegs = j.segments || [];
+      if (!_asrSegs.length) { el.innerHTML = '<div style="color:#8e959f;padding:20px">未识别到语音</div>'; return; }
+      document.getElementById('asrToggle').style.display = '';
+      asrRender();
+    })
+    .catch(function () { _asrBusy = false; el.innerHTML = '<div style="color:#e88;padding:20px">网络错误或超时</div>'; });
+}
+function asrToggleView() {
+  _asrView = !_asrView;
+  var b = document.getElementById('asrToggle');
+  if (b) b.textContent = _asrView ? '📋 歌词' : '🌐 翻译';
+  if (_asrView) { asrRender(); }
+  else { _loadLrc((document.querySelector('.aTitle') || {}).textContent ? document.querySelector('.aTitle').textContent.replace(/\.[^.]+$/, '') : ''); }
+}
+function asrRender() {
+  var el = document.getElementById('aLrc');
+  if (!el || !_asrSegs.length) return;
+  el._curIdx = -1;
+  el.innerHTML = _asrSegs.map(function (g, i) {
+    var zh = g.zh || '';
+    return '<div data-i="' + i + '" style="margin:6px 0">' +
+      (zh ? '<div class="asrZh">' + esc(zh) + '</div>' : '') +
+      '<div class="asrEn">' + esc(g.t) + '</div></div>';
+  }).join('');
+  _syncAsr();
+}
+function _syncAsr() {
+  if (!_asrView || !_asrSegs.length || !curAudioEl) return;
+  var t = curAudioEl.currentTime, idx = -1;
+  for (var i = 0; i < _asrSegs.length; i++) { if (_asrSegs[i].s <= t) idx = i; else break; }
+  var el = document.getElementById('aLrc');
+  if (!el || el._asrIdx === idx) return;
+  el._asrIdx = idx;
+  el.querySelectorAll('[data-i]').forEach(function (d) {
+    var on = (+d.getAttribute('data-i')) === idx;
+    d.style.opacity = on ? '1' : '0.5';
+  });
+  var act = el.querySelector('[data-i="' + idx + '"]');
+  if (act) el.scrollTop = act.offsetTop - el.clientHeight / 2 + act.offsetHeight / 2;
 }
 function toggleLoop() {
   if (!curAudioEl) return;
