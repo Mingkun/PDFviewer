@@ -277,8 +277,31 @@ class MainActivity : Activity() {
 
     inner class Bridge {
         @JavascriptInterface
+        fun hasStoragePermission(): Boolean {
+            return if (android.os.Build.VERSION.SDK_INT >= 30) {
+                android.os.Environment.isExternalStorageManager()
+            } else {
+                checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            }
+        }
+
+        @JavascriptInterface
+        fun requestStoragePermission() {
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= 30) {
+                    val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                        android.net.Uri.parse("package:$packageName"))
+                    startActivity(intent)
+                } else {
+                    requestPermissions(arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE), 100)
+                }
+            } catch (_: Exception) {}
+        }
+
+        @JavascriptInterface
         fun searchFiles(ext: String): String {
             try {
+                if (!hasStoragePermission()) return "[{\"n\":\"__NEED_PERM__\"}]"
                 val root = java.io.File("/storage/emulated/0")
                 val exts = ext.lowercase().split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
                 val results = org.json.JSONArray()
@@ -314,6 +337,7 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun listFiles(path: String): String {
             try {
+                if (!hasStoragePermission()) return "[]"
                 val dir = if (path.isEmpty()) java.io.File("/storage/emulated/0") else java.io.File(path)
                 if (!dir.exists() || !dir.isDirectory) return "[]"
                 val items = dir.listFiles()?.sortedWith(compareByDescending<java.io.File> { it.isDirectory }.thenByDescending { it.lastModified() }) ?: emptyList()
