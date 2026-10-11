@@ -326,11 +326,13 @@ class MainActivity : Activity() {
                         val fe = f.extension.lowercase()
                         if (exts.isNotEmpty() && !exts.contains(fe)) continue
                         // 媒体文件：读文件头验证真实格式（过滤加密/损坏文件）
+                        var enc = false
                         if (checkMedia && (audioE.contains(fe) || videoE.contains(fe))) {
-                            if (!isRealMedia(f)) continue
+                            enc = !isRealMedia(f)
                         }
                         val o = org.json.JSONObject()
                         o.put("n", f.name); o.put("d", false)
+                        o.put("enc", enc)
                         o.put("s", f.length()); o.put("t", f.lastModified()); o.put("p", f.absolutePath)
                         results.put(o); count++
                     }
@@ -373,6 +375,7 @@ class MainActivity : Activity() {
                 if (!dir.exists() || !dir.isDirectory) return "[]"
                 val items = dir.listFiles()?.sortedWith(compareByDescending<java.io.File> { it.isDirectory }.thenByDescending { it.lastModified() }) ?: emptyList()
                 val arr = org.json.JSONArray()
+                val mediaE = setOf("mp3","wav","ogg","m4a","flac","aac","wma","opus","mp4","webm","mkv","avi","mov","3gp","m4v","ts","flv")
                 for (f in items.take(500)) {
                     if (f.name.startsWith(".")) continue
                     val o = org.json.JSONObject()
@@ -381,6 +384,7 @@ class MainActivity : Activity() {
                     o.put("s", if (f.isFile) f.length() else 0)
                     o.put("t", f.lastModified())
                     o.put("p", f.absolutePath)
+                    o.put("enc", if (f.isFile && f.extension.lowercase() in mediaE) !isRealMedia(f) else false)
                     arr.put(o)
                 }
                 return arr.toString()
