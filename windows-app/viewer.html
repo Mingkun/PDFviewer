@@ -445,6 +445,8 @@ function fbRenderTypeList(items) {
   if (fbOrder === 'time') sorted.sort(function(a, b) { return b.t - a.t; });
   else if (fbOrder === 'name') sorted.sort(function(a, b) { return a.n.localeCompare(b.n, 'zh'); });
   else if (fbOrder === 'size') sorted.sort(function(a, b) { return b.s - a.s; });
+  var _drmL = ['mgg','mgg2','mflac','mmp3','ncm','qmcflac','qmcmp3','qmcogg','kgm','kuwo'];
+  sorted = sorted.filter(function(it) { return _drmL.indexOf(it.n.toLowerCase().split('.').pop()) < 0; });
   list.innerHTML = sorted.map(function(it) {
     var icon = fileIconOf(it.n);
     var sub = fbOrder === 'time' ? new Date(it.t).toLocaleDateString() : fbOrder === 'size' ? fmtSize(it.s) : fmtSize(it.s);
@@ -486,6 +488,8 @@ function fbLoad(path) {
     var json = AppBridge.listFiles(path);
     var items = JSON.parse(json);
     if (!items.length) { list.innerHTML = '<div class="fbEmpty">空文件夹</div>'; return; }
+    var _drmL2 = ['mgg','mgg2','mflac','mmp3','ncm','qmcflac','qmcmp3','qmcogg','kgm','kuwo'];
+    items = items.filter(function(it) { if (it.d) return true; return _drmL2.indexOf(it.n.toLowerCase().split('.').pop()) < 0; });
     list.innerHTML = items.map(function (it) {
       var icon = it.d ? '📁' : fileIconOf(it.n);
       var sub = it.d ? '' : fmtSize(it.s);
