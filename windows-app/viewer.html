@@ -126,15 +126,15 @@ window.addEventListener('keydown', function (e) {
   #audioPlayer .aLoop { display:flex; gap:8px; align-items:center; }
   #audioPlayer .aLoop button { border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.08); color:#c8cdd5; border-radius:14px; padding:4px 12px; font-size:12px; cursor:pointer; font-family:inherit; }
   #audioPlayer .aLoop button.on { background:#0a84ff; color:#fff; border-color:#0a84ff; }
-  #audioPlayer .aLrc { width:min(90%,400px); max-height:200px; overflow-y:auto; text-align:center; font-size:14px; line-height:2.2; color:#8e959f; }
+  #audioPlayer .aLrc { width:min(90%,400px); max-height:200px; overflow-y:auto; text-align:center; font-size:14px; line-height:2.2; color:#8e959f; padding-top:8px; box-sizing:border-box; }
   #audioPlayer .aLrc .on { color:#4ade80; font-size:16px; font-weight:600; }
-  #audioPlayer.compact { gap:4px; padding:6px 10px; justify-content:flex-start; padding-top:48px; }
+  #audioPlayer.compact { gap:4px; padding:6px 10px; justify-content:flex-start; padding-top:24px; }
   #audioPlayer.compact .aIcon { display:none !important; }
   #audioPlayer.compact .aTitle { font-size:12px; margin:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #audioPlayer.compact .aBar { width:min(85%,380px); }
   #audioPlayer.compact .aLoop button { padding:2px 8px; font-size:11px; }
   #audioPlayer.compact .aInfo { display:none !important; }
-  #audioPlayer.compact .aLrc { max-height:calc(100vh - 160px) !important; flex:1; width:100%; font-size:15px; line-height:2.4; padding-top:16px; box-sizing:border-box; }
+  #audioPlayer.compact .aLrc { max-height:calc(100vh - 160px) !important; flex:1; width:100%; font-size:15px; line-height:2.4; padding-top:12px; box-sizing:border-box; scroll-padding-top:12px; }
   #recentBar .rbIcon { font-size:26px; line-height:1; }
   #recentBar .rbName { font-size:10px; color:#8a94a6; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   body.dark #recentBar .rbName { color:#8a93a3; }
