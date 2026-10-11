@@ -1975,16 +1975,17 @@ function _syncLrc() {
 var curFileKey = '', rxChunks = [], rxName = '', rxKey = '', rxTotal = 0;
 function openByBytes(name, buf, mime, key) {
   var nm = (name || '').toLowerCase();
+  // DRM 加密检测（优先于所有格式分支）
+  if (/\.(mgg2?|mflac|mmp3|ncm|qmcflac|qmcmp3|qmcogg|kgm|kuwo)(\.|$)/i.test(nm) || /\[mqms|\[qqmusic|\[kugou/i.test(nm)) {
+    setInfo('🔒 DRM加密文件，无法播放——请在原平台打开');
+    return;
+  }
   curFileKey = key || nm;
   try {
     if (nm.indexOf('.pdf') >= 0 || mime === 'application/pdf') openPdf(buf);
     else if (/\.(png|jpe?g|gif|webp|bmp)$/.test(nm) || (mime || '').indexOf('image/') === 0) openImage(buf);
     else if (/\.(mp3|wav|ogg|m4a|flac|aac|wma|opus)$/i.test(nm)) openAudio(buf, nm);
     else if (/\.(mp4|webm|mkv|avi|mov|3gp|m4v|ts|flv)$/i.test(nm)) openVideo(buf, nm);
-    else if (/\.(mgg2?|mflac|mmp3|ncm|qmcflac|qmcmp3|qmcogg|kgm|kuwo)$/i.test(nm) || /\[mqms|\[qqmusic|\[kugou/i.test(nm)) {
-      setInfo('🔒 DRM加密文件，无法播放——请在原平台（QQ音乐/网易云等）打开');
-      return;
-    }
     else if (nm.indexOf('.epub') >= 0) openEpub(buf);
     else if (nm.indexOf('.docx') >= 0) openDocx(buf);
     else if (nm.indexOf('.doc') >= 0) openDoc(buf);
