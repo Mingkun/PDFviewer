@@ -65,10 +65,10 @@
   #audioPlayer.compact { gap:4px; padding:6px 10px; justify-content:flex-start; padding-top:12px; }
   #audioPlayer.compact .aIcon { display:none !important; }
   #audioPlayer.compact .aTitle { font-size:12px; margin:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  #audioPlayer.compact .aBar { width:100%; }
+  #audioPlayer.compact .aBar { width:min(85%,380px); }
   #audioPlayer.compact .aLoop button { padding:2px 8px; font-size:11px; }
   #audioPlayer.compact .aInfo { display:none !important; }
-  #audioPlayer.compact .aLrc { max-height:calc(100vh - 160px) !important; flex:1; width:100%; font-size:15px; line-height:2.4; }
+  #audioPlayer.compact .aLrc { max-height:calc(100vh - 160px) !important; flex:1; width:100%; font-size:15px; line-height:2.4; padding-top:8px; box-sizing:border-box; }
   #recentBar .rbIcon { font-size:26px; line-height:1; }
   #recentBar .rbName { font-size:10px; color:#8a94a6; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   body.dark #recentBar .rbName { color:#8a93a3; }
@@ -639,7 +639,8 @@ stage.addEventListener('touchmove', function (e) {
           document.body.classList.add('hidebar');
         }
       } else {
-        if (docKind === 'audio' && _ap && _ap.classList.contains('compact')) {
+        if (_inLrc) { /* 歌词区内下划=滚动歌词，不退出紧凑 */ }
+        else if (docKind === 'audio' && _ap && _ap.classList.contains('compact')) {
           _ap.classList.remove('compact');
           setInfo('已恢复布局');
         } else {
