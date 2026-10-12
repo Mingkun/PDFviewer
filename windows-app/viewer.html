@@ -2387,6 +2387,11 @@ function _autoSearchLrc(base) {
   var artist = '', track = base;
   var m = base.match(/^(.+?)\s*[-–—]\s*(.+)$/);
   if (m) { artist = m[1].trim(); track = m[2].trim(); }
+  // 文件名/播客类（含下划线、字母+长数字）不搜歌词，避免匹配到错误歌曲
+  if (/_/.test(track) || /[a-z_]+\d{2,}/i.test(track) || /\d{4,}/.test(track)) {
+    var _e0 = document.getElementById('aLrc'); if (_e0) _e0.innerHTML = '';
+    return;
+  }
   var q = 'track=' + encodeURIComponent(track) + (artist ? '&artist=' + encodeURIComponent(artist) : '');
   var tk = TTS_TOKEN;
   fetch(CLOUD_TTS.replace('/api/tts', '/api/lrc-lookup') + '?' + q + '&token=' + tk)
@@ -2439,6 +2444,7 @@ function _parseLrc(txt) {
   return out.sort(function (a, b) { return a.t - b.t; });
 }
 function _syncLrc() {
+  if (_asrView) return;  // 翻译视图下不刷歌词，避免两个同步器互相覆盖 #aLrc 导致跳变
   if (!_lrcLines.length || !curAudioEl || _lrcLines[0].t < 0) return;
   var now = curAudioEl.currentTime;
   var idx = -1;
