@@ -2428,6 +2428,7 @@ function _loadLrc(base) {
   _autoSearchLrc(base);
 }
 function _autoSearchLrc(base) {
+  base = (base || '').replace(/\s*\[(?:mqms\d*|qqmusic|flac|mp3|m4a|320k|hq|sq|ape|wav|ogg)\]\s*/gi, ' ').trim() || base;
   var artist = '', track = base;
   var m = base.match(/^(.+?)\s*[-–—]\s*(.+)$/);
   if (m) { artist = m[1].trim(); track = m[2].trim(); }
