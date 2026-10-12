@@ -388,12 +388,14 @@ class MainActivity : Activity() {
                         if (f.isDirectory) { if (f.name !in skipDirs) queue.add(f); continue }
                         val fe = f.extension.lowercase()
                         if (exts.isNotEmpty() && !exts.contains(fe)) continue
-                        // 媒体文件：读文件头验证真实格式（过滤加密/损坏文件）
-                        val enc = isEncryptedMedia(f)
+                        // 只对音视频/加密格式读文件头；全盘扫描时逐文件IO太慢，会让列表看起来不全
+                        val feIsMedia = audioE.contains(fe) || videoE.contains(fe) ||
+                            setOf("ncm","mgg","mgg1","mgg2","mggl","mflac","mflac0","mmp3","kgm","kgma","kwm","qmcflac","qmcmp3","qmcogg","qmc0","qmc2","qmc3","tm0","tm2","tm6","bkcmp3","bkcflac","x2m","x3m","vpr").contains(fe)
+                        val enc = if (feIsMedia) isEncryptedMedia(f) else false
                         val o = org.json.JSONObject()
                         o.put("n", f.name); o.put("d", false)
                         o.put("enc", enc)
-                        o.put("qq", isQQEncFile(f))
+                        o.put("qq", if (feIsMedia) isQQEncFile(f) else false)
                         o.put("s", f.length()); o.put("t", f.lastModified()); o.put("p", f.absolutePath)
                         results.put(o); count++
                     }
@@ -442,7 +444,7 @@ class MainActivity : Activity() {
                 val items = dir.listFiles()?.sortedWith(compareByDescending<java.io.File> { it.isDirectory }.thenByDescending { it.lastModified() }) ?: emptyList()
                 val arr = org.json.JSONArray()
                 val mediaE = setOf("mp3","wav","ogg","m4a","flac","aac","wma","opus","mp4","webm","mkv","avi","mov","3gp","m4v","ts","flv")
-                for (f in items.take(500)) {
+                for (f in items.take(3000)) {
                     if (f.name.startsWith(".")) continue
                     val o = org.json.JSONObject()
                     o.put("n", f.name)
