@@ -381,10 +381,7 @@ class MainActivity : Activity() {
                         val fe = f.extension.lowercase()
                         if (exts.isNotEmpty() && !exts.contains(fe)) continue
                         // 媒体文件：读文件头验证真实格式（过滤加密/损坏文件）
-                        var enc = false
-                        if (checkMedia && (audioE.contains(fe) || videoE.contains(fe))) {
-                            enc = !isRealMedia(f)
-                        }
+                        val enc = isEncryptedMedia(f)
                         val o = org.json.JSONObject()
                         o.put("n", f.name); o.put("d", false)
                         o.put("enc", enc)
@@ -396,30 +393,20 @@ class MainActivity : Activity() {
             } catch (_: Exception) { return "[]" }
         }
 
-        private fun isRealMedia(f: java.io.File): Boolean {
+        private fun isEncryptedMedia(f: java.io.File): Boolean {
+            // 只认【明确的加密文件签名】；不认识的格式一律不算加密（避免误标正常音频）
             try {
                 java.io.FileInputStream(f).use { fis ->
-                    val h = ByteArray(12)
+                    val h = ByteArray(16)
                     val n = fis.read(h)
                     if (n < 4) return false
-                    val b = { i: Int -> h[i].toInt() and 0xFF }
+                    val m8 = if (n >= 8) String(h, 0, 8, Charsets.ISO_8859_1) else ""
                     val m4 = String(h, 0, 4, Charsets.ISO_8859_1)
-                    if (m4 == "fLaC") return true   // FLAC
-                    if (m4 == "OggS") return true   // OGG/OPUS
-                    if (m4 == "RIFF") return true   // WAV/AVI
-                    if (m4.startsWith("FLV")) return true
-                    if (m4.startsWith("ID3")) return true  // MP3
-                    if (b(0) == 0xFF && (b(1) and 0xE0) == 0xE0) return true  // MP3帧同步
-                    if (b(0) == 0x1A && b(1) == 0x45 && b(2) == 0xDF && b(3) == 0xA3) return true  // MKV/WebM
-                    if (b(0) == 0x30 && b(1) == 0x26 && b(2) == 0xB2 && b(3) == 0x75) return true  // WMA/ASF
-                    if (b(0) == 0x47) return true   // MPEG-TS
-                    if (n >= 8) {
-                        val tag = String(h, 4, 4, Charsets.ISO_8859_1)
-                        if (tag == "ftyp") return true  // MP4/M4A/MOV
-                    }
-                    return false  // 未知/加密/损坏 → 过滤
+                    if (m8 == "CTENFDAM") return true      // 网易云 .ncm
+                    if (m4 == "QMCK" || m4 == "QMCc") return true // QQ音乐 qmc 变体
+                    return false
                 }
-            } catch (_: Exception) { return true }  // 读取失败时保留（不误杀）
+            } catch (_: Exception) { return false }
         }
 
         @JavascriptInterface
@@ -439,7 +426,7 @@ class MainActivity : Activity() {
                     o.put("s", if (f.isFile) f.length() else 0)
                     o.put("t", f.lastModified())
                     o.put("p", f.absolutePath)
-                    o.put("enc", if (f.isFile && f.extension.lowercase() in mediaE) !isRealMedia(f) else false)
+                    o.put("enc", if (f.isFile) isEncryptedMedia(f) else false)
                     arr.put(o)
                 }
                 return arr.toString()

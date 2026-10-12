@@ -378,7 +378,7 @@ function _encMark(it) {
   if (it.d) return '';
   if (it.enc) return '🔒 ';
   var n = it.n, ln = n.toLowerCase(), ext = ln.split('.').pop();
-  var d = ['mgg','mgg2','mflac','mmp3','ncm','qmcflac','qmcmp3','qmcogg','kgm','kuwo'];
+  var d = ['mgg','mgg1','mgg2','mggl','mflac','mflac0','mmp3','ncm','qmcflac','qmcmp3','qmcogg','qmc0','qmc2','qmc3','kgm','kgma','kwm','kuwo','x2m','x3m','bkcmp3','bkcflac','tm0','tm2','tm6'];
   if (d.indexOf(ext) >= 0) return '🔒 ';
   if (/\.(mgg2?|mflac|ncm|qmcflac|kgm)\.(flac|mp3|m4a|ogg|wav)$/.test(ln)) return '🔒 ';
   if (/\[mqms|\[qqmusic/i.test(n)) return '🔒 ';
@@ -567,7 +567,7 @@ function fbOpenFile(path, name) {
     fbClose();
     var nm = name.toLowerCase();
     var ext = nm.split('.').pop();
-    var drm = ['mgg','mgg2','mflac','mmp3','ncm','qmcflac','qmcmp3','qmcogg','kgm','kuwo'];
+    var drm = ['mgg','mgg1','mgg2','mggl','mflac','mflac0','mmp3','ncm','qmcflac','qmcmp3','qmcogg','qmc0','qmc2','qmc3','kgm','kgma','kwm','kuwo','x2m','x3m','bkcmp3','bkcflac','tm0','tm2','tm6'];
     if (drm.indexOf(ext) >= 0) { setInfo('🔒 DRM加密文件，请在原平台打开'); return; }
     try { if (AppBridge.saveRecentPath) AppBridge.saveRecentPath(path, name); } catch (e) {}
     openByBytes(name, u8.buffer, '', path);
