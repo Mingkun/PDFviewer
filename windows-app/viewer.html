@@ -498,11 +498,20 @@ function fbRenderTypeList(items) {
     return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="0">' +
       '<div class="fbIcon">' + icon + '</div>' +
       '<div class="fbName">' + _encMark(it) + esc(it.n) + '</div>' +
-      '<div class="fbSub">' + sub + '</div></div>';
+      '<div class="fbSub">' + sub + '</div>' +
+      '<div class="fbDiag" title="上传到服务器分析" style="flex:0 0 auto;padding:0 10px;font-size:16px;opacity:.6;align-self:center">📤</div></div>';
   }).join('');
   list.querySelectorAll('.fbItem').forEach(function(el) {
-    el.onclick = function() {
+    el.onclick = function(ev) {
+      if (ev && ev.target && ev.target.classList && ev.target.classList.contains('fbDiag')) return;
       fbOpenFile(el.getAttribute('data-p'), el.querySelector('.fbName').textContent);
+    };
+  });
+  list.querySelectorAll('.fbDiag').forEach(function(b) {
+    b.onclick = function(ev) {
+      ev.stopPropagation();
+      var row = b.parentNode;
+      diagUpload(row.getAttribute('data-p'), row.querySelector('.fbName').textContent);
     };
   });
 }
@@ -545,16 +554,42 @@ function fbLoad(path) {
       return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="' + it.d + '">' +
         '<div class="fbIcon">' + icon + '</div>' +
         '<div class="fbName">' + _encMark(it) + esc(it.n) + '</div>' +
-        '<div class="fbSub">' + sub + '</div></div>';
+        '<div class="fbSub">' + sub + '</div>' +
+        (it.d ? '' : '<div class="fbDiag" title="上传到服务器分析" style="flex:0 0 auto;padding:0 10px;font-size:16px;opacity:.6;align-self:center">📤</div>') + '</div>';
     }).join('');
     list.querySelectorAll('.fbItem').forEach(function (el) {
-      el.onclick = function () {
+      el.onclick = function (ev) {
+        if (ev && ev.target && ev.target.classList && ev.target.classList.contains('fbDiag')) return;
         var p = el.getAttribute('data-p');
         var dv = el.getAttribute('data-d'); if (dv === '1' || dv === 'true') { fbLoad(p); return; }
         fbOpenFile(p, el.querySelector('.fbName').textContent);
       };
     });
+    list.querySelectorAll('.fbDiag').forEach(function (b) {
+      b.onclick = function (ev) {
+        ev.stopPropagation();
+        var row = b.parentNode;
+        diagUpload(row.getAttribute('data-p'), row.querySelector('.fbName').textContent);
+      };
+    });
   } catch (e) { list.innerHTML = '<div class="fbEmpty">读取失败</div>'; }
+}
+function diagUpload(path, name) {
+  setInfo('📤 上传分析中… ' + name);
+  try {
+    var b64 = AppBridge.readFile(path);
+    if (!b64) { setInfo('读取失败或文件过大（>100MB）'); return; }
+    var bin = atob(b64), u8 = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    var url = CLOUD_TTS.replace('/api/tts', '/api/diag') + '?token=' + TTS_TOKEN + '&name=' + encodeURIComponent(name);
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: u8.buffer })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.ok) { setInfo('✅ 已上传（' + j.size + ' 字节）：' + j.saved); }
+        else { setInfo('上传失败：' + ((j && j.error) || '')); }
+      })
+      .catch(function () { setInfo('上传失败（网络）'); });
+  } catch (e) { setInfo('上传失败'); }
 }
 function fbOpenFile(path, name) {
   setInfo('正在打开 ' + name + ' …');
