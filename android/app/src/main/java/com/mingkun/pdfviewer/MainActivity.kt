@@ -242,6 +242,33 @@ class MainActivity : Activity() {
         }.start()
     }
 
+    private fun findFileByName(name: String): java.io.File? {
+        try {
+            if (name.isEmpty()) return null
+            val ext = name.substringAfterLast('.', "").lowercase()
+            val queue = ArrayDeque<java.io.File>()
+            queue.add(java.io.File("/storage/emulated/0"))
+            try {
+                java.io.File("/storage").listFiles()?.forEach { d ->
+                    if (d.isDirectory && d.name != "emulated" && d.name != "self") queue.add(d)
+                }
+            } catch (_: Exception) {}
+            val skip = setOf("Android", "LOST.DIR", "obb", ".thumbnails", "cache")
+            var count = 0
+            while (queue.isNotEmpty() && count < 60000) {
+                val dir = queue.removeFirst()
+                val files = dir.listFiles() ?: continue
+                for (f in files) {
+                    count++
+                    if (f.isDirectory) { if (f.name !in skip && !f.name.startsWith(".")) queue.add(f); continue }
+                    if (ext.isNotEmpty() && f.extension.lowercase() != ext) continue
+                    if (f.name == name) return f
+                }
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
     private fun displayNameOf(uri: Uri): String {
         var nm: String? = null
         try {
@@ -483,19 +510,45 @@ class MainActivity : Activity() {
                 val o = arr.optJSONObject(index)
                 if (o == null) { jsCall("window.onRecentFail && window.onRecentFail('')"); return }
                 val nm = o.optString("name")
-                // 优先按路径打开（自绘文件浏览器记录）
                 val path = o.optString("path")
-                if (path.isNotEmpty()) {
-                    val fs = java.io.File(path)
-                    if (fs.exists() && fs.isFile) {
-                        saveRecentPath(path, nm)
-                        readFileAndSend(fs, nm, path)
-                        return
+                val uriStr = o.optString("uri")
+                Thread {
+                    var sent = false
+                    // ① 按路径（自绘浏览器记录）
+                    if (path.isNotEmpty()) {
+                        val fs = java.io.File(path)
+                        if (fs.exists() && fs.isFile) {
+                            try {
+                                val bytes = fs.readBytes()
+                                saveRecentPath(path, nm)
+                                runOnUiThread { sendFileToPage(nm, path, bytes) }
+                                sent = true
+                            } catch (_: Exception) {}
+                        }
                     }
-                }
-                val uri = Uri.parse(o.optString("uri"))
-                saveRecentUri(uri, nm)
-                readUriAndSend(uri, nm, true)
+                    // ② 按 URI
+                    if (!sent && uriStr.isNotEmpty()) {
+                        try {
+                            val uri = Uri.parse(uriStr)
+                            try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) {}
+                            val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                            if (bytes != null) { runOnUiThread { sendFileToPage(nm, uriStr, bytes) }; sent = true }
+                        } catch (_: Exception) {}
+                    }
+                    // ③ 自愈：按文件名全盘搜索
+                    if (!sent && nm.isNotEmpty()) {
+                        val found = findFileByName(nm)
+                        if (found != null) {
+                            try {
+                                val bytes = found.readBytes()
+                                saveRecentPath(found.absolutePath, nm)
+                                runOnUiThread { sendFileToPage(nm, found.absolutePath, bytes) }
+                                sent = true
+                            } catch (_: Exception) {}
+                        }
+                    }
+                    if (!sent) runOnUiThread { jsCall("window.onRecentFail && window.onRecentFail(" + jsonq(nm) + ")") }
+                }.start()
             } catch (_: Exception) {
                 jsCall("window.onRecentFail && window.onRecentFail('')")
             }
