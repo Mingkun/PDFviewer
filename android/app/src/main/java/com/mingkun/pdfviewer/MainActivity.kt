@@ -487,6 +487,12 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun saveRecentPath(path: String, name: String) {
+            // 网页打开文件后记录到「最近打开」（此前漏暴露，导致列表一直不更新）
+            this@MainActivity.saveRecentPath(path, name)
+        }
+
+        @JavascriptInterface
         fun getRecent(): String {
             val raw = loadRecentJson()
             // 一次性迁移：把历史记录里带 -QQ- 等标记的名字清掉（否则点不开）
