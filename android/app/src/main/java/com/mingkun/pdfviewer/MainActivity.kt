@@ -214,6 +214,34 @@ class MainActivity : Activity() {
         } catch (_: Exception) {}
     }
 
+    private fun saveRecentPath(path: String, name: String) {
+        try {
+            val arr = org.json.JSONArray(loadRecentJson())
+            val out = org.json.JSONArray()
+            out.put(org.json.JSONObject().put("path", path).put("name", name).put("time", System.currentTimeMillis()))
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                if (o.optString("path") == path) continue
+                // 同名且无路径的旧 URI 记录 → 清理（同一文件重新打开）
+                if (o.optString("name") == name && o.optString("path").isEmpty()) continue
+                if (out.length() >= 20 && !o.optBoolean("pin")) continue
+                out.put(o)
+            }
+            recentPrefs().edit().putString("list", out.toString()).apply()
+        } catch (_: Exception) {}
+    }
+
+    private fun readFileAndSend(f: java.io.File, name: String, key: String) {
+        Thread {
+            try {
+                val bytes = f.readBytes()
+                runOnUiThread { sendFileToPage(name, key, bytes) }
+            } catch (_: Exception) {
+                runOnUiThread { jsCall("window.onRecentFail && window.onRecentFail(" + jsonq(name) + ")") }
+            }
+        }.start()
+    }
+
     private fun displayNameOf(uri: Uri): String {
         var nm: String? = null
         try {
@@ -454,8 +482,18 @@ class MainActivity : Activity() {
                 val arr = org.json.JSONArray(loadRecentJson())
                 val o = arr.optJSONObject(index)
                 if (o == null) { jsCall("window.onRecentFail && window.onRecentFail('')"); return }
-                val uri = Uri.parse(o.optString("uri"))
                 val nm = o.optString("name")
+                // 优先按路径打开（自绘文件浏览器记录）
+                val path = o.optString("path")
+                if (path.isNotEmpty()) {
+                    val fs = java.io.File(path)
+                    if (fs.exists() && fs.isFile) {
+                        saveRecentPath(path, nm)
+                        readFileAndSend(fs, nm, path)
+                        return
+                    }
+                }
+                val uri = Uri.parse(o.optString("uri"))
                 saveRecentUri(uri, nm)
                 readUriAndSend(uri, nm, true)
             } catch (_: Exception) {

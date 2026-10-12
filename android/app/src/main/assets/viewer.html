@@ -503,6 +503,7 @@ function fbOpenFile(path, name) {
     var ext = nm.split('.').pop();
     var drm = ['mgg','mgg2','mflac','mmp3','ncm','qmcflac','qmcmp3','qmcogg','kgm','kuwo'];
     if (drm.indexOf(ext) >= 0) { setInfo('🔒 DRM加密文件，请在原平台打开'); return; }
+    try { if (AppBridge.saveRecentPath) AppBridge.saveRecentPath(path, name); } catch (e) {}
     openByBytes(name, u8.buffer, '', path);
   } catch (e) { setInfo('打开失败'); }
 }
