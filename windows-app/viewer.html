@@ -502,14 +502,14 @@ function fbRenderTypeList(items) {
   list.innerHTML = sorted.map(function(it) {
     var icon = fileIconOf(it.n);
     var sub = fbOrder === 'time' ? new Date(it.t).toLocaleDateString() : fbOrder === 'size' ? fmtSize(it.s) : fmtSize(it.s);
-    return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="0">' +
+    return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="0" data-n="' + esc(it.n) + '">' +
       '<div class="fbIcon">' + icon + '</div>' +
       '<div class="fbName">' + _encMark(it) + esc(it.n) + '</div>' +
       '<div class="fbSub">' + sub + '</div></div>';
   }).join('');
   list.querySelectorAll('.fbItem').forEach(function(el) {
     el.onclick = function() {
-      fbOpenFile(el.getAttribute('data-p'), el.querySelector('.fbName').textContent);
+      fbOpenFile(el.getAttribute('data-p'), el.getAttribute('data-n') || el.querySelector('.fbName').textContent);
     };
   });
 }
@@ -549,7 +549,7 @@ function fbLoad(path) {
     list.innerHTML = items.map(function (it) {
       var icon = it.d ? '📁' : fileIconOf(it.n);
       var sub = it.d ? '' : fmtSize(it.s);
-      return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="' + it.d + '">' +
+      return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="' + it.d + '" data-n="' + esc(it.n) + '">' +
         '<div class="fbIcon">' + icon + '</div>' +
         '<div class="fbName">' + _encMark(it) + esc(it.n) + '</div>' +
         '<div class="fbSub">' + sub + '</div></div>';
@@ -558,7 +558,7 @@ function fbLoad(path) {
       el.onclick = function () {
         var p = el.getAttribute('data-p');
         var dv = el.getAttribute('data-d'); if (dv === '1' || dv === 'true') { fbLoad(p); return; }
-        fbOpenFile(p, el.querySelector('.fbName').textContent);
+        fbOpenFile(p, el.getAttribute('data-n') || el.querySelector('.fbName').textContent);
       };
     });
 
@@ -2402,7 +2402,7 @@ function _autoSearchLrc(base) {
   }
   var q = 'track=' + encodeURIComponent(track) + (artist ? '&artist=' + encodeURIComponent(artist) : '');
   var tk = TTS_TOKEN;
-  fetch(CLOUD_TTS.replace('/api/tts', '/api/lrc-lookup') + '?' + q + '&token=' + tk)
+  fetch(CLOUD_TTS.replace('/api/tts', '/api/lrc-lookup') + '?' + q + '&token=' + tk, { cache: 'no-store' })
     .then(function (r) { return r.json(); })
     .then(function (j) {
       if (j && j.ok && j.lrc) {
