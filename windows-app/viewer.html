@@ -1021,8 +1021,14 @@ stage.addEventListener('touchend', function (e) {
     } else if ((docKind === 'pdf' || docKind === 'pptx') && dx < 0 && pageNum < total) {
       if (compactOn() || atRight) { displayPage(pageNum + 1); if (compactOn()) { stage.scrollLeft = 0; } }
     }
-    else if ((docKind === 'pdf' || docKind === 'pptx') && dx > 0 && pageNum > 1) {
-      if (compactOn() || atLeft) { displayPage(pageNum - 1); if (compactOn()) { stage.scrollLeft = 0; } }
+    else if ((docKind === 'pdf' || docKind === 'pptx') && dx > 0) {
+      if (pageNum > 1) {
+        if (compactOn() || atLeft) { displayPage(pageNum - 1); if (compactOn()) { stage.scrollLeft = 0; } }
+      } else if (atLeft) {
+        // 已在第 1 页再右划 → 返回文件打开列表
+        setInfo('返回文件列表');
+        try { fbOpen(); } catch (e) {}
+      }
     }
   }
   var now = Date.now();
