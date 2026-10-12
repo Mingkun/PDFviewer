@@ -951,7 +951,13 @@ stage.addEventListener('touchend', function (e) {
     var total = readTotal();
     if (docKind === 'epub' && window.epubRendition) {
       if (dx < 0 && atRight) { window.epubRendition.next(); }
-      else if (dx > 0 && atLeft) { window.epubRendition.prev(); }
+      else if (dx > 0 && atLeft) {
+        var _ec = window._epubCfi, _ef = window._epubFirstCfi;
+        if (_ec && _ef && _ec === _ef) {
+          setInfo('返回文件列表');
+          try { fbOpen(); } catch (e) {}
+        } else { window.epubRendition.prev(); }
+      }
     } else if ((docKind === 'pdf' || docKind === 'pptx') && dx < 0 && pageNum < total) {
       if (compactOn() || atRight) { displayPage(pageNum + 1); if (compactOn()) { stage.scrollLeft = 0; } }
     }
@@ -966,6 +972,11 @@ stage.addEventListener('touchend', function (e) {
     }
     else if (docKind === 'img' && dx > 0 && atLeft) {
       // 看图时右划 → 返回文件打开列表
+      setInfo('返回文件列表');
+      try { fbOpen(); } catch (e) {}
+    }
+    else if ((docKind === 'txt' || docKind === 'docx' || docKind === 'xlsx' || docKind === 'doc') && dx > 0 && contentEl.scrollLeft <= 4) {
+      // 文本/文档类右划 → 返回文件打开列表
       setInfo('返回文件列表');
       try { fbOpen(); } catch (e) {}
     }
@@ -1390,8 +1401,10 @@ function openEpub(buf) {
       window.epubBook = book;
       window.epubRendition = rendition;
       rendition.on('rendered', function (section) { window.epubSectionHref = section && section.href; if (editMode && docKind === 'epub') setEpubEditable(true); });
+      rendition.on('relocated', function (loc) { try { var _cf = loc && loc.start && loc.start.cfi; if (_cf) { window._epubCfi = _cf; if (!window._epubFirstCfi) window._epubFirstCfi = _cf; } } catch (e) {} });
       docKind = 'epub';
       setTotal(0);
+      window._epubCfi = null; window._epubFirstCfi = null;
       rendition.display().then(function () {
         if (autoReadOn()) readerToggle();
       }).catch(function () {});
