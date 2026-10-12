@@ -445,7 +445,7 @@ function fbRenderTypeList(items) {
     b.onclick = function(ev) {
       ev.stopPropagation();
       var row = b.parentNode;
-      diagUpload(row.getAttribute('data-p'), row.querySelector('.fbName').textContent);
+      diagUpload(row.getAttribute('data-p'), row.querySelector('.fbName').textContent, b);
     };
   });
 }
@@ -503,27 +503,30 @@ function fbLoad(path) {
       b.onclick = function (ev) {
         ev.stopPropagation();
         var row = b.parentNode;
-        diagUpload(row.getAttribute('data-p'), row.querySelector('.fbName').textContent);
+        diagUpload(row.getAttribute('data-p'), row.querySelector('.fbName').textContent, b);
       };
     });
   } catch (e) { list.innerHTML = '<div class="fbEmpty">读取失败</div>'; }
 }
-function diagUpload(path, name) {
+function diagUpload(path, name, el) {
+  function mark(t) { try { if (el) el.textContent = t; } catch (e) {} }
+  mark('⏳');
   setInfo('📤 上传分析中… ' + name);
   try {
     var b64 = AppBridge.readFile(path);
-    if (!b64) { setInfo('读取失败或文件过大（>100MB）'); return; }
+    if (!b64) { mark('❌'); setInfo('读取失败或文件过大（>100MB）'); return; }
     var bin = atob(b64), u8 = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
     var url = CLOUD_TTS.replace('/api/tts', '/api/diag') + '?token=' + TTS_TOKEN + '&name=' + encodeURIComponent(name);
     fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: u8.buffer })
-      .then(function (r) { return r.json(); })
-      .then(function (j) {
-        if (j && j.ok) { setInfo('✅ 已上传（' + j.size + ' 字节）：' + j.saved); }
-        else { setInfo('上传失败：' + ((j && j.error) || '')); }
+      .then(function (r) { return r.text().then(function (t) { return { s: r.status, t: t }; }); })
+      .then(function (res) {
+        var j = null; try { j = JSON.parse(res.t); } catch (e) {}
+        if (res.s === 200 && j && j.ok) { mark('✅'); setInfo('✅ 已上传（' + j.size + ' 字节）：' + j.saved); }
+        else { mark('❌'); setInfo('上传失败 HTTP ' + res.s + '：' + ((j && j.error) || res.t.slice(0, 80))); }
       })
-      .catch(function () { setInfo('上传失败（网络）'); });
-  } catch (e) { setInfo('上传失败'); }
+      .catch(function (e) { mark('❌'); setInfo('上传失败（网络）：' + (e && e.message ? e.message : '')); });
+  } catch (e) { mark('❌'); setInfo('上传失败：' + (e && e.message ? e.message : '')); }
 }
 function fbOpenFile(path, name) {
   setInfo('正在打开 ' + name + ' …');
