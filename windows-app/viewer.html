@@ -380,18 +380,17 @@ function _encMark(it) {
   var n = it.n, ln = n.toLowerCase(), ext = ln.split('.').pop();
   var d = ['mgg','mgg1','mgg2','mggl','mflac','mflac0','mmp3','ncm','qmcflac','qmcmp3','qmcogg','qmc0','qmc2','qmc3','kgm','kgma','kwm','kuwo','x2m','x3m','bkcmp3','bkcflac','tm0','tm2','tm6'];
   if (d.indexOf(ext) >= 0) return '🔒 ';
-  if (/\.(mgg2?|mflac|ncm|qmcflac|kgm)\.(flac|mp3|m4a|ogg|wav)$/.test(ln)) return '🔒 ';
-  if (/\[mqms|\[qqmusic/i.test(n)) return '🔒 ';
   return '';
 }
 function _fbSaveCache(type, items) {
-  try { localStorage.setItem('pv_fbCache_' + type, JSON.stringify({ d: Date.now(), i: items })); } catch (e) {}
+  try { localStorage.setItem('pv_fbCache_' + type, JSON.stringify({ v: 2, d: Date.now(), i: items })); } catch (e) {}
 }
 function _fbLoadCache(type) {
   try {
     var raw = localStorage.getItem('pv_fbCache_' + type);
     if (!raw) return null;
     var j = JSON.parse(raw);
+    if (!j || j.v !== 2) { try { localStorage.removeItem('pv_fbCache_' + type); } catch (e2) {} return null; }
     return (j && j.i && j.i.length) ? j.i : null;
   } catch (e) { return null; }
 }
@@ -568,7 +567,7 @@ function fbOpenFile(path, name) {
     var nm = name.toLowerCase();
     var ext = nm.split('.').pop();
     var drm = ['mgg','mgg1','mgg2','mggl','mflac','mflac0','mmp3','ncm','qmcflac','qmcmp3','qmcogg','qmc0','qmc2','qmc3','kgm','kgma','kwm','kuwo','x2m','x3m','bkcmp3','bkcflac','tm0','tm2','tm6'];
-    if (drm.indexOf(ext) >= 0) { setInfo('🔒 DRM加密文件，请在原平台打开'); return; }
+    if (drm.indexOf(ext) >= 0) { setInfo('🔒 疑似加密文件（.' + ext + '），尝试打开…'); }
     try { if (AppBridge.saveRecentPath) AppBridge.saveRecentPath(path, name); } catch (e) {}
     openByBytes(name, u8.buffer, '', path);
   } catch (e) { setInfo('打开失败'); }
@@ -2464,12 +2463,9 @@ function openByBytes(name, buf, mime, key) {
   var nm = (name || '').toLowerCase();
   // DRM 加密检测：只拦截以加密格式结尾的（.mgg2/.mflac/.ncm等）
   var ext = nm.split('.').pop();
-  var drmExts = ['mgg', 'mgg2', 'mflac', 'mmp3', 'ncm', 'qmcflac', 'qmcmp3', 'qmcogg', 'kgm', 'kuwo'];
-  var _drmDouble = /\.(mgg2?|mflac|ncm|qmcflac|kgm)\.(flac|mp3|m4a|ogg|wav)$/i;
-  var _drmMark = /\[mqms|\[qqmusic/i;
-  if (drmExts.indexOf(ext) >= 0 || _drmDouble.test(name) || _drmMark.test(name)) {
-    setInfo('🔒 DRM加密文件（' + ext + '），请在原平台打开');
-    return;
+  var drmExts = ['mgg','mgg1','mgg2','mggl','mflac','mflac0','mmp3','ncm','qmcflac','qmcmp3','qmcogg','qmc0','qmc2','qmc3','kgm','kgma','kwm','kuwo','x2m','x3m','bkcmp3','bkcflac','tm0','tm2','tm6'];
+  if (drmExts.indexOf(ext) >= 0) {
+    setInfo('🔒 疑似加密文件（.' + ext + '），尝试打开…');
   }
   curFileKey = key || nm;
   try {
