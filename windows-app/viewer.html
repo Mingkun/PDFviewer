@@ -2255,27 +2255,58 @@ function openAudio(buf, name) {
   try { curAudioEl.play(); } catch (e) {}
 }
 var _asrBuf = null, _asrSegs = [], _asrView = false, _asrBusy = false;
+function _asrHash(buf, cb) {
+  try {
+    crypto.subtle.digest('SHA-256', buf).then(function (h) {
+      var a = new Uint8Array(h), s = '';
+      for (var i = 0; i < 16; i++) s += ('0' + a[i].toString(16)).slice(-2);
+      cb(s);
+    }).catch(function () { cb(null); });
+  } catch (e) { cb(null); }
+}
+function _asrPrune() {
+  try {
+    var keys = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.indexOf('pv_asr_') === 0) keys.push(k);
+    }
+    if (keys.length > 60) { for (var j = 0; j < keys.length - 60; j++) localStorage.removeItem(keys[j]); }
+  } catch (e) {}
+}
+function _asrShow(j) {
+  var el = document.getElementById('aLrc');
+  _asrSegs = (j && j.segments) || [];
+  if (!_asrSegs.length) { if (el) el.innerHTML = '<div style="color:#8e959f;padding:20px">未识别到语音</div>'; return; }
+  var tg = document.getElementById('asrToggle'); if (tg) tg.style.display = '';
+  asrRender();
+}
 function asrTranslate() {
   if (_asrBusy) return;
   if (!_asrBuf) { setInfo('无可翻译音频'); return; }
   var el = document.getElementById('aLrc');
   if (!el) return;
-  _asrBusy = true;
-  _asrView = true;
-  el.innerHTML = '<div style="color:#8e959f;padding:24px 12px;line-height:1.8">🎙 识别+翻译中…<br><span style="font-size:12px">首次较慢（模型加载），请稍候</span></div>';
-  var tk = TTS_TOKEN;
-  var url = CLOUD_TTS.replace('/api/tts', '/api/asr') + '?token=' + tk;
-  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: _asrBuf })
-    .then(function (r) { return r.json(); })
-    .then(function (j) {
-      _asrBusy = false;
-      if (!j || !j.ok) { el.innerHTML = '<div style="color:#e88;padding:20px">识别失败：' + esc((j && j.error) || '') + '</div>'; return; }
-      _asrSegs = j.segments || [];
-      if (!_asrSegs.length) { el.innerHTML = '<div style="color:#8e959f;padding:20px">未识别到语音</div>'; return; }
-      document.getElementById('asrToggle').style.display = '';
-      asrRender();
-    })
-    .catch(function () { _asrBusy = false; el.innerHTML = '<div style="color:#e88;padding:20px">网络错误或超时</div>'; });
+  var url = CLOUD_TTS.replace('/api/tts', '/api/asr') + '?token=' + TTS_TOKEN;
+  _asrHash(_asrBuf, function (key) {
+    if (key) {
+      try {
+        var c = localStorage.getItem('pv_asr_' + key);
+        if (c) { _asrView = true; _asrShow(JSON.parse(c)); setInfo('已用本地缓存'); return; }
+      } catch (e) {}
+    }
+    _asrBusy = true;
+    _asrView = true;
+    el.innerHTML = '<div style="color:#8e959f;padding:24px 12px;line-height:1.8">🎙 识别+翻译中…<br><span style="font-size:12px">首次较慢（模型加载），请稍候</span></div>';
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: _asrBuf })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        _asrBusy = false;
+        if (!j || !j.ok) { el.innerHTML = '<div style="color:#e88;padding:20px">识别失败：' + esc((j && j.error) || '') + '</div>'; return; }
+        if (key) { try { localStorage.setItem('pv_asr_' + key, JSON.stringify({ segments: j.segments || [] })); _asrPrune(); } catch (e) {} }
+        _asrShow(j);
+      })
+      .catch(function () { _asrBusy = false; el.innerHTML = '<div style="color:#e88;padding:20px">网络错误或超时</div>'; });
+  });
 }
 function asrToggleView() {
   _asrView = !_asrView;
