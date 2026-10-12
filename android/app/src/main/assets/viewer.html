@@ -310,14 +310,13 @@ function setInfo(s) {
 var fbCurrent = '', fbTab = 'folder', fbType = '', fbOrder = 'time', fbTypeCache = null;
 function _isQQEnc(n) {
   var ln = (n || '').toLowerCase();
-  if (/\[mqms\d*\]/.test(ln)) return true;
   if (/\.(mgg\d?|mflac\d?|mmp3|qmcflac|qmcmp3|qmcogg|qmc\d)\.(flac|mp3|m4a|ogg|wav)$/.test(ln)) return true;
   var ext = ln.split('.').pop();
   return ['mgg','mgg1','mgg2','mggl','mflac','mflac0','mmp3','qmc0','qmc2','qmc3','qmc4','qmc6','qmc8','qmcflac','qmcmp3','qmcogg'].indexOf(ext) >= 0;
 }
 function _encMark(it) {
   if (it.d) return '';
-  if (_isQQEnc(it.n)) return '-QQ- ';
+  if (it.qq || _isQQEnc(it.n)) return '-QQ- ';
   if (it.enc) return '🔒 ';
   var ext = (it.n || '').toLowerCase().split('.').pop();
   var d = ['ncm','kgm','kgma','kwm','kuwo','x2m','x3m','bkcmp3','bkcflac','tm0','tm2','tm6','vpr'];
@@ -325,14 +324,14 @@ function _encMark(it) {
   return '';
 }
 function _fbSaveCache(type, items) {
-  try { localStorage.setItem('pv_fbCache_' + type, JSON.stringify({ v: 2, d: Date.now(), i: items })); } catch (e) {}
+  try { localStorage.setItem('pv_fbCache_' + type, JSON.stringify({ v: 3, d: Date.now(), i: items })); } catch (e) {}
 }
 function _fbLoadCache(type) {
   try {
     var raw = localStorage.getItem('pv_fbCache_' + type);
     if (!raw) return null;
     var j = JSON.parse(raw);
-    if (!j || j.v !== 2) { try { localStorage.removeItem('pv_fbCache_' + type); } catch (e2) {} return null; }
+    if (!j || j.v !== 3) { try { localStorage.removeItem('pv_fbCache_' + type); } catch (e2) {} return null; }
     return (j && j.i && j.i.length) ? j.i : null;
   } catch (e) { return null; }
 }

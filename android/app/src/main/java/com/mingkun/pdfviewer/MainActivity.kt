@@ -385,6 +385,7 @@ class MainActivity : Activity() {
                         val o = org.json.JSONObject()
                         o.put("n", f.name); o.put("d", false)
                         o.put("enc", enc)
+                        o.put("qq", isQQEncFile(f))
                         o.put("s", f.length()); o.put("t", f.lastModified()); o.put("p", f.absolutePath)
                         results.put(o); count++
                     }
@@ -409,6 +410,21 @@ class MainActivity : Activity() {
             } catch (_: Exception) { return false }
         }
 
+        private fun isQQEncFile(f: java.io.File): Boolean {
+            // QQ音乐加密文件的可靠判据：文件末 8 字节内含 "QTag"/"STag" 尾部标记
+            try {
+                val len = f.length()
+                if (len < 8L) return false
+                java.io.RandomAccessFile(f, "r").use { raf ->
+                    raf.seek(len - 8)
+                    val b = ByteArray(8)
+                    if (raf.read(b) < 8) return false
+                    val s = String(b, Charsets.ISO_8859_1)
+                    return s.contains("QTag") || s.contains("STag")
+                }
+            } catch (_: Exception) { return false }
+        }
+
         @JavascriptInterface
         fun listFiles(path: String): String {
             try {
@@ -427,6 +443,7 @@ class MainActivity : Activity() {
                     o.put("t", f.lastModified())
                     o.put("p", f.absolutePath)
                     o.put("enc", if (f.isFile) isEncryptedMedia(f) else false)
+                    o.put("qq", if (f.isFile) isQQEncFile(f) else false)
                     arr.put(o)
                 }
                 return arr.toString()
