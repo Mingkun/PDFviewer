@@ -308,11 +308,19 @@ function setInfo(s) {
 }
 
 var fbCurrent = '', fbTab = 'folder', fbType = '', fbOrder = 'time', fbTypeCache = null;
+function _isQQEnc(n) {
+  var ln = (n || '').toLowerCase();
+  if (/\[mqms\d*\]/.test(ln)) return true;
+  if (/\.(mgg\d?|mflac\d?|mmp3|qmcflac|qmcmp3|qmcogg|qmc\d)\.(flac|mp3|m4a|ogg|wav)$/.test(ln)) return true;
+  var ext = ln.split('.').pop();
+  return ['mgg','mgg1','mgg2','mggl','mflac','mflac0','mmp3','qmc0','qmc2','qmc3','qmc4','qmc6','qmc8','qmcflac','qmcmp3','qmcogg'].indexOf(ext) >= 0;
+}
 function _encMark(it) {
   if (it.d) return '';
+  if (_isQQEnc(it.n)) return '-QQ- ';
   if (it.enc) return '🔒 ';
-  var n = it.n, ln = n.toLowerCase(), ext = ln.split('.').pop();
-  var d = ['mgg','mgg1','mgg2','mggl','mflac','mflac0','mmp3','ncm','qmcflac','qmcmp3','qmcogg','qmc0','qmc2','qmc3','kgm','kgma','kwm','kuwo','x2m','x3m','bkcmp3','bkcflac','tm0','tm2','tm6'];
+  var ext = (it.n || '').toLowerCase().split('.').pop();
+  var d = ['ncm','kgm','kgma','kwm','kuwo','x2m','x3m','bkcmp3','bkcflac','tm0','tm2','tm6','vpr'];
   if (d.indexOf(ext) >= 0) return '🔒 ';
   return '';
 }
