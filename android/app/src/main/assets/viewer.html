@@ -964,6 +964,11 @@ stage.addEventListener('touchend', function (e) {
         try { fbOpen(); } catch (e) {}
       }
     }
+    else if (docKind === 'img' && dx > 0 && atLeft) {
+      // 看图时右划 → 返回文件打开列表
+      setInfo('返回文件列表');
+      try { fbOpen(); } catch (e) {}
+    }
   }
   var now = Date.now();
   if (Math.abs(dx) < 25 && Math.abs(dy) < 25) {
