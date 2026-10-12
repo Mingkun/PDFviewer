@@ -649,12 +649,21 @@ class MainActivity : Activity() {
             thread {
                 var result = JSONObject()
                 try {
-                    val conn = URL(VERSION_URL).openConnection() as HttpURLConnection
-                    conn.connectTimeout = 10000
-                    conn.readTimeout = 10000
-                    val body = conn.inputStream.bufferedReader().use { it.readText() }
-                    conn.disconnect()
-                    val obj = JSONObject(body)
+                    var body: String? = null
+                    var lastErr: String? = null
+                    for (attempt in 0 until 2) {
+                        try {
+                            val conn = URL(VERSION_URL).openConnection() as HttpURLConnection
+                            conn.connectTimeout = 20000
+                            conn.readTimeout = 20000
+                            conn.useCaches = false
+                            body = conn.inputStream.bufferedReader().use { it.readText() }
+                            conn.disconnect()
+                            break
+                        } catch (ex: Exception) { lastErr = ex.message ?: "network error" }
+                    }
+                    if (body == null) throw Exception(lastErr ?: "network error")
+                    val obj = JSONObject(body!!)
                     val remoteCode = obj.optInt("versionCode", 0)
                     result = JSONObject()
                     result.put("hasUpdate", remoteCode > currentVersionCode())

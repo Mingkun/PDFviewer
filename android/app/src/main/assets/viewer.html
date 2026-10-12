@@ -2736,12 +2736,19 @@ document.getElementById('gear').onclick = function () {
 };
 document.getElementById('mclose').onclick = function () { menu.style.display = 'none'; };
 menu.addEventListener('click', function (e) { if (e.target === menu) menu.style.display = 'none'; });
+var _upBusy = false, _upTimer = null;
 document.getElementById('checkup').onclick = function () {
   document.getElementById('upinfo').textContent = '检查中…';
-  try { AppBridge.checkUpdate(); } catch (e) { document.getElementById('upinfo').textContent = '检查失败'; }
+  _upBusy = true;
+  if (_upTimer) clearTimeout(_upTimer);
+  _upTimer = setTimeout(function () {
+    if (_upBusy) { _upBusy = false; document.getElementById('upinfo').textContent = '检查超时（网络较慢），请再点一次重试'; }
+  }, 30000);
+  try { AppBridge.checkUpdate(); } catch (e) { _upBusy = false; document.getElementById('upinfo').textContent = '检查失败'; }
 };
 var latest = null;
 window.onUpdateInfo = function (d) {
+  _upBusy = false; try { if (_upTimer) clearTimeout(_upTimer); } catch (e) {}
   if (!d) return;
   if (d.error) { document.getElementById('upinfo').textContent = '检查失败：' + d.error; return; }
   if (d.hasUpdate) {
