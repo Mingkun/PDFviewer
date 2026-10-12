@@ -196,6 +196,8 @@ class MainActivity : Activity() {
 
     private fun recentPrefs() = getSharedPreferences("pv_recent", MODE_PRIVATE)
 
+    private fun updatePrefs() = getSharedPreferences("pv_update", MODE_PRIVATE)
+
     private fun cleanRecentName(n: String): String {
         // 清掉历史遗留的列表标记（如 "-QQ- "），否则最近文件记录会点不开
         return (n ?: "").replace(Regex("^\\s*-\\s*q{2}\\s*-\\s*", RegexOption.IGNORE_CASE), "").trim()
@@ -666,7 +668,7 @@ class MainActivity : Activity() {
                     val obj = JSONObject(body!!)
                     val remoteCode = obj.optInt("versionCode", 0)
                     result = JSONObject()
-                    result.put("hasUpdate", remoteCode > currentVersionCode())
+                    result.put("hasUpdate", remoteCode > currentVersionCode() && remoteCode > updatePrefs().getInt("skipver", 0))
                     result.put("versionName", obj.optString("versionName", ""))
                     result.put("versionCode", remoteCode)
                     result.put("apkUrl", obj.optString("apkUrl", ""))
@@ -675,6 +677,25 @@ class MainActivity : Activity() {
                     result.put("error", e.message ?: "network error")
                 }
                 jsCall("window.onUpdateInfo && window.onUpdateInfo(" + result.toString() + ")")
+            }
+        }
+
+        @JavascriptInterface
+        fun promptUpdate(versionName: String, versionCode: Int, apkUrl: String) {
+            // 业界默认做法：发现新版本弹系统对话框询问，确认后才下载
+            runOnUiThread {
+                try {
+                    android.app.AlertDialog.Builder(this@MainActivity)
+                        .setTitle("发现新版本")
+                        .setMessage("v" + versionName + " 已发布，是否下载更新？")
+                        .setPositiveButton("立即更新") { _, _ -> downloadUpdate(apkUrl) }
+                        .setNeutralButton("跳过此版本") { _, _ ->
+                            try { updatePrefs().edit().putInt("skipver", versionCode).apply() } catch (_: Exception) {}
+                        }
+                        .setNegativeButton("稍后", null)
+                        .setCancelable(true)
+                        .show()
+                } catch (_: Exception) {}
             }
         }
 

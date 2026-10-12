@@ -2759,8 +2759,14 @@ window.onUpdateInfo = function (d) {
   if (d.error) { document.getElementById('upinfo').textContent = '检查失败：' + d.error; return; }
   if (d.hasUpdate) {
     latest = d;
-    document.getElementById('upinfo').textContent = '发现新版本 ' + (d.versionName || d.versionCode);
-    document.getElementById('dl').style.display = '';
+    document.getElementById('upinfo').textContent = '发现新版本 ' + (d.versionName || d.versionCode) + '，请确认是否下载';
+    document.getElementById('dl').style.display = 'none';
+    try {
+      AppBridge.promptUpdate(d.versionName || String(d.versionCode), d.versionCode || 0, d.apkUrl || '');
+    } catch (e) {
+      // 兜底：老原生没有 promptUpdate 时，退回按钮
+      document.getElementById('dl').style.display = '';
+    }
   } else {
     document.getElementById('upinfo').textContent = '已是最新版本';
   }
