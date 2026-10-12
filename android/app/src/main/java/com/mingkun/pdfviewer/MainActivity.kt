@@ -196,6 +196,11 @@ class MainActivity : Activity() {
 
     private fun recentPrefs() = getSharedPreferences("pv_recent", MODE_PRIVATE)
 
+    private fun cleanRecentName(n: String): String {
+        // 清掉历史遗留的列表标记（如 "-QQ- "），否则最近文件记录会点不开
+        return (n ?: "").replace(Regex("^\\s*-\\s*q{2}\\s*-\\s*", RegexOption.IGNORE_CASE), "").trim()
+    }
+
     private fun loadRecentJson(): String =
         try { recentPrefs().getString("list", "[]") ?: "[]" } catch (_: Exception) { "[]" }
 
@@ -203,7 +208,7 @@ class MainActivity : Activity() {
         try {
             val arr = org.json.JSONArray(loadRecentJson())
             val out = org.json.JSONArray()
-            out.put(org.json.JSONObject().put("uri", uri.toString()).put("name", name).put("time", System.currentTimeMillis()))
+            out.put(org.json.JSONObject().put("uri", uri.toString()).put("name", cleanRecentName(name)).put("time", System.currentTimeMillis()))
             for (i in 0 until arr.length()) {
                 val o = arr.optJSONObject(i) ?: continue
                 if (o.optString("uri") == uri.toString()) continue
@@ -218,7 +223,7 @@ class MainActivity : Activity() {
         try {
             val arr = org.json.JSONArray(loadRecentJson())
             val out = org.json.JSONArray()
-            out.put(org.json.JSONObject().put("path", path).put("name", name).put("time", System.currentTimeMillis()))
+            out.put(org.json.JSONObject().put("path", path).put("name", cleanRecentName(name)).put("time", System.currentTimeMillis()))
             for (i in 0 until arr.length()) {
                 val o = arr.optJSONObject(i) ?: continue
                 if (o.optString("path") == path) continue
@@ -242,8 +247,9 @@ class MainActivity : Activity() {
         }.start()
     }
 
-    private fun findFileByName(name: String): java.io.File? {
+    private fun findFileByName(nameRaw: String): java.io.File? {
         try {
+            val name = cleanRecentName(nameRaw)
             if (name.isEmpty()) return null
             val ext = name.substringAfterLast('.', "").lowercase()
             val queue = ArrayDeque<java.io.File>()
@@ -481,7 +487,26 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
-        fun getRecent(): String = loadRecentJson()
+        fun getRecent(): String {
+            val raw = loadRecentJson()
+            // 一次性迁移：把历史记录里带 -QQ- 等标记的名字清掉（否则点不开）
+            try {
+                val arr = org.json.JSONArray(raw)
+                var changed = false
+                for (i in 0 until arr.length()) {
+                    val o = arr.optJSONObject(i) ?: continue
+                    val nm = o.optString("name")
+                    val cl = cleanRecentName(nm)
+                    if (cl != nm) { o.put("name", cl); changed = true }
+                }
+                if (changed) {
+                    val s2 = arr.toString()
+                    recentPrefs().edit().putString("list", s2).apply()
+                    return s2
+                }
+            } catch (_: Exception) {}
+            return raw
+        }
 
         @JavascriptInterface
         fun vibrate(ms: Int) {
