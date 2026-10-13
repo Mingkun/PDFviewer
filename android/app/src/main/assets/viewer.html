@@ -68,6 +68,12 @@
   #fileBrowser .fbArtBar { display:flex; flex-wrap:wrap; gap:6px; padding:8px 12px; border-bottom:1px solid rgba(255,255,255,.06); }
   #fileBrowser .fbArt { border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.06); color:#8e959f; border-radius:12px; padding:3px 10px; font-size:11px; cursor:pointer; font-family:inherit; white-space:nowrap; }
   #fileBrowser .fbArt.on { color:#0a84ff; background:rgba(10,132,255,.15); border-color:rgba(10,132,255,.3); }
+  #fileBrowser .fbGrid { display:flex; flex-wrap:wrap; gap:12px 8px; padding:10px 12px; }
+  #fileBrowser .fbCell { width:calc((100% - 16px)/3); box-sizing:border-box; cursor:pointer; }
+  #fileBrowser .fbThumbBox { width:100%; height:96px; border-radius:10px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.09); overflow:hidden; position:relative; display:flex; align-items:center; justify-content:center; }
+  #fileBrowser .fbThumbBox img { width:100%; height:100%; object-fit:cover; }
+  #fileBrowser .fbPlay { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:22px; color:#fff; text-shadow:0 1px 6px rgba(0,0,0,.7); pointer-events:none; }
+  #fileBrowser .fbCellName { font-size:10px; color:#8e959f; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; }
   #fileBrowser .fbSearch { display:none; padding:6px 10px; border-bottom:1px solid rgba(255,255,255,.05); }
   #fileBrowser .fbSearch input { width:100%; box-sizing:border-box; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.06); color:#dfe3ea; border-radius:10px; padding:8px 12px; font-size:13px; outline:none; font-family:inherit; }
   #fileBrowser .fbSearch input::placeholder { color:#8e959f; }
@@ -239,6 +245,7 @@
     <button id="ordTime" class="on" onclick="fbSetOrder('time')">按日期</button>
     <button id="ordName" onclick="fbSetOrder('name')">按名称</button>
     <button id="ordSize" onclick="fbSetOrder('size')">按大小</button>
+    <button id="thumbBtn" onclick="fbToggleThumb()">▦ 缩略图</button>
   </div>
   <div class="fbSearch" id="fbSearchBar"><input type="text" id="fbSearchInput" placeholder="🔍 输入文件名筛选…" oninput="fbFilterList()" /></div><div class="fbList" id="fbList"></div>
 </div>
@@ -380,6 +387,7 @@ function fbApplyState() {
   document.querySelectorAll('#fbSortBar button').forEach(function(b) { b.classList.remove('on'); });
   var id = fbType === '' ? 'sortAll' : fbType.indexOf('pdf') >= 0 ? 'sortPdf' : fbType.indexOf('epub') >= 0 ? 'sortEpub' : fbType.indexOf('doc') >= 0 ? 'sortDoc' : fbType.indexOf('xls') >= 0 ? 'sortXls' : fbType.indexOf('mp3') >= 0 ? 'sortAudio' : fbType.indexOf('mp4') >= 0 ? 'sortVideo' : fbType.indexOf('txt') >= 0 ? 'sortText' : fbType.indexOf('md') >= 0 ? 'sortMd' : 'sortImg';
   var te = document.getElementById(id); if (te) te.classList.add('on');
+  fbUpdateThumbBtn();
   if (fbTab === 'folder') { fbLoad(fbCurrent); } else { fbLoadType(); }
 }
 function fbSwitchTab(tab) {
@@ -469,6 +477,36 @@ function artistsOfItem(it) {
   }
   return out.length ? out : ['未分类'];
 }
+function fbThumbOn() { return localStorage.getItem('pv_fbthumb') === '1'; }
+function fbToggleThumb() {
+  localStorage.setItem('pv_fbthumb', fbThumbOn() ? '0' : '1');
+  fbApplyState();
+}
+function fbUpdateThumbBtn() {
+  var b = document.getElementById('thumbBtn'); if (!b) return;
+  var rel = fbType.indexOf('png') === 0 || fbType.indexOf('mp4') === 0;
+  b.style.display = rel ? '' : 'none';
+  b.classList.toggle('on', rel && fbThumbOn());
+  b.textContent = (rel && fbThumbOn()) ? '▦ 缩略图中' : '▦ 缩略图';
+}
+var fbThumbGen = 0;
+function fbFillThumbs() {
+  fbThumbGen++;
+  var gen = fbThumbGen;
+  var cells = Array.prototype.slice.call(document.querySelectorAll('#fbList .fbCell'));
+  var i = 0;
+  (function next() {
+    if (gen !== fbThumbGen || i >= cells.length) return;
+    var el = cells[i++];
+    try {
+      if (window.AppBridge && AppBridge.getThumb) {
+        var d = AppBridge.getThumb(el.getAttribute('data-p'));
+        if (d) { var im = el.querySelector('.fbThumbImg'); if (im) im.src = d; }
+      }
+    } catch (e) {}
+    setTimeout(next, 30);
+  })();
+}
 function fbRenderTypeList(items) {
   var list = document.getElementById('fbList');
   if (!items.length) { list.innerHTML = '<div class="fbEmpty">没有找到文件</div>'; return; }
@@ -500,6 +538,15 @@ function fbRenderTypeList(items) {
     var _pe = document.getElementById('fbPath');
     if (_pe) _pe.textContent = String(_pe.textContent || '').replace(/（共 \d+ 项）\s*$/, '') + '（共 ' + sorted.length + ' 项）';
   } catch (e) {}
+  var _useThumb = fbThumbOn() && (fbType.indexOf('png') === 0 || fbType.indexOf('mp4') === 0);
+  if (_useThumb) {
+    var _isVid = fbType.indexOf('mp4') === 0;
+    list.innerHTML = _artBar + '<div class="fbGrid">' + sorted.map(function(it, _i) {
+      return '<div class="fbCell" data-p="' + esc(it.p) + '" data-i="' + _i + '" data-n="' + esc(it.n) + '">' +
+        '<div class="fbThumbBox">' + (_isVid ? '<span class="fbPlay">▶</span>' : '') + '<img class="fbThumbImg" alt="">' +
+        '</div><div class="fbCellName">' + _encMark(it) + esc(it.n) + '</div></div>';
+    }).join('') + '</div>';
+  } else {
   list.innerHTML = _artBar + sorted.map(function(it, _i) {
     var icon = fileIconOf(it.n);
     var sub = fbOrder === 'time' ? new Date(it.t).toLocaleDateString() : fbOrder === 'size' ? fmtSize(it.s) : fmtSize(it.s);
@@ -508,15 +555,23 @@ function fbRenderTypeList(items) {
       '<div class="fbName">' + _encMark(it) + esc(it.n) + '</div>' +
       '<div class="fbSub">' + sub + '</div></div>';
   }).join('');
+  }
   list.querySelectorAll('.fbItem').forEach(function(el) {
     el.onclick = function() {
       audioQueue = sorted; audioQueueIdx = +(el.getAttribute('data-i') || 0);   // 连播队列=当前列表顺序（含歌手筛选）
       fbOpenFile(el.getAttribute('data-p'), el.getAttribute('data-n') || el.querySelector('.fbName').textContent);
     };
   });
+  list.querySelectorAll('.fbCell').forEach(function(el) {
+    el.onclick = function() {
+      audioQueue = sorted; audioQueueIdx = +(el.getAttribute('data-i') || 0);
+      fbOpenFile(el.getAttribute('data-p'), el.getAttribute('data-n') || el.querySelector('.fbCellName').textContent);
+    };
+  });
   list.querySelectorAll('.fbArt').forEach(function(el) {
     el.onclick = function() { fbArtist = el.getAttribute('data-a') || ''; fbRenderTypeList(fbTypeCache); };
   });
+  if (_useThumb) fbFillThumbs();
 }
 
 function fbOpen() {

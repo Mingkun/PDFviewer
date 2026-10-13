@@ -194,6 +194,8 @@ class MainActivity : Activity() {
         }
     }
 
+    private val thumbCache = android.util.LruCache<String, String>(160)
+
     private fun recentPrefs() = getSharedPreferences("pv_recent", MODE_PRIVATE)
 
     private fun updatePrefs() = getSharedPreferences("pv_update", MODE_PRIVATE)
@@ -711,6 +713,43 @@ class MainActivity : Activity() {
         fun saveRecentPath(path: String, name: String) {
             // 网页打开文件后记录到「最近打开」（此前漏暴露，导致列表一直不更新）
             this@MainActivity.saveRecentPath(path, name)
+        }
+
+        @JavascriptInterface
+        fun getThumb(path: String): String {
+            // 缩略图：图片降采样解码 / 视频取首帧，JPEG base64（内存缓存按 路径+大小+修改时间）
+            return try {
+                val f = java.io.File(path)
+                if (!f.isFile) return ""
+                val key = path + "|" + f.length() + "|" + f.lastModified()
+                thumbCache.get(key)?.let { return it }
+                val ext = f.extension.lowercase()
+                val vidExts = setOf("mp4", "webm", "mkv", "avi", "mov", "3gp", "m4v", "ts", "flv")
+                val imgExts = setOf("png", "jpg", "jpeg", "gif", "webp", "bmp")
+                var bmp: android.graphics.Bitmap? = null
+                if (vidExts.contains(ext)) {
+                    @Suppress("DEPRECATION")
+                    bmp = android.media.ThumbnailUtils.createVideoThumbnail(path, android.provider.MediaStore.Images.Thumbnails.MINI_KIND)
+                } else if (imgExts.contains(ext)) {
+                    val bo = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    android.graphics.BitmapFactory.decodeFile(path, bo)
+                    var sample = 1
+                    while (bo.outWidth / (sample * 2) >= 256 || bo.outHeight / (sample * 2) >= 256) sample *= 2
+                    val bo2 = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+                    bmp = android.graphics.BitmapFactory.decodeFile(path, bo2)
+                }
+                if (bmp == null) return ""
+                var b = bmp
+                if (b.width > 320 || b.height > 320) {
+                    val kk = 320f / maxOf(b.width, b.height)
+                    b = android.graphics.Bitmap.createScaledBitmap(b, (b.width * kk).toInt(), (b.height * kk).toInt(), true)
+                }
+                val baos = java.io.ByteArrayOutputStream()
+                b.compress(android.graphics.Bitmap.CompressFormat.JPEG, 78, baos)
+                val d = "data:image/jpeg;base64," + android.util.Base64.encodeToString(baos.toByteArray(), android.util.Base64.NO_WRAP)
+                thumbCache.put(key, d)
+                d
+            } catch (_: Exception) { "" }
         }
 
         @JavascriptInterface
