@@ -238,6 +238,192 @@ class MainActivity : Activity() {
         } catch (_: Exception) {}
     }
 
+    // ===== 音频标签：读内嵌歌手（ID3v2 / FLAC / Ogg / MP4），供「按类型-音频」的歌手聚合 =====
+    private fun leU32(b: ByteArray, p: Int): Int =
+        (b[p].toInt() and 0xFF) or ((b[p + 1].toInt() and 0xFF) shl 8) or ((b[p + 2].toInt() and 0xFF) shl 16) or ((b[p + 3].toInt() and 0xFF) shl 24)
+
+    private fun beU32(b: ByteArray, p: Int): Int =
+        ((b[p].toInt() and 0xFF) shl 24) or ((b[p + 1].toInt() and 0xFF) shl 16) or ((b[p + 2].toInt() and 0xFF) shl 8) or (b[p + 3].toInt() and 0xFF)
+
+    private fun id3Text(data: ByteArray): String {
+        if (data.size <= 1) return ""
+        val enc = data[0].toInt() and 0xFF
+        val d = java.util.Arrays.copyOfRange(data, 1, data.size)
+        var s = ""
+        try {
+            s = when (enc) {
+                3 -> String(d, Charsets.UTF_8)
+                2 -> String(d, Charsets.UTF_16BE)
+                1 -> {
+                    val b0 = d[0].toInt() and 0xFF
+                    val b1 = if (d.size > 1) d[1].toInt() and 0xFF else 0
+                    if (b0 == 0xFF && b1 == 0xFE) String(java.util.Arrays.copyOfRange(d, 2, d.size), Charsets.UTF_16LE)
+                    else if (b0 == 0xFE && b1 == 0xFF) String(java.util.Arrays.copyOfRange(d, 2, d.size), Charsets.UTF_16BE)
+                    else String(d, Charsets.UTF_16LE)
+                }
+                else -> {
+                    var high = false
+                    for (x in d) { if ((x.toInt() and 0xFF) > 127) { high = true; break } }
+                    if (high) { try { String(d, charset("GBK")) } catch (_: Exception) { String(d, Charsets.ISO_8859_1) } }
+                    else String(d, Charsets.ISO_8859_1)
+                }
+            }
+        } catch (_: Exception) { return "" }
+        val cut = s.indexOf('\u0000')
+        return (if (cut >= 0) s.substring(0, cut) else s).trim(' ', '\uFEFF')
+    }
+
+    private fun parseID3Artist(b: ByteArray): String {
+        try {
+            if (b.size < 10 || String(b, 0, 3, Charsets.ISO_8859_1) != "ID3") return ""
+            val ver = b[3].toInt() and 0xFF
+            val tsz = ((b[6].toInt() and 0x7F) shl 21) or ((b[7].toInt() and 0x7F) shl 14) or ((b[8].toInt() and 0x7F) shl 7) or (b[9].toInt() and 0x7F)
+            val end = Math.min(b.size, 10 + tsz)
+            var pos = 10
+            var tpe2 = ""
+            if (ver <= 2) {
+                while (pos + 6 <= end) {
+                    val id = String(b, pos, 3, Charsets.ISO_8859_1)
+                    val fsz = ((b[pos + 3].toInt() and 0xFF) shl 16) or ((b[pos + 4].toInt() and 0xFF) shl 8) or (b[pos + 5].toInt() and 0xFF)
+                    if (fsz <= 0 || pos + 6 + fsz > b.size) break
+                    if (id == "TP1") return id3Text(java.util.Arrays.copyOfRange(b, pos + 6, pos + 6 + fsz))
+                    pos += 6 + fsz
+                }
+                return ""
+            }
+            while (pos + 10 <= end) {
+                val id = String(b, pos, 4, Charsets.ISO_8859_1)
+                val fsz = if (ver >= 4)
+                    ((b[pos + 4].toInt() and 0x7F) shl 21) or ((b[pos + 5].toInt() and 0x7F) shl 14) or ((b[pos + 6].toInt() and 0x7F) shl 7) or (b[pos + 7].toInt() and 0x7F)
+                else beU32(b, pos + 4)
+                if (fsz <= 0 || pos + 10 + fsz > b.size) break
+                if (id == "TPE1") { val t = id3Text(java.util.Arrays.copyOfRange(b, pos + 10, pos + 10 + fsz)); if (t.isNotEmpty()) return t }
+                else if (id == "TPE2" && tpe2.isEmpty()) tpe2 = id3Text(java.util.Arrays.copyOfRange(b, pos + 10, pos + 10 + fsz))
+                pos += 10 + fsz
+            }
+            return tpe2
+        } catch (_: Exception) { return "" }
+    }
+
+    private fun parseVorbisComments(b: ByteArray, off: Int, len: Int): String {
+        try {
+            var p = off
+            val end = off + len
+            if (p + 4 > end) return ""
+            val vl = leU32(b, p)
+            if (vl < 0 || p + 8 + vl > end) return ""
+            p += 4 + vl
+            if (p + 4 > end) return ""
+            val n = leU32(b, p); p += 4
+            if (n < 0 || n > 10000) return ""
+            var aa = ""
+            for (i in 0 until n) {
+                if (p + 4 > end) break
+                val cl = leU32(b, p); p += 4
+                if (cl <= 0 || p + cl > end) break
+                val kv = String(b, p, cl, Charsets.UTF_8); p += cl
+                val eq = kv.indexOf('=')
+                if (eq <= 0) continue
+                val kk = kv.substring(0, eq).uppercase()
+                val v = kv.substring(eq + 1).trim()
+                if (kk == "ARTIST" && v.isNotEmpty()) return v
+                if (kk == "ALBUMARTIST" && v.isNotEmpty() && aa.isEmpty()) aa = v
+            }
+            return aa
+        } catch (_: Exception) { return "" }
+    }
+
+    private fun parseFlacArtist(b: ByteArray): String {
+        try {
+            if (b.size < 8 || String(b, 0, 4, Charsets.ISO_8859_1) != "fLaC") return ""
+            var pos = 4
+            while (pos + 4 <= b.size) {
+                val h = b[pos].toInt() and 0xFF
+                val last = (h and 0x80) != 0
+                val typ = h and 0x7F
+                val len = ((b[pos + 1].toInt() and 0xFF) shl 16) or ((b[pos + 2].toInt() and 0xFF) shl 8) or (b[pos + 3].toInt() and 0xFF)
+                if (typ == 4) {
+                    val avail = Math.min(len, b.size - pos - 4)
+                    if (avail > 0) { val r = parseVorbisComments(b, pos + 4, avail); if (r.isNotEmpty()) return r }
+                }
+                if (last) break
+                pos += 4 + len
+            }
+        } catch (_: Exception) {}
+        return ""
+    }
+
+    private fun findAtom(b: ByteArray, start: Int, end: Int, type: String): IntArray? {
+        var p = start
+        while (p + 8 <= end) {
+            val sz = beU32(b, p)
+            if (sz < 8 || p + sz > end) break
+            if (String(b, p + 4, 4, Charsets.ISO_8859_1) == type) return intArrayOf(p + 8, p + sz)
+            p += sz
+        }
+        return null
+    }
+
+    private fun parseMp4Artist(b: ByteArray): String {
+        try {
+            if (b.size < 12) return ""
+            val moov = findAtom(b, 0, b.size, "moov") ?: return ""
+            val udta = findAtom(b, moov[0], moov[1], "udta") ?: return ""
+            val meta = findAtom(b, udta[0], udta[1], "meta") ?: return ""
+            val ilst = findAtom(b, meta[0] + 4, meta[1], "ilst") ?: return ""
+            var p = ilst[0]
+            while (p + 8 <= ilst[1]) {
+                val sz = beU32(b, p)
+                if (sz < 8 || p + sz > ilst[1]) break
+                if ((b[p + 4].toInt() and 0xFF) == 0xA9 && String(b, p + 5, 3, Charsets.ISO_8859_1) == "ART") {
+                    val data = findAtom(b, p + 8, p + sz, "data")
+                    if (data != null && data[0] + 8 <= data[1]) {
+                        return String(b, data[0] + 8, data[1] - data[0] - 8, Charsets.UTF_8).trim(' ', '\u0000')
+                    }
+                }
+                p += sz
+            }
+        } catch (_: Exception) {}
+        return ""
+    }
+
+    private fun bytesIndexOf(hay: ByteArray, needle: ByteArray): Int {
+        if (needle.isEmpty() || hay.size < needle.size) return -1
+        outer@ for (i in 0..hay.size - needle.size) {
+            for (j in needle.indices) { if (hay[i + j] != needle[j]) continue@outer }
+            return i
+        }
+        return -1
+    }
+
+    private fun parseOggArtist(b: ByteArray): String {
+        try {
+            val m1 = bytesIndexOf(b, byteArrayOf(3, 'v'.toByte(), 'o'.toByte(), 'r'.toByte(), 'b'.toByte(), 'i'.toByte(), 's'.toByte()))
+            if (m1 >= 0) return parseVorbisComments(b, m1 + 7, b.size - m1 - 7)
+            val m2 = bytesIndexOf(b, "OpusTags".toByteArray(Charsets.ISO_8859_1))
+            if (m2 >= 0) return parseVorbisComments(b, m2 + 8, b.size - m2 - 8)
+        } catch (_: Exception) {}
+        return ""
+    }
+
+    private fun readAudioArtist(f: java.io.File): String {
+        try {
+            val sz = Math.min(65536L, f.length()).toInt()
+            if (sz < 16) return ""
+            val buf = ByteArray(sz)
+            java.io.FileInputStream(f).use { ins ->
+                var off = 0
+                while (off < sz) { val r = ins.read(buf, off, sz - off); if (r < 0) break; off += r }
+            }
+            val head = String(buf, 0, 4, Charsets.ISO_8859_1)
+            if (head == "ID3") return parseID3Artist(buf)
+            if (head == "fLaC") return parseFlacArtist(buf)
+            if (head == "OggS") return parseOggArtist(buf)
+            if (sz > 8 && String(buf, 4, 4, Charsets.ISO_8859_1) == "ftyp") return parseMp4Artist(buf)
+        } catch (_: Exception) {}
+        return ""
+    }
+
     private fun readFileAndSend(f: java.io.File, name: String, key: String) {
         Thread {
             try {
@@ -388,6 +574,7 @@ class MainActivity : Activity() {
                 } catch (_: Exception) {}
                 val skipDirs = setOf("Android", "LOST.DIR", "obb", ".thumbnails", "cache")
                 val drmE = setOf("ncm","mgg","mgg1","mgg2","mggl","mflac","mflac0","mmp3","kgm","kgma","kwm","qmcflac","qmcmp3","qmcogg","qmc0","qmc2","qmc3","tm0","tm2","tm6","bkcmp3","bkcflac","x2m","x3m","vpr")
+                val readTags = exts.contains("mp3")   // 音频类型视图：读内嵌歌手标签
                 var count = 0
                 while (queue.isNotEmpty() && count < 100000) {
                     val dir = queue.removeFirst()
@@ -402,6 +589,7 @@ class MainActivity : Activity() {
                         val enc = if (feIsMedia) isEncryptedMedia(f) else false
                         val o = org.json.JSONObject()
                         o.put("n", f.name); o.put("d", false)
+                        if (readTags && audioE.contains(fe)) { try { val ar = readAudioArtist(f); if (ar.isNotEmpty()) o.put("ar", ar) } catch (_: Exception) {} }
                         o.put("enc", enc)
                         o.put("qq", if (feIsMedia) isQQEncFile(f) else false)
                         o.put("s", f.length()); o.put("t", f.lastModified()); o.put("p", f.absolutePath)
