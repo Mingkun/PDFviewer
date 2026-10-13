@@ -2810,7 +2810,10 @@ function renderRecentBar() {
 }
 
 function renderRecent() {
+  // 首页已按类别展示最近文件，菜单里这份不再显示
   var w = document.getElementById('recentWrap'); if (!w) return;
+  w.style.display = 'none'; w.innerHTML = '';
+  return;
   var nat = null;
   try { if (window.AppBridge && AppBridge.getRecent) nat = JSON.parse(AppBridge.getRecent() || '[]'); } catch (e) { nat = null; }
   if (nat && nat.length) {
