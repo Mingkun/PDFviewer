@@ -387,6 +387,7 @@ class MainActivity : Activity() {
                     }
                 } catch (_: Exception) {}
                 val skipDirs = setOf("Android", "LOST.DIR", "obb", ".thumbnails", "cache")
+                val drmE = setOf("ncm","mgg","mgg1","mgg2","mggl","mflac","mflac0","mmp3","kgm","kgma","kwm","qmcflac","qmcmp3","qmcogg","qmc0","qmc2","qmc3","tm0","tm2","tm6","bkcmp3","bkcflac","x2m","x3m","vpr")
                 var count = 0
                 while (queue.isNotEmpty() && count < 100000) {
                     val dir = queue.removeFirst()
@@ -396,9 +397,8 @@ class MainActivity : Activity() {
                         if (f.isDirectory) { if (f.name !in skipDirs) queue.add(f); continue }
                         val fe = f.extension.lowercase()
                         if (exts.isNotEmpty() && !exts.contains(fe)) continue
-                        // 只对音视频/加密格式读文件头；全盘扫描时逐文件IO太慢，会让列表看起来不全
-                        val feIsMedia = audioE.contains(fe) || videoE.contains(fe) ||
-                            setOf("ncm","mgg","mgg1","mgg2","mggl","mflac","mflac0","mmp3","kgm","kgma","kwm","qmcflac","qmcmp3","qmcogg","qmc0","qmc2","qmc3","tm0","tm2","tm6","bkcmp3","bkcflac","x2m","x3m","vpr").contains(fe)
+                        // 只对音视频/加密格式读文件头（集合已提到循环外，避免逐文件分配拖慢全盘扫描）
+                        val feIsMedia = audioE.contains(fe) || videoE.contains(fe) || drmE.contains(fe)
                         val enc = if (feIsMedia) isEncryptedMedia(f) else false
                         val o = org.json.JSONObject()
                         o.put("n", f.name); o.put("d", false)

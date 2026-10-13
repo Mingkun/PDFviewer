@@ -434,6 +434,10 @@ function fbRenderTypeList(items) {
   if (fbOrder === 'time') sorted.sort(function(a, b) { return (a.t - b.t) * _dir; });
   else if (fbOrder === 'name') sorted.sort(function(a, b) { return a.n.localeCompare(b.n, 'zh') * _dir; });
   else if (fbOrder === 'size') sorted.sort(function(a, b) { return (a.s - b.s) * _dir; });
+  try {
+    var _pe = document.getElementById('fbPath');
+    if (_pe) _pe.textContent = String(_pe.textContent || '').replace(/（共 \d+ 项）\s*$/, '') + '（共 ' + sorted.length + ' 项）';
+  } catch (e) {}
   list.innerHTML = sorted.map(function(it) {
     var icon = fileIconOf(it.n);
     var sub = fbOrder === 'time' ? new Date(it.t).toLocaleDateString() : fbOrder === 'size' ? fmtSize(it.s) : fmtSize(it.s);
