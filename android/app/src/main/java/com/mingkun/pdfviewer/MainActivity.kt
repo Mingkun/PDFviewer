@@ -241,6 +241,14 @@ class MainActivity : Activity() {
     private fun readFileAndSend(f: java.io.File, name: String, key: String) {
         Thread {
             try {
+                // 大文件音视频：不走 base64 传输，直接让网页用 file:// 播放
+                val ext = f.extension.lowercase()
+                val mediaExts = setOf("mp3","wav","ogg","m4a","flac","aac","wma","opus","mp4","webm","mkv","avi","mov","3gp","m4v","ts","flv")
+                if (f.length() > 20L * 1024 * 1024 && mediaExts.contains(ext)) {
+                    val p = f.absolutePath
+                    runOnUiThread { jsCall("window.onMediaPath && window.onMediaPath(" + jsonq(name) + "," + jsonq(p) + ")") }
+                    return@Thread
+                }
                 val bytes = f.readBytes()
                 runOnUiThread { sendFileToPage(name, key, bytes) }
             } catch (_: Exception) {
@@ -494,6 +502,14 @@ class MainActivity : Activity() {
         fun saveRecentPath(path: String, name: String) {
             // 网页打开文件后记录到「最近打开」（此前漏暴露，导致列表一直不更新）
             this@MainActivity.saveRecentPath(path, name)
+        }
+
+        @JavascriptInterface
+        fun openMedia(path: String, name: String) {
+            // 大文件在 Android 上走不通整包 base64 过桥，改为让网页直接用 file:// 播放
+            runOnUiThread {
+                jsCall("window.onMediaPath && window.onMediaPath(" + jsonq(name) + "," + jsonq(path) + ")")
+            }
         }
 
         @JavascriptInterface

@@ -565,7 +565,28 @@ function fbLoad(path) {
 
   } catch (e) { list.innerHTML = '<div class="fbEmpty">读取失败</div>'; }
 }
+function openMediaPath(path, name) {
+  // 音视频直接用 file:// 播放：大文件不必整包 base64 过桥，还能拖动进度
+  var nm = (name || '').toLowerCase();
+  var ext = nm.split('.').pop();
+  var u = 'file://' + encodeURI(path).replace(/#/g, '%23');
+  try { if (AppBridge.saveRecentPath) AppBridge.saveRecentPath(path, name); } catch (e) {}
+  try { fbClose(); } catch (e) {}
+  curFileKey = path;
+  if (/^(mp4|webm|mkv|avi|mov|3gp|m4v|ts|flv)$/.test(ext)) openVideo(null, name, u);
+  else openAudio(null, name, u);
+  setInfo('');
+}
+window.onMediaPath = function (name, path) {
+  try { openMediaPath(path, name); } catch (e) { setInfo('打开失败'); }
+};
 function fbOpenFile(path, name) {
+  var _nm = (name || '').toLowerCase(), _ext = _nm.split('.').pop();
+  if (/^(mp3|wav|ogg|m4a|flac|aac|wma|opus|mp4|webm|mkv|avi|mov|3gp|m4v|ts|flv)$/.test(_ext)) {
+    setInfo('正在打开 ' + name + ' …');
+    openMediaPath(path, name);
+    return;
+  }
   setInfo('正在打开 ' + name + ' …');
   try {
     var b64 = AppBridge.readFile(path);
@@ -2237,13 +2258,13 @@ setInterval(function () {
   if (contentEl) contentEl.addEventListener('scroll', chk, { passive: true });
 })();
 var curAudioEl = null, curVideoEl = null;
-function openVideo(buf, name) {
+function openVideo(buf, name, srcUrl) {
   docKind = 'video';
   resetView();
   contentEl.style.display = 'block';
   contentEl.style.background = '#000';
-  var blob = new Blob([buf]);
-  var url = URL.createObjectURL(blob);
+  var blob = buf ? new Blob([buf]) : null;
+  var url = srcUrl || URL.createObjectURL(blob);
   contentEl.innerHTML = '<div id="videoPlayer">' +
     '<video id="curVideo" controls preload="auto" playsinline src="' + url + '"></video>' +
     '<div class="vTitle">🎬 ' + esc(name) + '</div>' +
@@ -2254,16 +2275,16 @@ function openVideo(buf, name) {
   try { curVideoEl.play(); } catch (e) {}
 }
 var curAudioEl = null;
-function openAudio(buf, name) {
+function openAudio(buf, name, srcUrl) {
   resetView();
   docKind = 'audio';
   contentEl.style.display = 'block';
   contentEl.style.background = '#1e2126';
   contentEl.style.overflow = 'hidden';
-  var blob = new Blob([buf]);
-  var url = URL.createObjectURL(blob);
+  var blob = buf ? new Blob([buf]) : null;
+  var url = srcUrl || URL.createObjectURL(blob);
   var base = name.replace(/\.[^.]+$/, '');
-  _asrBuf = buf;
+  _asrBuf = srcUrl ? null : buf;
   _asrName = name || '';
   _asrSegs = [];
   contentEl.innerHTML = '<div id="audioPlayer">' +
@@ -2317,7 +2338,7 @@ function _asrShow(j) {
 }
 function asrTranslate() {
   if (_asrBusy) return;
-  if (!_asrBuf) { setInfo('无可翻译音频'); return; }
+  if (!_asrBuf) { setInfo('该文件未载入音频数据（大文件直接用文件播放），暂不支持AI翻译'); return; }
   var el = document.getElementById('aLrc');
   if (!el) return;
   var base = CLOUD_TTS.replace('/api/tts', '/api/asr') + '?token=' + TTS_TOKEN;
