@@ -214,7 +214,7 @@ class MainActivity : Activity() {
             for (i in 0 until arr.length()) {
                 val o = arr.optJSONObject(i) ?: continue
                 if (o.optString("uri") == uri.toString()) continue
-                if (out.length() >= 20 && !o.optBoolean("pin")) continue
+                if (out.length() >= 500 && !o.optBoolean("pin")) continue  // 总量提到500：首页按类别展示，每类最多50
                 out.put(o)
             }
             recentPrefs().edit().putString("list", out.toString()).apply()
@@ -231,7 +231,7 @@ class MainActivity : Activity() {
                 if (o.optString("path") == path) continue
                 // 同名且无路径的旧 URI 记录 → 清理（同一文件重新打开）
                 if (o.optString("name") == name && o.optString("path").isEmpty()) continue
-                if (out.length() >= 20 && !o.optBoolean("pin")) continue
+                if (out.length() >= 500 && !o.optBoolean("pin")) continue
                 out.put(o)
             }
             recentPrefs().edit().putString("list", out.toString()).apply()

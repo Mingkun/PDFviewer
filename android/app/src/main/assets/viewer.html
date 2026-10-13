@@ -98,6 +98,27 @@
   #recentBar .rbIcon { font-size:26px; line-height:1; }
   #recentBar .rbName { font-size:10px; color:#8a94a6; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   body.dark #recentBar .rbName { color:#8a93a3; }
+  #recentBar .rbCats { display:flex; flex-wrap:wrap; gap:10px 8px; justify-content:center; }
+  #recentBar .rbCat { display:flex; align-items:center; gap:6px; padding:8px 14px; border-radius:14px; background:rgba(255,255,255,.78); border:1px solid #dfe5ee; cursor:pointer; -webkit-user-select:none; user-select:none; touch-action:manipulation; font-size:13px; color:#39414e; }
+  #recentBar .rbCat.on { background:#e7f1ff; border-color:#91caff; color:#1c5fb8; }
+  #recentBar .rbCnt { font-size:11px; color:#8a94a6; background:#eef2f7; border-radius:10px; padding:1px 8px; }
+  #recentBar .rbCat.on .rbCnt { background:#d6e9ff; }
+  #recentBar .rbFiles { margin:12px 0 14px; max-height:44vh; overflow:auto; border-radius:12px; background:rgba(255,255,255,.75); border:1px solid #e3e8ef; text-align:left; }
+  #recentBar .rbFHead { position:sticky; top:0; background:rgba(255,255,255,.94); padding:8px 12px; font-size:12px; color:#5a6472; border-bottom:1px solid #e3e8ef; }
+  #recentBar .rbFile { display:flex; align-items:flex-start; gap:8px; padding:8px 12px; cursor:pointer; position:relative; -webkit-user-select:none; user-select:none; touch-action:manipulation; }
+  #recentBar .rbFile:active { background:rgba(30,136,229,.08); }
+  #recentBar .rbFile + .rbFile { border-top:1px dashed #e3e8ef; }
+  #recentBar .rbFIcon { font-size:17px; line-height:1.5; flex:0 0 auto; }
+  #recentBar .rbFName { flex:1 1 auto; font-size:13px; color:#232b36; word-break:break-all; white-space:normal; line-height:1.5; }
+  #recentBar .rbFTime { flex:0 0 auto; font-size:11px; color:#9aa3b0; padding-top:2px; }
+  body.dark #recentBar .rbCat { background:rgba(40,46,58,.8); border-color:#3a4353; color:#c6cdd8; }
+  body.dark #recentBar .rbCat.on { background:#1d3a5f; border-color:#3c7fd6; color:#9ec9ff; }
+  body.dark #recentBar .rbCnt { background:#2c3444; color:#8a93a3; }
+  body.dark #recentBar .rbCat.on .rbCnt { background:#24466e; }
+  body.dark #recentBar .rbFiles { background:rgba(35,41,52,.85); border-color:#3a4353; }
+  body.dark #recentBar .rbFHead { background:rgba(35,41,52,.95); color:#9aa5b5; border-bottom-color:#3a4353; }
+  body.dark #recentBar .rbFile + .rbFile { border-top-color:#3a4353; }
+  body.dark #recentBar .rbFName { color:#dde3ec; }
   #fpick { display:none; }
   .mdwrap { display:inline-block; text-align:left; max-width:100%; padding:12px 14px;
             font-size:15px; line-height:1.85; color:#1f2630; word-break:break-word; }
@@ -2585,26 +2606,39 @@ function fileIconOf(nm) {
   if (/\.(mgg2?|mflac|mmp3|ncm|qmcflac|qmcmp3|qmcogg|kgm|kuwo)$/i.test(nm)) return '🔒';
   return '📄';
 }
+var RB_CATS = [
+  { k: 'pdf', icon: '📕', label: 'PDF', re: /\.pdf$/i },
+  { k: 'epub', icon: '📗', label: 'EPUB', re: /\.epub$/i },
+  { k: 'doc', icon: '📘', label: '文档', re: /\.(docx?|rtf)$/i },
+  { k: 'xls', icon: '📊', label: '表格', re: /\.(xlsx?|csv)$/i },
+  { k: 'ppt', icon: '📽️', label: '演示', re: /\.pptx?$/i },
+  { k: 'text', icon: '📝', label: '文本', re: /\.(txt|md|markdown|log|json)$/i },
+  { k: 'img', icon: '🖼️', label: '图片', re: /\.(png|jpe?g|gif|webp|bmp)$/i },
+  { k: 'audio', icon: '🎵', label: '音频', re: /\.(mp3|wav|ogg|m4a|flac|aac|wma|opus)$/i },
+  { k: 'video', icon: '🎬', label: '视频', re: /\.(mp4|webm|mkv|avi|mov|3gp|m4v|ts|flv)$/i },
+  { k: 'enc', icon: '🔒', label: '加密', re: /\.(mgg2?|mflac0?|mmp3|ncm|qmcflac|qmcmp3|qmcogg|qmc[023]?|kgma?|kwm|tm[026]|bkcmp3|bkcflac|x[23]m|vpr)$/i },
+  { k: 'other', icon: '📄', label: '其他', re: null }
+];
+function recentCatOf(nm) {
+  var n = String(nm || '').toLowerCase();
+  for (var i = 0; i < RB_CATS.length; i++) { if (RB_CATS[i].re && RB_CATS[i].re.test(n)) return RB_CATS[i].k; }
+  return 'other';
+}
+var rbExpanded = null;   // 当前展开的类别文件夹
 function renderRecentBar() {
   var bar = document.getElementById('recentBar'); if (!bar) return;
   var items = [];
   var nat = null;
   try { if (window.AppBridge && AppBridge.getRecent) nat = JSON.parse(AppBridge.getRecent() || '[]'); } catch (e) { nat = null; }
   if (nat && nat.length) {
-    var pinL = [], restL = [];
-    nat.forEach(function (r, i) { (r.pin ? pinL : restL).push({ r: r, i: i }); });
-    pinL.sort(function (a, b) { return (b.r.time || 0) - (a.r.time || 0); });
-    restL.sort(function (a, b) { return (b.r.time || 0) - (a.r.time || 0); });
-    pinL.concat(restL).slice(0, 15).forEach(function (e2) {
-      (function (idx, nm, pn) {
-        items.push({ name: nm, pinned: pn, nativeIdx: idx, open: function () { try { AppBridge.openRecent(idx); } catch (e) { setInfo('打开失败'); } } });
-      })(e2.i, e2.r.name, !!e2.r.pin);
+    nat.forEach(function (r, i) {
+      items.push({ name: r.name, time: r.time || 0, pinned: !!r.pin, nativeIdx: i, open: function () { try { AppBridge.openRecent(i); } catch (e) { setInfo('打开失败'); } } });
     });
   } else {
     var rec = [];
     try { rec = JSON.parse(localStorage.getItem('pv_recent') || '[]'); } catch (e) {}
-    rec.slice(0, 15).forEach(function (r) {
-      items.push({ name: r.name, open: function () {
+    rec.slice(0, 50).forEach(function (r) {
+      items.push({ name: r.name, time: r.time || 0, pinned: false, open: function () {
         try {
           var rl = JSON.parse(localStorage.getItem('pv_recent') || '[]');
           for (var k2 = 0; k2 < rl.length; k2++) {
@@ -2633,22 +2667,56 @@ function renderRecentBar() {
   var hs = document.getElementById('hintSep');
   if (hs) hs.style.display = show ? 'flex' : 'none';
   if (!show) return;
-  var h = '<div style="display:flex;flex-wrap:wrap;gap:14px 10px;justify-content:center">';
+  // 按类别分组：类别内 固定的在前（各自按时间倒序），其余按时间倒序，每类最多50个
+  var groups = {};
   items.forEach(function (it) {
-    h += '<div class="rbItem"' + (it.pinned ? ' data-pin="1"' : '') + ' title="' + esc(it.name || '') + (it.pinned ? '（长按取消固定）' : (it.nativeIdx !== undefined ? '（长按固定）' : '')) + '"><div class="rbIcon">' + fileIconOf(it.name) + '</div>' + (it.pinned ? '<span class="rbPin">📎</span>' : '') + '<div class="rbName">' + esc(it.name || '?') + '</div></div>';
+    var k = recentCatOf(it.name);
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(it);
+  });
+  function catMeta(k) { for (var i = 0; i < RB_CATS.length; i++) { if (RB_CATS[i].k === k) return RB_CATS[i]; } return RB_CATS[RB_CATS.length - 1]; }
+  var order = Object.keys(groups).map(function (k) {
+    var g = groups[k];
+    var pin = g.filter(function (x) { return x.pinned; }).sort(function (a, b) { return b.time - a.time; });
+    var rest = g.filter(function (x) { return !x.pinned; }).sort(function (a, b) { return b.time - a.time; });
+    var newest = 0; g.forEach(function (x) { if ((x.time || 0) > newest) newest = x.time || 0; });
+    return { k: k, list: pin.concat(rest).slice(0, 50), newest: newest };
+  }).sort(function (a, b) { return b.newest - a.newest; });
+  if (rbExpanded) { var still = false; order.forEach(function (c) { if (c.k === rbExpanded) still = true; }); if (!still) rbExpanded = null; }
+  var h = '<div class="rbCats">';
+  order.forEach(function (c) {
+    var cc = catMeta(c.k);
+    h += '<div class="rbCat' + (rbExpanded === c.k ? ' on' : '') + '" data-k="' + c.k + '">' + cc.icon + ' ' + cc.label + '<span class="rbCnt">' + (c.list.length >= 50 ? '50+' : c.list.length) + '</span></div>';
   });
   h += '</div>';
+  var cur = null; order.forEach(function (c) { if (c.k === rbExpanded) cur = c; });
+  if (cur) {
+    var cc2 = catMeta(cur.k);
+    h += '<div class="rbFiles"><div class="rbFHead">' + cc2.icon + ' ' + cc2.label + ' · ' + cur.list.length + ' 个（最近的在最上 · 长按可固定📌/取消）</div>';
+    cur.list.forEach(function (it, idx) {
+      h += '<div class="rbFile" data-i="' + idx + '"><span class="rbFIcon">' + (it.pinned ? '📎' : fileIconOf(it.name)) + '</span><span class="rbFName">' + esc(it.name || '?') + '</span><span class="rbFTime">' + fmtRecentTime(it.time) + '</span></div>';
+    });
+    h += '</div>';
+  }
   bar.innerHTML = h;
-  Array.prototype.forEach.call(bar.querySelectorAll('.rbItem'), function (el, idx) {
-    var it = items[idx];
+  Array.prototype.forEach.call(bar.querySelectorAll('.rbCat'), function (el) {
+    el.onclick = function () {
+      var k = el.getAttribute('data-k');
+      rbExpanded = (rbExpanded === k) ? null : k;
+      renderRecentBar();
+    };
+  });
+  if (!cur) return;
+  Array.prototype.forEach.call(bar.querySelectorAll('.rbFile'), function (el, idx) {
+    var it = cur.list[idx];
+    if (!it) return;
     var timer = null;
     el.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
-    function clearHold() { el.classList.remove('holding'); }
-    function startHold() { el.classList.add('holding'); }
-    function cancelTimer() { if (timer) { clearTimeout(timer); timer = null; } clearHold(); }
+    function cancelTimer() { if (timer) { clearTimeout(timer); timer = null; } }
     function doPin() {
       el.__pin = true;
-      clearHold();
+      cancelTimer();
+      if (it.nativeIdx === undefined || !window.AppBridge || !AppBridge.pinRecent) { setInfo('此记录不支持固定'); return; }
       try { AppBridge.vibrate(80); } catch (e) {}
       try { navigator.vibrate(200); } catch (e) {}
       try {
@@ -2657,23 +2725,17 @@ function renderRecentBar() {
         _osc.connect(_gain); _gain.connect(_ac.destination);
         _osc.frequency.value = 800; _gain.gain.value = 0.3;
         _osc.start(); _osc.stop(_ac.currentTime + 0.15);
-        setTimeout(function(){ _ac.close(); }, 500);
+        setTimeout(function () { _ac.close(); }, 500);
       } catch (e) {}
-      if (it.nativeIdx !== undefined && window.AppBridge && AppBridge.pinRecent) {
-        try { AppBridge.pinRecent(it.nativeIdx, !it.pinned); } catch (e) {}
-        it.pinned = !it.pinned;
-        setInfo(it.pinned ? '已固定：' + it.name : '已取消固定：' + it.name);
-        var badge = el.querySelector('.rbPin');
-        if (it.pinned) {
-          if (!badge) { badge = document.createElement('span'); badge.className = 'rbPin'; badge.textContent = '📎'; el.appendChild(badge); }
-        } else if (badge) badge.remove();
-      }
+      try { AppBridge.pinRecent(it.nativeIdx, !it.pinned); } catch (e) {}
+      setInfo((!it.pinned ? '已固定：' : '已取消固定：') + it.name);
+      renderRecentBar();
     }
-    el.addEventListener('touchstart', function (e) { startHold(); timer = setTimeout(function () { timer = null; doPin(); }, 2000); }, { passive: true });
+    el.addEventListener('touchstart', function () { timer = setTimeout(function () { timer = null; doPin(); }, 2000); }, { passive: true });
     el.addEventListener('touchmove', function () { cancelTimer(); }, { passive: true });
     el.addEventListener('touchend', function () { cancelTimer(); }, { passive: true });
     el.addEventListener('touchcancel', function () { cancelTimer(); }, { passive: true });
-    el.addEventListener('pointerdown', function (e) { if (e.pointerType === 'touch') return; startHold(); timer = setTimeout(function () { timer = null; doPin(); }, 2000); });
+    el.addEventListener('pointerdown', function (e) { if (e.pointerType === 'touch') return; timer = setTimeout(function () { timer = null; doPin(); }, 2000); });
     el.addEventListener('pointerup', function (e) { if (e.pointerType !== 'touch') cancelTimer(); });
     el.onclick = function () { if (el.__pin) { el.__pin = false; return; } it.open(); };
   });
@@ -2687,7 +2749,7 @@ function renderRecent() {
     nat.sort(function (a, b) { return (b.time || 0) - (a.time || 0); });
     w.style.display = '';
     var h2 = '<div style="font-size:11px;color:#9aa3b0;margin-bottom:4px">最近打开（点击直接打开 · 已记住阅读位置）</div>';
-    nat.forEach(function (r, i) {
+    nat.slice(0, 50).forEach(function (r, i) {
       h2 += '<div class="recentItem" data-i="' + i + '" style="display:flex;justify-content:space-between;gap:8px;padding:6px 4px;' + (i ? 'border-top:1px dashed #e3e8ef;' : '') + 'font-size:13px;color:#1f2630;cursor:pointer"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.name || '?') + '</span><span style="color:#9aa3b0;font-size:11px;white-space:nowrap">⚡ ' + fmtRecentTime(r.time) + '</span></div>';
     });
     w.innerHTML = h2;
