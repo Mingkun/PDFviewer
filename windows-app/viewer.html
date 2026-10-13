@@ -552,16 +552,17 @@ function fbRenderTypeList(items) {
     var _pe = document.getElementById('fbPath');
     if (_pe) _pe.textContent = String(_pe.textContent || '').replace(/（共 \d+ 项）\s*$/, '') + '（共 ' + sorted.length + ' 项）';
   } catch (e) {}
-  list.innerHTML = _artBar + sorted.map(function(it) {
+  list.innerHTML = _artBar + sorted.map(function(it, _i) {
     var icon = fileIconOf(it.n);
     var sub = fbOrder === 'time' ? new Date(it.t).toLocaleDateString() : fbOrder === 'size' ? fmtSize(it.s) : fmtSize(it.s);
-    return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="0" data-n="' + esc(it.n) + '">' +
+    return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="0" data-i="' + _i + '" data-n="' + esc(it.n) + '">' +
       '<div class="fbIcon">' + icon + '</div>' +
       '<div class="fbName">' + _encMark(it) + esc(it.n) + '</div>' +
       '<div class="fbSub">' + sub + '</div></div>';
   }).join('');
   list.querySelectorAll('.fbItem').forEach(function(el) {
     el.onclick = function() {
+      audioQueue = sorted; audioQueueIdx = +(el.getAttribute('data-i') || 0);   // 连播队列=当前列表顺序（含歌手筛选）
       fbOpenFile(el.getAttribute('data-p'), el.getAttribute('data-n') || el.querySelector('.fbName').textContent);
     };
   });
@@ -602,10 +603,10 @@ function fbLoad(path) {
     var json = AppBridge.listFiles(path);
     var items = JSON.parse(json);
     if (!items.length) { list.innerHTML = '<div class="fbEmpty">空文件夹</div>'; return; }
-    list.innerHTML = items.map(function (it) {
+    list.innerHTML = items.map(function (it, _i) {
       var icon = it.d ? '📁' : fileIconOf(it.n);
       var sub = it.d ? '' : fmtSize(it.s);
-      return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="' + it.d + '" data-n="' + esc(it.n) + '">' +
+      return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="' + it.d + '" data-i="' + _i + '" data-n="' + esc(it.n) + '">' +
         '<div class="fbIcon">' + icon + '</div>' +
         '<div class="fbName">' + _encMark(it) + esc(it.n) + '</div>' +
         '<div class="fbSub">' + sub + '</div></div>';
@@ -614,6 +615,7 @@ function fbLoad(path) {
       el.onclick = function () {
         var p = el.getAttribute('data-p');
         var dv = el.getAttribute('data-d'); if (dv === '1' || dv === 'true') { fbLoad(p); return; }
+        audioQueue = items; audioQueueIdx = +(el.getAttribute('data-i') || 0);   // 连播队列=当前文件夹顺序
         fbOpenFile(p, el.getAttribute('data-n') || el.querySelector('.fbName').textContent);
       };
     });
@@ -634,6 +636,7 @@ function openMediaPath(path, name) {
 }
 window.onMediaPath = function (name, path) {
   docOrigin = 'home';
+  audioQueue = null;
   try { openMediaPath(path, name); } catch (e) { setInfo('打开失败'); }
 };
 function fbOpenFile(path, name) {
@@ -2374,6 +2377,7 @@ function openVideo(buf, name, srcUrl) {
   try { curVideoEl.play(); } catch (e) {}
 }
 var curAudioEl = null;
+var audioQueue = null, audioQueueIdx = -1;   // 音频连播队列：从文件列表打开时=当前列表顺序
 function openAudio(buf, name, srcUrl) {
   resetView();
   docKind = 'audio';
@@ -2392,7 +2396,7 @@ function openAudio(buf, name, srcUrl) {
     '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
     '<div class="aLoop"><button id="loopBtn" onclick="toggleLoop()">🔁 循环</button><button id="asrBtn" onclick="asrTranslate()">🌐 AI翻译</button><button id="asrToggle" style="display:none" onclick="asrToggleView()">📋 歌词</button></div>' +
     '<div class="aLrc" id="aLrc"></div>' +
-    '<div class="aInfo">支持循环/歌词/AI翻译 · 双指右划关闭</div>' +
+    '<div class="aInfo">支持循环/连播/歌词/AI翻译 · 双指右划关闭</div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
   setTotal(1); document.getElementById('pageInput').value = 1;
@@ -2400,7 +2404,20 @@ function openAudio(buf, name, srcUrl) {
   // 循环播放
   curAudioEl.loop = localStorage.getItem('pv_audioLoop') === '1';
   updateLoopBtn();
-  curAudioEl.addEventListener('ended', function () { if (!curAudioEl.loop) { curAudioEl.currentTime = 0; } });
+  curAudioEl.addEventListener('ended', function () {
+    if (curAudioEl.loop) return;   // 循环模式交给原生循环
+    // 未选循环：按文件列表顺序自动播下一首（跳过子文件夹）
+    while (audioQueue && audioQueueIdx >= 0 && audioQueueIdx + 1 < audioQueue.length) {
+      var nx = audioQueue[audioQueueIdx + 1];
+      if (!nx || !nx.p) break;
+      audioQueueIdx++;
+      if (nx.d) continue;
+      setInfo('▶ 下一首：' + nx.n);
+      try { fbOpenFile(nx.p, nx.n); } catch (e) {}
+      return;
+    }
+    curAudioEl.currentTime = 0;
+  });
   // 歌词：加载同名 .lrc 或 .txt
   _loadLrc(base);
   // 歌词同步
@@ -2680,6 +2697,7 @@ window.onFileEnd = function () {
   rxChunks = [];
   setInfo('');
   docOrigin = 'home';
+  audioQueue = null;
   openByBytes(rxName, all.buffer, '', rxKey);
 };
 window.onRecentFail = function (name) {
