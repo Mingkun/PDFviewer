@@ -2760,7 +2760,7 @@ function renderRecentBar() {
   var cur = null; order.forEach(function (c) { if (c.k === rbExpanded) cur = c; });
   if (cur) {
     var cc2 = catMeta(cur.k);
-    h += '<div class="rbFiles"><div class="rbFHead">' + cc2.icon + ' ' + cc2.label + ' · ' + cur.list.length + ' 个（最近的在最上 · 长按可固定📌/取消）</div>';
+    h += '<div class="rbFiles"><div class="rbFHead">' + cc2.icon + ' ' + cc2.label + ' · ' + cur.list.length + ' 个（长按可固定📌/取消）</div>';
     cur.list.forEach(function (it, idx) {
       h += '<div class="rbFile" data-i="' + idx + '"><span class="rbFIcon">' + (it.pinned ? '📎' : fileIconOf(it.name)) + '</span><span class="rbFName">' + esc(it.name || '?') + '</span><span class="rbFTime">' + fmtRecentTime(it.time) + '</span></div>';
     });
