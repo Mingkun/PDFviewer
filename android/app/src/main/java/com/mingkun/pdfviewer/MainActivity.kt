@@ -686,7 +686,9 @@ class MainActivity : Activity() {
                     val obj = JSONObject(body!!)
                     val remoteCode = obj.optInt("versionCode", 0)
                     result = JSONObject()
-                    result.put("hasUpdate", remoteCode > currentVersionCode() && remoteCode > updatePrefs().getInt("skipver", 0))
+                    // 手动检查更新永远提示新版本：「跳过此版本」只应影响自动提醒，不能卡住手动检查
+                    result.put("hasUpdate", remoteCode > currentVersionCode())
+                    result.put("currentCode", currentVersionCode())
                     result.put("versionName", obj.optString("versionName", ""))
                     result.put("versionCode", remoteCode)
                     result.put("apkUrl", obj.optString("apkUrl", ""))

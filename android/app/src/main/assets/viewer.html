@@ -2828,7 +2828,9 @@ window.onUpdateInfo = function (d) {
       document.getElementById('dl').style.display = '';
     }
   } else {
-    document.getElementById('upinfo').textContent = '已是最新版本';
+    var _cur = '';
+    try { _cur = AppBridge.appVersion(); } catch (e) {}
+    document.getElementById('upinfo').textContent = '已是最新版本（本机 ' + _cur + '，线上 ' + (d.versionName || d.versionCode) + '）';
   }
 };
 window.onUpdateDownload = function (s) {
