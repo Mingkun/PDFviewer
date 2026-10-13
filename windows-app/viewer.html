@@ -967,6 +967,7 @@ function attachTwoFinger(d) {
   }, { passive: true });
   d.addEventListener('touchmove', function (e) { if (e.touches.length === 2) twoFingerCheck(e); }, { passive: false });
 }
+var swipeOnCtrl = false;
 stage.addEventListener('touchstart', function (e) {
   if (e.touches.length === 2) {
     pinchActive = true;
@@ -976,7 +977,7 @@ stage.addEventListener('touchstart', function (e) {
     tf0 = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     tf1 = { x: e.touches[1].clientX, y: e.touches[1].clientY };
     twoFired = false;
-  } else if (e.touches.length === 1) { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; swipeFired = false; }
+  } else if (e.touches.length === 1) { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; swipeFired = false; swipeOnCtrl = !!(e.target && e.target.closest && e.target.closest('audio,video,.aBar,.aLoop,input,button')); }
 }, { passive: true });
 stage.addEventListener('touchmove', function (e) {
   if (e.touches.length === 2 && twoFingerCheck(e)) return;
@@ -1065,6 +1066,11 @@ stage.addEventListener('touchend', function (e) {
     }
     else if ((docKind === 'txt' || docKind === 'docx' || docKind === 'xlsx' || docKind === 'doc') && dx > 0 && contentEl.scrollLeft <= 4) {
       // 文本/文档类右划 → 返回文件打开列表
+      setInfo('返回文件列表');
+      try { fbOpen(); } catch (e) {}
+    }
+    else if ((docKind === 'audio' || docKind === 'video') && dx > 0 && !swipeOnCtrl) {
+      // 音频/视频右划 → 返回文件打开列表（在播放控件上滑动不触发）
       setInfo('返回文件列表');
       try { fbOpen(); } catch (e) {}
     }
