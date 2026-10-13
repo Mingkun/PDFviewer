@@ -98,10 +98,10 @@
   #recentBar .rbIcon { font-size:26px; line-height:1; }
   #recentBar .rbName { font-size:10px; color:#8a94a6; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   body.dark #recentBar .rbName { color:#8a93a3; }
-  #recentBar .rbCats { display:flex; flex-wrap:wrap; gap:10px 8px; justify-content:center; }
-  #recentBar .rbCat { display:flex; align-items:center; gap:6px; padding:8px 14px; border-radius:14px; background:rgba(255,255,255,.78); border:1px solid #dfe5ee; cursor:pointer; -webkit-user-select:none; user-select:none; touch-action:manipulation; font-size:13px; color:#39414e; }
+  #recentBar .rbCats { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
+  #recentBar .rbCat { width:100px; height:42px; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:0 4px; border-radius:13px; background:rgba(255,255,255,.78); border:1px solid #dfe5ee; cursor:pointer; -webkit-user-select:none; user-select:none; touch-action:manipulation; font-size:13px; color:#39414e; white-space:nowrap; overflow:hidden; }
   #recentBar .rbCat.on { background:#e7f1ff; border-color:#91caff; color:#1c5fb8; }
-  #recentBar .rbCnt { font-size:11px; color:#8a94a6; background:#eef2f7; border-radius:10px; padding:1px 8px; }
+  #recentBar .rbCnt { font-size:11px; color:#8a94a6; background:#eef2f7; border-radius:10px; padding:1px 6px; flex:0 0 auto; }
   #recentBar .rbCat.on .rbCnt { background:#d6e9ff; }
   #recentBar .rbFiles { margin:12px 0 14px; max-height:44vh; overflow:auto; border-radius:12px; background:rgba(255,255,255,.75); border:1px solid #e3e8ef; text-align:left; }
   #recentBar .rbFHead { position:sticky; top:0; background:rgba(255,255,255,.94); padding:8px 12px; font-size:12px; color:#5a6472; border-bottom:1px solid #e3e8ef; }
@@ -956,6 +956,8 @@ stage.addEventListener('touchmove', function (e) {
   if (!pinchActive && e.touches.length === 1) {
     var mdy = e.touches[0].clientY - touchY;
     var mdx = e.touches[0].clientX - touchX;
+    var _inRbList = e.target && e.target.closest && e.target.closest('.rbFiles');
+    if (_inRbList) swipeFired = true;   // 在类别文件列表内竖向滑动=滚动列表，不切换顶栏
     if (!swipeFired && Math.abs(mdy) > 60 && Math.abs(mdy) > Math.abs(mdx) * 1.5) {
       swipeFired = true;
       var _ap = document.getElementById('audioPlayer');
