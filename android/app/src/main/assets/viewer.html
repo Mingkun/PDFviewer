@@ -1443,8 +1443,10 @@ function openDoc(buf) {
 }
 function openEpub(buf) {
   resetView();
+  // epub.min.js 是依赖全局 JSZip 的构建，必须先加载 jszip（冷启动直接开 EPUB 才不会失败）
+  loadScript('libs/jszip.min.js', function () {
   loadScript('libs/epub.min.js', function (err) {
-    if (err || typeof ePub === 'undefined') { setInfo('打开失败'); return; }
+    if (err || typeof ePub === 'undefined' || typeof JSZip === 'undefined') { setInfo('打开失败（EPUB组件未就绪）'); return; }
     contentEl.innerHTML = '<div id="epubBox" style="width:100%;height:100%;background:#fff"></div>';
     contentEl.style.display = 'block'; updateStageCenter();
     try {
@@ -1472,6 +1474,7 @@ function openEpub(buf) {
         if (autoReadOn()) readerToggle();
       }).catch(function () {});
     } catch (e) { setInfo('打开失败'); }
+  });
   });
 }
 function epubCollect(onDone) {
