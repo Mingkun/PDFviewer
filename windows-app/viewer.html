@@ -1184,6 +1184,17 @@ stage.addEventListener('touchend', function (e) {
   }
   var now = Date.now();
   if (Math.abs(dx) < 25 && Math.abs(dy) < 25) {
+    // 紧凑布局下点一下顶部空区 = 下划（恢复顶栏 / 退出紧凑布局）
+    var _tY = e.changedTouches[0].clientY;
+    var _onCtl = e.target && e.target.closest && e.target.closest('audio,video,input,button,.aBar,.aLoop');
+    var _apC = docKind === 'audio' ? document.getElementById('audioPlayer') : null;
+    if (!_onCtl && _tY < 90 && (document.body.classList.contains('hidebar') || (_apC && _apC.classList.contains('compact')))) {
+      if (_apC && _apC.classList.contains('compact')) { _apC.classList.remove('compact'); setInfo('已恢复布局'); }
+      else { document.body.classList.remove('hidebar'); }
+      setTimeout(updateStageCenter, 30);
+      lastTap = 0;
+      return;
+    }
     if (now - lastTap < 350) { fitAll(); lastTap = 0; }
     else { lastTap = now; }
   }
