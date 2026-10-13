@@ -317,6 +317,7 @@ class MainActivity : Activity() {
             val n = leU32(b, p); p += 4
             if (n < 0 || n > 10000) return ""
             var aa = ""
+            val arts = mutableListOf<String>()
             for (i in 0 until n) {
                 if (p + 4 > end) break
                 val cl = leU32(b, p); p += 4
@@ -326,9 +327,10 @@ class MainActivity : Activity() {
                 if (eq <= 0) continue
                 val kk = kv.substring(0, eq).uppercase()
                 val v = kv.substring(eq + 1).trim()
-                if (kk == "ARTIST" && v.isNotEmpty()) return v
+                if (kk == "ARTIST" && v.isNotEmpty()) arts.add(v)
                 if (kk == "ALBUMARTIST" && v.isNotEmpty() && aa.isEmpty()) aa = v
             }
+            if (arts.isNotEmpty()) return arts.joinToString(";;;")
             return aa
         } catch (_: Exception) { return "" }
     }
@@ -372,17 +374,20 @@ class MainActivity : Activity() {
             val meta = findAtom(b, udta[0], udta[1], "meta") ?: return ""
             val ilst = findAtom(b, meta[0] + 4, meta[1], "ilst") ?: return ""
             var p = ilst[0]
+            val arts = mutableListOf<String>()
             while (p + 8 <= ilst[1]) {
                 val sz = beU32(b, p)
                 if (sz < 8 || p + sz > ilst[1]) break
                 if ((b[p + 4].toInt() and 0xFF) == 0xA9 && String(b, p + 5, 3, Charsets.ISO_8859_1) == "ART") {
                     val data = findAtom(b, p + 8, p + sz, "data")
                     if (data != null && data[0] + 8 <= data[1]) {
-                        return String(b, data[0] + 8, data[1] - data[0] - 8, Charsets.UTF_8).trim(' ', '\u0000')
+                        val one = String(b, data[0] + 8, data[1] - data[0] - 8, Charsets.UTF_8).trim(' ', '\u0000')
+                        if (one.isNotEmpty() && !arts.contains(one)) arts.add(one)
                     }
                 }
                 p += sz
             }
+            if (arts.isNotEmpty()) return arts.joinToString(";;;")
         } catch (_: Exception) {}
         return ""
     }
@@ -406,6 +411,17 @@ class MainActivity : Activity() {
         return ""
     }
 
+    // 多艺人拆分：合作曲目归到每位参与歌手名下（; 、 , & feat. ft. 等分隔）
+    private val ARTIST_SPLIT_RE = Regex("""\s*(?:;;;|;|；|/|、|,|&|feat\.|ft\.|featuring|with)\s*""", RegexOption.IGNORE_CASE)
+    private fun splitArtists(raw: String): String {
+        val out = LinkedHashSet<String>()
+        raw.split(ARTIST_SPLIT_RE).forEach { p ->
+            val t = p.trim(' ', '　', '\u0000', '.')
+            if (t.isNotEmpty() && t.length <= 40) out.add(t)
+        }
+        return out.joinToString(";;;")
+    }
+
     private fun readAudioArtist(f: java.io.File): String {
         try {
             val sz = Math.min(65536L, f.length()).toInt()
@@ -416,10 +432,15 @@ class MainActivity : Activity() {
                 while (off < sz) { val r = ins.read(buf, off, sz - off); if (r < 0) break; off += r }
             }
             val head = String(buf, 0, 4, Charsets.ISO_8859_1)
-            if (head == "ID3") return parseID3Artist(buf)
-            if (head == "fLaC") return parseFlacArtist(buf)
-            if (head == "OggS") return parseOggArtist(buf)
-            if (sz > 8 && String(buf, 4, 4, Charsets.ISO_8859_1) == "ftyp") return parseMp4Artist(buf)
+            val raw = when {
+                head == "ID3" -> parseID3Artist(buf)
+                head == "fLaC" -> parseFlacArtist(buf)
+                head == "OggS" -> parseOggArtist(buf)
+                sz > 8 && String(buf, 4, 4, Charsets.ISO_8859_1) == "ftyp" -> parseMp4Artist(buf)
+                else -> ""
+            }
+            if (raw.isEmpty()) return ""
+            return splitArtists(raw)
         } catch (_: Exception) {}
         return ""
     }

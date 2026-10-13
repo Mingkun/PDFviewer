@@ -523,6 +523,18 @@ function artistOf(nm) {
   if (m && !/^\d+$/.test(m[1].trim())) return m[1].trim();
   return '';
 }
+function artistsOfItem(it) {
+  // 多艺人：标签里多个 ARTIST 或 "A feat. B / A & B / A、B" → 每位歌手名下都计这首歌
+  var out = [];
+  var src = (it.ar && String(it.ar).trim()) || artistOf(it.n) || '';
+  if (src) {
+    src.split(/\s*(?:;;;|;|；|\/|、|,|&|feat\.|ft\.|featuring|with)\s*/i).forEach(function (p2) {
+      var t = p2.replace(/^[\s.]+|[\s.]+$/g, '');
+      if (t && t.length <= 40 && out.indexOf(t) < 0) out.push(t);
+    });
+  }
+  return out.length ? out : ['未分类'];
+}
 function fbRenderTypeList(items) {
   var list = document.getElementById('fbList');
   if (!items.length) { list.innerHTML = '<div class="fbEmpty">没有找到文件</div>'; return; }
@@ -535,15 +547,16 @@ function fbRenderTypeList(items) {
     // 音频类型：按「歌手」聚合，顶部提供歌手集合筛选
     var _g = {}, _ga = [];
     sorted.forEach(function(it) {
-      var a = (it.ar && String(it.ar).trim()) || artistOf(it.n) || '未分类';
-      if (!_g[a]) { _g[a] = 0; _ga.push(a); }
-      _g[a]++;
+      artistsOfItem(it).forEach(function(a) {
+        if (!_g[a]) { _g[a] = 0; _ga.push(a); }
+        _g[a]++;
+      });
     });
     _ga.sort(function(x, y) { return _g[y] - _g[x] || x.localeCompare(y, 'zh'); });
     if (fbArtist && !_g[fbArtist]) fbArtist = '';
     _artBar = '<div class="fbArtBar"><div class="fbArt' + (fbArtist === '' ? ' on' : '') + '" data-a="">全部 ' + sorted.length + '</div>' +
       _ga.slice(0, 60).map(function(a) { return '<div class="fbArt' + (fbArtist === a ? ' on' : '') + '" data-a="' + esc(a) + '">' + esc(a) + ' ' + _g[a] + '</div>'; }).join('') + '</div>';
-    if (fbArtist) sorted = sorted.filter(function(it) { return ((it.ar && String(it.ar).trim()) || artistOf(it.n) || '未分类') === fbArtist; });
+    if (fbArtist) sorted = sorted.filter(function(it) { return artistsOfItem(it).indexOf(fbArtist) >= 0; });
   }
   var _dir = fbAsc ? 1 : -1;
   if (fbOrder === 'time') sorted.sort(function(a, b) { return (a.t - b.t) * _dir; });
