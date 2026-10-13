@@ -297,7 +297,8 @@ window.addEventListener('keydown', function (e) {
     <button id="sortXls" onclick="fbSetType('xlsx,xls,csv')">📊 Excel</button>
     <button id="sortAudio" onclick="fbSetType('mp3,wav,ogg,m4a,flac,aac,wma,opus')">🎵 音频</button>
     <button id="sortVideo" onclick="fbSetType('mp4,webm,mkv,avi,mov,3gp,m4v,ts,flv')">🎬 视频</button>
-    <button id="sortText" onclick="fbSetType('txt,md,markdown,csv,json,log')">📄 文本</button>
+    <button id="sortText" onclick="fbSetType('txt,csv,json,log')">📄 文本</button>
+    <button id="sortMd" onclick="fbSetType('md,markdown,mdown,mkd')">📝 MD</button>
     <button id="sortImg" onclick="fbSetType('png,jpg,jpeg,gif,webp,bmp')">🖼️ 图片</button>
   </div>
   <div class="fbSortBar" id="fbOrderBy" style="display:none">
@@ -443,7 +444,7 @@ function fbApplyState() {
   var oe = document.getElementById(fbOrder === 'time' ? 'ordTime' : fbOrder === 'name' ? 'ordName' : 'ordSize');
   if (oe) oe.classList.add('on');
   document.querySelectorAll('#fbSortBar button').forEach(function(b) { b.classList.remove('on'); });
-  var id = fbType === '' ? 'sortAll' : fbType.indexOf('pdf') >= 0 ? 'sortPdf' : fbType.indexOf('epub') >= 0 ? 'sortEpub' : fbType.indexOf('doc') >= 0 ? 'sortDoc' : fbType.indexOf('xls') >= 0 ? 'sortXls' : fbType.indexOf('mp3') >= 0 ? 'sortAudio' : fbType.indexOf('mp4') >= 0 ? 'sortVideo' : fbType.indexOf('txt') >= 0 ? 'sortText' : 'sortImg';
+  var id = fbType === '' ? 'sortAll' : fbType.indexOf('pdf') >= 0 ? 'sortPdf' : fbType.indexOf('epub') >= 0 ? 'sortEpub' : fbType.indexOf('doc') >= 0 ? 'sortDoc' : fbType.indexOf('xls') >= 0 ? 'sortXls' : fbType.indexOf('mp3') >= 0 ? 'sortAudio' : fbType.indexOf('mp4') >= 0 ? 'sortVideo' : fbType.indexOf('txt') >= 0 ? 'sortText' : fbType.indexOf('md') >= 0 ? 'sortMd' : 'sortImg';
   var te = document.getElementById(id); if (te) te.classList.add('on');
   if (fbTab === 'folder') { fbLoad(fbCurrent); } else { fbLoadType(); }
 }
@@ -457,7 +458,7 @@ function fbSetType(t) {
   fbArtist = '';   // 切类型时清掉歌手筛选
   fbTypeCache = null;
   document.querySelectorAll('#fbSortBar button').forEach(function(b) { b.classList.remove('on'); });
-  var id = t === '' ? 'sortAll' : t.indexOf('pdf') >= 0 ? 'sortPdf' : t.indexOf('epub') >= 0 ? 'sortEpub' : t.indexOf('doc') >= 0 ? 'sortDoc' : t.indexOf('xls') >= 0 ? 'sortXls' : t.indexOf('mp3') >= 0 ? 'sortAudio' : t.indexOf('mp4') >= 0 ? 'sortVideo' : 'sortImg';
+  var id = t === '' ? 'sortAll' : t.indexOf('pdf') >= 0 ? 'sortPdf' : t.indexOf('epub') >= 0 ? 'sortEpub' : t.indexOf('doc') >= 0 ? 'sortDoc' : t.indexOf('xls') >= 0 ? 'sortXls' : t.indexOf('mp3') >= 0 ? 'sortAudio' : t.indexOf('mp4') >= 0 ? 'sortVideo' : t.indexOf('txt') >= 0 ? 'sortText' : t.indexOf('md') >= 0 ? 'sortMd' : 'sortImg';
   var el = document.getElementById(id);
   if (el) el.classList.add('on');
   _fbSaveState();
