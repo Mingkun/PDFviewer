@@ -65,6 +65,9 @@
   #fileBrowser .fbSortBar { display:flex; flex-wrap:wrap; justify-content:flex-start; gap:6px; padding:8px 12px; border-bottom:1px solid rgba(255,255,255,.05); }
   #fileBrowser .fbSortBar button { width:78px; box-sizing:border-box; justify-content:center; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.06); color:#8e959f; border-radius:14px; padding:4px 6px; font-size:11px; cursor:pointer; font-family:inherit; white-space:nowrap; min-height:28px; display:flex; align-items:center; }
   #fileBrowser .fbSortBar button.on { color:#0a84ff; background:rgba(10,132,255,.15); border-color:rgba(10,132,255,.3); }
+  #fileBrowser .fbArtBar { display:flex; flex-wrap:wrap; gap:6px; padding:8px 12px; border-bottom:1px solid rgba(255,255,255,.06); }
+  #fileBrowser .fbArt { border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.06); color:#8e959f; border-radius:12px; padding:3px 10px; font-size:11px; cursor:pointer; font-family:inherit; white-space:nowrap; }
+  #fileBrowser .fbArt.on { color:#0a84ff; background:rgba(10,132,255,.15); border-color:rgba(10,132,255,.3); }
   #fileBrowser .fbSearch { display:none; padding:6px 10px; border-bottom:1px solid rgba(255,255,255,.05); }
   #fileBrowser .fbSearch input { width:100%; box-sizing:border-box; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.06); color:#dfe3ea; border-radius:10px; padding:8px 12px; font-size:13px; outline:none; font-family:inherit; }
   #fileBrowser .fbSearch input::placeholder { color:#8e959f; }
@@ -385,6 +388,7 @@ function fbSwitchTab(tab) {
 }
 function fbSetType(t) {
   fbType = t;
+  fbArtist = '';   // 切类型时清掉歌手筛选
   fbTypeCache = null;
   document.querySelectorAll('#fbSortBar button').forEach(function(b) { b.classList.remove('on'); });
   var id = t === '' ? 'sortAll' : t.indexOf('pdf') >= 0 ? 'sortPdf' : t.indexOf('epub') >= 0 ? 'sortEpub' : t.indexOf('doc') >= 0 ? 'sortDoc' : t.indexOf('xls') >= 0 ? 'sortXls' : t.indexOf('mp3') >= 0 ? 'sortAudio' : t.indexOf('mp4') >= 0 ? 'sortVideo' : 'sortImg';
@@ -443,6 +447,15 @@ function fbToggleOrder() {
 function fbFilterList() {
   if (fbTypeCache) fbRenderTypeList(fbTypeCache);
 }
+var fbArtist = '';
+function artistOf(nm) {
+  // 从「歌手 - 歌名」命名习惯解析歌手（去扩展名与 -QQ- 前缀；纯数字视为未分类）
+  var n = String(nm || '').replace(/\.[a-z0-9]{1,5}$/i, '');
+  n = n.replace(/^\s*-\s*q{2}\s*-\s*/i, '');
+  var m = n.match(/^(.{1,24}?)\s*[-\u2013\u2014]\s*(.+)$/);
+  if (m && !/^\d+$/.test(m[1].trim())) return m[1].trim();
+  return '';
+}
 function fbRenderTypeList(items) {
   var list = document.getElementById('fbList');
   if (!items.length) { list.innerHTML = '<div class="fbEmpty">没有找到文件</div>'; return; }
@@ -450,6 +463,21 @@ function fbRenderTypeList(items) {
   var _q = '';
   try { _q = document.getElementById('fbSearchInput').value.toLowerCase(); } catch (e) {}
   if (_q.trim()) sorted = sorted.filter(function(it) { return it.n.toLowerCase().indexOf(_q) >= 0; });
+  var _artBar = '';
+  if (fbType.indexOf('mp3') === 0) {
+    // 音频类型：按「歌手」聚合，顶部提供歌手集合筛选
+    var _g = {}, _ga = [];
+    sorted.forEach(function(it) {
+      var a = artistOf(it.n) || '未分类';
+      if (!_g[a]) { _g[a] = 0; _ga.push(a); }
+      _g[a]++;
+    });
+    _ga.sort(function(x, y) { return _g[y] - _g[x] || x.localeCompare(y, 'zh'); });
+    if (fbArtist && !_g[fbArtist]) fbArtist = '';
+    _artBar = '<div class="fbArtBar"><div class="fbArt' + (fbArtist === '' ? ' on' : '') + '" data-a="">全部 ' + sorted.length + '</div>' +
+      _ga.slice(0, 60).map(function(a) { return '<div class="fbArt' + (fbArtist === a ? ' on' : '') + '" data-a="' + esc(a) + '">' + esc(a) + ' ' + _g[a] + '</div>'; }).join('') + '</div>';
+    if (fbArtist) sorted = sorted.filter(function(it) { return (artistOf(it.n) || '未分类') === fbArtist; });
+  }
   var _dir = fbAsc ? 1 : -1;
   if (fbOrder === 'time') sorted.sort(function(a, b) { return (a.t - b.t) * _dir; });
   else if (fbOrder === 'name') sorted.sort(function(a, b) { return a.n.localeCompare(b.n, 'zh') * _dir; });
@@ -458,7 +486,7 @@ function fbRenderTypeList(items) {
     var _pe = document.getElementById('fbPath');
     if (_pe) _pe.textContent = String(_pe.textContent || '').replace(/（共 \d+ 项）\s*$/, '') + '（共 ' + sorted.length + ' 项）';
   } catch (e) {}
-  list.innerHTML = sorted.map(function(it) {
+  list.innerHTML = _artBar + sorted.map(function(it) {
     var icon = fileIconOf(it.n);
     var sub = fbOrder === 'time' ? new Date(it.t).toLocaleDateString() : fbOrder === 'size' ? fmtSize(it.s) : fmtSize(it.s);
     return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="0" data-n="' + esc(it.n) + '">' +
@@ -470,6 +498,9 @@ function fbRenderTypeList(items) {
     el.onclick = function() {
       fbOpenFile(el.getAttribute('data-p'), el.getAttribute('data-n') || el.querySelector('.fbName').textContent);
     };
+  });
+  list.querySelectorAll('.fbArt').forEach(function(el) {
+    el.onclick = function() { fbArtist = el.getAttribute('data-a') || ''; fbRenderTypeList(fbTypeCache); };
   });
 }
 
