@@ -578,9 +578,11 @@ function openMediaPath(path, name) {
   setInfo('');
 }
 window.onMediaPath = function (name, path) {
+  docOrigin = 'home';
   try { openMediaPath(path, name); } catch (e) { setInfo('打开失败'); }
 };
 function fbOpenFile(path, name) {
+  docOrigin = 'list';
   var _nm = (name || '').toLowerCase(), _ext = _nm.split('.').pop();
   if (/^(mp3|wav|ogg|m4a|flac|aac|wma|opus|mp4|webm|mkv|avi|mov|3gp|m4v|ts|flv)$/.test(_ext)) {
     setInfo('正在打开 ' + name + ' …');
@@ -899,6 +901,7 @@ document.getElementById('fpick').onchange = function () {
   fr.onload = function () {
     var buf = fr.result;
     try { recordRecent(f.name, buf); } catch (e) {}
+    docOrigin = 'home';
     openByBytes(f.name, buf, mime, '');
   };
   fr.readAsArrayBuffer(f);
@@ -968,6 +971,16 @@ function attachTwoFinger(d) {
   d.addEventListener('touchmove', function (e) { if (e.touches.length === 2) twoFingerCheck(e); }, { passive: false });
 }
 var swipeOnCtrl = false;
+var docOrigin = 'home';   // home=从首页/最近列表打开   list=从文件列表打开
+function backFromDoc() {
+  if (docOrigin === 'list') {
+    setInfo('返回文件列表');
+    try { fbOpen(); } catch (e) {}
+  } else {
+    setInfo('返回首页');
+    try { closeDoc(); } catch (e) {}
+  }
+}
 stage.addEventListener('touchstart', function (e) {
   if (e.touches.length === 2) {
     pinchActive = true;
@@ -1043,8 +1056,7 @@ stage.addEventListener('touchend', function (e) {
       else if (dx > 0 && atLeft) {
         var _ec = window._epubCfi, _ef = window._epubFirstCfi;
         if (_ec && _ef && _ec === _ef) {
-          setInfo('返回文件列表');
-          try { fbOpen(); } catch (e) {}
+          backFromDoc();
         } else { window.epubRendition.prev(); }
       }
     } else if ((docKind === 'pdf' || docKind === 'pptx') && dx < 0 && pageNum < total) {
@@ -1055,24 +1067,20 @@ stage.addEventListener('touchend', function (e) {
         if (compactOn() || atLeft) { displayPage(pageNum - 1); if (compactOn()) { stage.scrollLeft = 0; } }
       } else if (atLeft) {
         // 已在第 1 页再右划 → 返回文件打开列表
-        setInfo('返回文件列表');
-        try { fbOpen(); } catch (e) {}
+        backFromDoc();
       }
     }
     else if (docKind === 'img' && dx > 0 && atLeft) {
       // 看图时右划 → 返回文件打开列表
-      setInfo('返回文件列表');
-      try { fbOpen(); } catch (e) {}
+      backFromDoc();
     }
     else if ((docKind === 'txt' || docKind === 'docx' || docKind === 'xlsx' || docKind === 'doc') && dx > 0 && contentEl.scrollLeft <= 4) {
       // 文本/文档类右划 → 返回文件打开列表
-      setInfo('返回文件列表');
-      try { fbOpen(); } catch (e) {}
+      backFromDoc();
     }
     else if ((docKind === 'audio' || docKind === 'video') && dx > 0 && !swipeOnCtrl) {
       // 音频/视频右划 → 返回文件打开列表（在播放控件上滑动不触发）
-      setInfo('返回文件列表');
-      try { fbOpen(); } catch (e) {}
+      backFromDoc();
     }
   }
   var now = Date.now();
@@ -2586,6 +2594,7 @@ window.onFileEnd = function () {
   for (i = 0; i < rxChunks.length; i++) { if (rxChunks[i]) { all.set(rxChunks[i], off); off += rxChunks[i].length; } }
   rxChunks = [];
   setInfo('');
+  docOrigin = 'home';
   openByBytes(rxName, all.buffer, '', rxKey);
 };
 window.onRecentFail = function (name) {
@@ -2671,6 +2680,7 @@ function renderRecentBar() {
           try {
             var bin = atob(r.data), u8 = new Uint8Array(bin.length);
             for (var k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+            docOrigin = 'home';
             openByBytes(r.name, u8.buffer, '', '');
             return;
           } catch (e) {}
