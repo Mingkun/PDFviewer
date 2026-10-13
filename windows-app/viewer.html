@@ -994,6 +994,31 @@ function attachTwoFinger(d) {
   }, { passive: true });
   d.addEventListener('touchmove', function (e) { if (e.touches.length === 2) twoFingerCheck(e); }, { passive: false });
 }
+function attachEpubSwipe(d) {
+  // epub 内容在 iframe 里，触摸事件传不到页面的手势处理器 → 必须在 iframe 内识别横划并转成翻页
+  if (!d || d.__es) return;
+  d.__es = 1;
+  var sx = 0, sy = 0, ok = 0;
+  d.addEventListener('touchstart', function (e) {
+    ok = e.touches.length === 1 ? 1 : 0;
+    if (ok) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }
+  }, { passive: true });
+  d.addEventListener('touchmove', function (e) { if (e.touches.length !== 1) ok = 0; }, { passive: true });
+  d.addEventListener('touchend', function (e) {
+    if (!ok || e.changedTouches.length !== 1) { ok = 0; return; }
+    ok = 0;
+    try { if (d.getSelection && String(d.getSelection()).length > 0) return; } catch (err) {}
+    var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0) { try { window.epubRendition.next(); } catch (err) {} }
+      else {
+        var _ec = window._epubCfi, _ef = window._epubFirstCfi;
+        if (_ec && _ef && _ec === _ef) { backFromDoc(); }
+        else { try { window.epubRendition.prev(); } catch (err) {} }
+      }
+    }
+  }, { passive: true });
+}
 var swipeOnCtrl = false;
 var docOrigin = 'home';   // home=从首页/最近列表打开   list=从文件列表打开
 function backFromDoc() {
@@ -1523,7 +1548,7 @@ function openEpub(buf) {
           setTimeout(function () {
             try {
               var ifs = document.querySelectorAll('#epubBox iframe');
-              for (var q = 0; q < ifs.length; q++) attachTwoFinger(ifs[q].contentDocument);
+              for (var q = 0; q < ifs.length; q++) { attachTwoFinger(ifs[q].contentDocument); attachEpubSwipe(ifs[q].contentDocument); }
             } catch (err) {}
           }, 50);
         });
