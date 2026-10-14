@@ -751,7 +751,6 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
-        @JavascriptInterface
         fun openFileBig(path: String) {
             // 大文件异步分块传输（同步桥返回大base64会被截断——大PDF打不开的原因）
             try {
@@ -760,6 +759,7 @@ class MainActivity : Activity() {
             } catch (_: Exception) {}
         }
 
+        @JavascriptInterface
         fun readFile(path: String): String {
             try {
                 val f = java.io.File(path)
