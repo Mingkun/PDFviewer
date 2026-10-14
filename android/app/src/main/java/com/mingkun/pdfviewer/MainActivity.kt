@@ -719,7 +719,7 @@ class MainActivity : Activity() {
             try {
                 val f = java.io.File(path)
                 if (!f.exists() || f.length() > 100 * 1024 * 1024) return ""
-                val bytes = f.readBytes()
+                val bytes = heicToJpeg(f.name, f.readBytes())   // HEIC苹果照片 → JPEG（网页才能显示）
                 return android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
             } catch (_: Exception) { return "" }
         }
