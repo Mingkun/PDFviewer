@@ -1366,6 +1366,20 @@ function attachEpubSwipe(d) {
         else { try { window.epubRendition.prev(); } catch (err) {} }
       }
     }
+    else if (Math.abs(dy) > 60 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+      // 竖划：上划隐藏顶栏 / 下划显示（与主页面手势一致；分页模式无纵向滚动，不冲突）
+      if (dy < 0) document.body.classList.add('hidebar');
+      else document.body.classList.remove('hidebar');
+      setTimeout(updateStageCenter, 30);
+    }
+    else if (Math.abs(dx) < 25 && Math.abs(dy) < 25) {
+      // 顶部轻点 = 下划（隐藏状态下点顶部恢复顶栏，与主页面行为一致）
+      var _ty = e.changedTouches[0].clientY;
+      if (_ty < 90 && document.body.classList.contains('hidebar')) {
+        document.body.classList.remove('hidebar');
+        setTimeout(updateStageCenter, 30);
+      }
+    }
   }, { passive: true });
 }
 var swipeOnCtrl = false;
