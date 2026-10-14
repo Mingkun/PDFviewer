@@ -1943,13 +1943,16 @@ function openEpub(buf) {
       window.epubBook = book;
       window.epubRendition = rendition;
       rendition.on('rendered', function (section) { window.epubSectionHref = section && section.href; if (editMode && docKind === 'epub') setEpubEditable(true); });
-      rendition.on('relocated', function (loc) { try { var _cf = loc && loc.start && loc.start.cfi; if (_cf) { window._epubCfi = _cf; if (!window._epubFirstCfi) window._epubFirstCfi = _cf; } } catch (e) {} });
+      rendition.on('relocated', function (loc) { try { var _cf = loc && loc.start && loc.start.cfi; if (_cf) { window._epubCfi = _cf; if (!window._epubFirstCfi && !window._epubResumed) window._epubFirstCfi = _cf; try { savePos(); } catch (e2) {} } } catch (e) {} });
       docKind = 'epub';
       setTotal(0);
+      var _sp2 = loadPos();
+      window._epubResumed = !!(_sp2 && _sp2.cfi);
       window._epubCfi = null; window._epubFirstCfi = null;
-      rendition.display().then(function () {
+      rendition.display(window._epubResumed ? _sp2.cfi : undefined).then(function () {
+        if (window._epubResumed) setInfo('📖 已定位到上次阅读位置');
         if (autoReadOn()) readerToggle();
-      }).catch(function () {});
+      }).catch(function () { try { rendition.display(); } catch (e) {} });
     } catch (e) { setInfo('打开失败'); }
   });
   });
@@ -3083,6 +3086,7 @@ function savePos() {
   try {
     var p = { t: Date.now() };
     if (docKind === 'pdf' || docKind === 'pptx') { p.page = pageNum; p.scale = scale; }
+    if (docKind === 'epub' && window._epubCfi) { p.cfi = window._epubCfi; }
     p.sTop = stage.scrollTop || 0; p.sLeft = stage.scrollLeft || 0;
     if (contentEl && contentEl.style.display !== 'none') p.cTop = contentEl.scrollTop || 0;
     localStorage.setItem(posStore(), JSON.stringify(p));
