@@ -705,7 +705,7 @@ function fbRenderTypeList(items) {
     el.onclick = function() {
       if (el.__lp) { el.__lp = false; return; }
       audioQueue = sorted; audioQueueIdx = +(el.getAttribute('data-i') || 0);   // 连播队列=当前列表顺序（含歌手筛选）
-      fbOpenFile(el.getAttribute('data-p'), el.getAttribute('data-n') || el.querySelector('.fbName').textContent);
+      fbOpenFile(el.getAttribute('data-p'), el.getAttribute('data-n') || el.querySelector('.fbName').textContent, (sorted[+(el.getAttribute('data-i') || 0)] || {}).s);
     };
   });
   list.querySelectorAll('.fbCell').forEach(function(el) {
@@ -713,7 +713,7 @@ function fbRenderTypeList(items) {
     el.onclick = function() {
       if (el.__lp) { el.__lp = false; return; }
       audioQueue = sorted; audioQueueIdx = +(el.getAttribute('data-i') || 0);
-      fbOpenFile(el.getAttribute('data-p'), el.getAttribute('data-n') || el.querySelector('.fbCellName').textContent);
+      fbOpenFile(el.getAttribute('data-p'), el.getAttribute('data-n') || el.querySelector('.fbCellName').textContent, (sorted[+(el.getAttribute('data-i') || 0)] || {}).s);
     };
   });
   list.querySelectorAll('.fbArt').forEach(function(el) {
@@ -856,7 +856,7 @@ function fbLoad(path, offset) {
         } else {
           audioQueue = fbFolderAll; audioQueueIdx = +(el.getAttribute('data-i') || 0);
         }
-        fbOpenFile(p, el.getAttribute('data-n') || el.querySelector('.fbName').textContent);
+        fbOpenFile(p, el.getAttribute('data-n') || el.querySelector('.fbName').textContent, (fbFolderAll[+(el.getAttribute('data-i') || 0)] || {}).s);
       };
     });
     var _more = document.getElementById('fbMoreRow');
@@ -880,7 +880,7 @@ window.onMediaPath = function (name, path) {
   audioQueue = null;
   try { openMediaPath(path, name); } catch (e) { setInfo('打开失败'); }
 };
-function fbOpenFile(path, name) {
+function fbOpenFile(path, name, sz) {
   docOrigin = 'list';
   var _nm = (name || '').toLowerCase(), _ext = _nm.split('.').pop();
   if (/^(mp3|wav|ogg|m4a|flac|aac|wma|opus|mp4|webm|mkv|avi|mov|3gp|m4v|ts|flv)$/.test(_ext)) {
@@ -889,6 +889,12 @@ function fbOpenFile(path, name) {
     return;
   }
   setInfo('正在打开 ' + name + ' …');
+  if ((sz || 0) > 8 * 1024 * 1024 && window.AppBridge && AppBridge.openFileBig) {
+    // >8MB 走异步分块通道：同步桥返回超大base64会截断（大PDF/大书打不开的根因）
+    window.__bigKeepCtx = 1;
+    try { AppBridge.openFileBig(path); } catch (e) { setInfo('打开失败'); }
+    return;
+  }
   try {
     var b64 = AppBridge.readFile(path);
     if (!b64) { setInfo('文件为空或过大（>100MB）'); return; }
@@ -2663,7 +2669,7 @@ function audioNext() {
     if (nx.d) continue;
     audioQueueIdx = i;
     setInfo('▶ 下一首：' + nx.n);
-    try { fbOpenFile(nx.p, nx.n); } catch (e) {}
+    try { fbOpenFile(nx.p, nx.n, nx.s); } catch (e) {}
     return;
   }
   setInfo('已经是最后一首');
@@ -2678,7 +2684,7 @@ function audioPrev() {
     if (pv.d) continue;
     audioQueueIdx = i;
     setInfo('◀ 上一首：' + pv.n);
-    try { fbOpenFile(pv.p, pv.n); } catch (e) {}
+    try { fbOpenFile(pv.p, pv.n, pv.s); } catch (e) {}
     return;
   }
   setInfo('已经是第一首');
@@ -3001,8 +3007,8 @@ window.onFileEnd = function () {
   for (i = 0; i < rxChunks.length; i++) { if (rxChunks[i]) { all.set(rxChunks[i], off); off += rxChunks[i].length; } }
   rxChunks = [];
   setInfo('');
-  docOrigin = 'home';
-  audioQueue = null;
+  if (window.__bigKeepCtx) { window.__bigKeepCtx = 0; }
+  else { docOrigin = 'home'; audioQueue = null; }
   openByBytes(rxName, all.buffer, '', rxKey);
 };
 window.onRecentFail = function (name) {
