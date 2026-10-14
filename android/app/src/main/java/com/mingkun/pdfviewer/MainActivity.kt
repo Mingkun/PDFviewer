@@ -690,15 +690,20 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
-        fun listFiles(path: String): String {
+        fun listFiles(path: String, offset: Int): String {
+            // 分页目录列表：每页3000条（{items,total,more}）；加密标记改纯扩展名判断——不再逐文件读头尾（打开文件夹快得多）
+            val EMPTY = "{\"items\":[],\"total\":0,\"more\":false}"
             try {
-                if (!hasStoragePermission()) return "[]"
+                if (!hasStoragePermission()) return EMPTY
                 val dir = if (path.isEmpty()) java.io.File("/storage/emulated/0") else java.io.File(path)
-                if (!dir.exists() || !dir.isDirectory) return "[]"
-                val items = dir.listFiles()?.sortedWith(compareByDescending<java.io.File> { it.isDirectory }.thenByDescending { it.lastModified() }) ?: emptyList()
+                if (!dir.exists() || !dir.isDirectory) return EMPTY
+                val all = dir.listFiles()?.sortedWith(compareByDescending<java.io.File> { it.isDirectory }.thenByDescending { it.lastModified() }) ?: emptyList()
+                val total = all.size
+                val off = if (offset < 0) 0 else offset
+                val page = all.drop(off).take(3000)
                 val arr = org.json.JSONArray()
-                val mediaE = setOf("mp3","wav","ogg","m4a","flac","aac","wma","opus","mp4","webm","mkv","avi","mov","3gp","m4v","ts","flv")
-                for (f in items.take(3000)) {
+                val drmExt = setOf("ncm","mgg","mgg1","mgg2","mggl","mflac","mflac0","mmp3","kgm","kgma","kwm","qmcflac","qmcmp3","qmcogg","qmc0","qmc2","qmc3","tm0","tm2","tm6","bkcmp3","bkcflac","x2m","x3m","vpr")
+                for (f in page) {
                     if (f.name.startsWith(".")) continue
                     val o = org.json.JSONObject()
                     o.put("n", f.name)
@@ -706,12 +711,14 @@ class MainActivity : Activity() {
                     o.put("s", if (f.isFile) f.length() else 0)
                     o.put("t", f.lastModified())
                     o.put("p", f.absolutePath)
-                    o.put("enc", if (f.isFile) isEncryptedMedia(f) else false)
-                    o.put("qq", if (f.isFile) isQQEncFile(f) else false)
+                    o.put("enc", drmExt.contains(f.extension.lowercase()))
+                    o.put("qq", false)
                     arr.put(o)
                 }
-                return arr.toString()
-            } catch (_: Exception) { return "[]" }
+                val res = org.json.JSONObject()
+                res.put("items", arr); res.put("total", total); res.put("more", off + page.size < total)
+                return res.toString()
+            } catch (_: Exception) { return EMPTY }
         }
 
         @JavascriptInterface

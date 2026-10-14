@@ -720,35 +720,57 @@ function fbGoUp() {
   var parent = fbCurrent.substring(0, fbCurrent.lastIndexOf('/'));
   fbLoad(parent || '');
 }
-function fbLoad(path) {
-  fbCurrent = path;
+var AUDIO_QUEUE_RE = /\.(mp3|wav|ogg|m4a|flac|aac|wma|opus|ncm|mgg|mgg1|mgg2|mggl|mflac|mflac0|mmp3|kgm|kgma|kwm|qmcflac|qmcmp3|qmcogg|qmc0|qmc2|qmc3|tm0|tm2|tm6|bkcmp3|bkcflac|x2m|x3m|vpr)$/i;
+var fbFolderAll = [];   // 当前文件夹累计条目（分页累积，作连播队列）
+function fbLoad(path, offset) {
+  offset = offset || 0;
+  if (offset === 0) fbCurrent = path;
   _fbSaveState();
   var list = document.getElementById('fbList');
   var title = document.getElementById('fbPath');
-  title.textContent = path ? path.split('/').pop() || '内部存储' : '内部存储';
-  list.innerHTML = '<div class="fbEmpty">扫描中…</div>';
+  if (offset === 0) {
+    title.textContent = path ? path.split('/').pop() || '内部存储' : '内部存储';
+    list.innerHTML = '<div class="fbEmpty">扫描中…</div>';
+    fbFolderAll = [];
+  }
   try {
-    var json = AppBridge.listFiles(path);
-    var items = JSON.parse(json);
-    if (!items.length) { list.innerHTML = '<div class="fbEmpty">空文件夹</div>'; return; }
-    list.innerHTML = items.map(function (it, _i) {
+    var json = AppBridge.listFiles(path, offset);
+    var j = JSON.parse(json);
+    var items = j.items || [];
+    if (offset === 0 && !items.length) { list.innerHTML = '<div class="fbEmpty">空文件夹</div>'; return; }
+    if (offset === 0) list.innerHTML = '';
+    fbFolderAll = offset === 0 ? items : fbFolderAll.concat(items);
+    var oldMore = document.getElementById('fbMoreRow'); if (oldMore) oldMore.remove();
+    var html = items.map(function (it, _i) {
       var icon = it.d ? '📁' : fileIconOf(it.n);
       var sub = it.d ? '' : fmtSize(it.s);
-      return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="' + it.d + '" data-i="' + _i + '" data-n="' + esc(it.n) + '">' +
+      return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="' + it.d + '" data-i="' + (offset + _i) + '" data-n="' + esc(it.n) + '">' +
         '<div class="fbIcon">' + icon + '</div>' +
         '<div class="fbName">' + _encMark(it) + esc(it.n) + '</div>' +
         '<div class="fbSub">' + sub + '</div></div>';
     }).join('');
-    list.querySelectorAll('.fbItem').forEach(function (el) {
+    if (j.more) html += '<div id="fbMoreRow" class="fbItem" style="justify-content:center;color:#0a84ff"><div class="fbIcon">⬇️</div><div class="fbName">加载更多（已显示 ' + (offset + items.length) + ' / ' + j.total + '）</div><div class="fbSub"></div></div>';
+    list.insertAdjacentHTML('beforeend', html);
+    list.querySelectorAll('.fbItem[data-p]').forEach(function (el) {
+      if (el.__bd) return; el.__bd = 1;
       el.onclick = function () {
         var p = el.getAttribute('data-p');
         var dv = el.getAttribute('data-d'); if (dv === '1' || dv === 'true') { fbLoad(p); return; }
-        audioQueue = items; audioQueueIdx = +(el.getAttribute('data-i') || 0);   // 连播队列=当前文件夹顺序
+        // 打开音频 → 队列只保留音频类文件（避免下一首跳到PDF/图片）
+        var _nm2 = (el.getAttribute('data-n') || '').toLowerCase();
+        if (AUDIO_QUEUE_RE.test(_nm2)) {
+          audioQueue = fbFolderAll.filter(function (x) { return !x.d && AUDIO_QUEUE_RE.test(x.n || ''); });
+          audioQueueIdx = audioQueue.indexOf(fbFolderAll[+(el.getAttribute('data-i') || 0)]);
+          if (audioQueueIdx < 0) audioQueueIdx = 0;
+        } else {
+          audioQueue = fbFolderAll; audioQueueIdx = +(el.getAttribute('data-i') || 0);
+        }
         fbOpenFile(p, el.getAttribute('data-n') || el.querySelector('.fbName').textContent);
       };
     });
-
-  } catch (e) { list.innerHTML = '<div class="fbEmpty">读取失败</div>'; }
+    var _more = document.getElementById('fbMoreRow');
+    if (_more) _more.onclick = function () { fbLoad(path, offset + items.length); };
+  } catch (e) { if (offset === 0) list.innerHTML = '<div class="fbEmpty">读取失败</div>'; }
 }
 function openMediaPath(path, name) {
   // 音视频直接用 file:// 播放：大文件不必整包 base64 过桥，还能拖动进度
