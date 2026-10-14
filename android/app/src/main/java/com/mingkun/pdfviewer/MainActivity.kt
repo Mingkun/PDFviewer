@@ -526,6 +526,34 @@ class MainActivity : Activity() {
         }.start()
     }
 
+    // ===== 回收站（.pv_trash）：移入/列出/恢复/清空，7天自动过期 =====
+    private fun trashDirFile() = java.io.File("/storage/emulated/0/.pv_trash")
+    private fun trashMetaLoad(): org.json.JSONObject {
+        return try { org.json.JSONObject(java.io.File(trashDirFile(), ".meta.json").readText()) } catch (_: Exception) { org.json.JSONObject() }
+    }
+    private fun trashMetaSave(m: org.json.JSONObject) {
+        try { trashDirFile().mkdirs(); java.io.File(trashDirFile(), ".meta.json").writeText(m.toString()) } catch (_: Exception) {}
+    }
+    private fun trashPurgeExpired(m: org.json.JSONObject): Int {
+        var n = 0
+        try {
+            val cutoff = System.currentTimeMillis() - 7L * 24 * 3600 * 1000
+            val files = trashDirFile().listFiles() ?: return 0
+            for (f in files) {
+                if (f.name.startsWith(".")) continue
+                if (f.lastModified() < cutoff) { if (f.delete()) { m.remove(f.name); n++ } }
+            }
+        } catch (_: Exception) {}
+        return n
+    }
+    private fun moveWithFallback(src: java.io.File, dst: java.io.File): Boolean {
+        if (src.renameTo(dst)) return true
+        return try {
+            dst.outputStream().use { out -> java.io.FileInputStream(src).use { it.copyTo(out) } }
+            src.delete()
+        } catch (_: Exception) { false }
+    }
+
     private fun sendScanChunked(kind: String, json: String) {
         // 扫描结果分块过桥：基址64每块256KB，防同步桥返回值截断
         val b = json.toByteArray(Charsets.UTF_8)
@@ -892,6 +920,74 @@ class MainActivity : Activity() {
                     jsCall("window.onScanFail && window.onScanFail('media:" + kind + "')")
                 }
             }
+        }
+
+        @JavascriptInterface
+        fun trashFile(path: String): String {
+            return try {
+                val f = java.io.File(path)
+                if (!f.exists() || f.isDirectory) return "{\"ok\":false,\"err\":\"仅支持删除文件\"}"
+                trashDirFile().mkdirs()
+                val m = trashMetaLoad()
+                trashPurgeExpired(m)
+                val target = java.io.File(trashDirFile(), f.name + "." + System.currentTimeMillis() + ".pvtrash")
+                if (!moveWithFallback(f, target)) return "{\"ok\":false,\"err\":\"移动失败\"}"
+                m.put(target.name, f.parent ?: "")
+                trashMetaSave(m)
+                "{\"ok\":true}"
+            } catch (e: Exception) { "{\"ok\":false,\"err\":\"" + (e.message ?: "异常").replace("\"", "'") + "\"}" }
+        }
+
+        @JavascriptInterface
+        fun listTrash(): String {
+            return try {
+                val m = trashMetaLoad()
+                trashPurgeExpired(m)
+                trashMetaSave(m)
+                val arr = org.json.JSONArray()
+                val files = trashDirFile().listFiles() ?: return "[]"
+                for (f in files) {
+                    if (f.name.startsWith(".")) continue
+                    val disp = f.name.substringBeforeLast(".").substringBeforeLast(".")
+                    arr.put(org.json.JSONArray().put(disp).put(m.optString(f.name, "")).put(f.length()).put(f.lastModified()).put(f.name))
+                }
+                arr.toString()
+            } catch (_: Exception) { "[]" }
+        }
+
+        @JavascriptInterface
+        fun restoreTrash(trashName: String): String {
+            return try {
+                val m = trashMetaLoad()
+                val f = java.io.File(trashDirFile(), trashName)
+                if (!f.exists()) return "{\"ok\":false,\"err\":\"文件不存在\"}"
+                var destDir = java.io.File(m.optString(trashName, ""))
+                if (!destDir.isDirectory) destDir = java.io.File("/storage/emulated/0/Download")
+                destDir.mkdirs()
+                val disp = trashName.substringBeforeLast(".").substringBeforeLast(".")
+                var dest = java.io.File(destDir, disp)
+                var i = 1
+                while (dest.exists()) {
+                    val stem = disp.substringBeforeLast("."); val ext = if (disp.contains('.')) "." + disp.substringAfterLast(".") else ""
+                    dest = java.io.File(destDir, stem + "(" + i + ")" + ext); i++
+                }
+                if (!moveWithFallback(f, dest)) return "{\"ok\":false,\"err\":\"恢复失败\"}"
+                m.remove(trashName)
+                trashMetaSave(m)
+                "{\"ok\":true,\"to\":\"" + dest.absolutePath.replace("\"", "'") + "\"}"
+            } catch (_: Exception) { "{\"ok\":false,\"err\":\"异常\"}" }
+        }
+
+        @JavascriptInterface
+        fun purgeTrash(): String {
+            return try {
+                val m = trashMetaLoad()
+                var n = 0
+                val files = trashDirFile().listFiles()
+                if (files != null) for (f in files) { if (f.name.startsWith(".")) continue; if (f.delete()) { m.remove(f.name); n++ } }
+                trashMetaSave(m)
+                "{\"ok\":true,\"n\":" + n + "}"
+            } catch (_: Exception) { "{\"ok\":false}" }
         }
 
         @JavascriptInterface

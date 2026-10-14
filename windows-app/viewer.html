@@ -294,6 +294,20 @@ window.addEventListener('keydown', function (e) {
 </div>
 <div id="stage"><div id="hint"><div id="hintShort" onclick="hintToggle()">💡 Tips</div><div id="hintFull" style="display:none" onclick="hintToggle()">点击「📄 打开」选择文件（PDF/EPUB/Word/Excel/PPT/TXT/MD/图片/音频/视频）<div style="margin-top:6px;font-size:11px;opacity:.8">屏幕下划：显示操作菜单，上划隐藏</div><div style="margin-top:3px;font-size:11px;opacity:.8">双指右划：关闭当前文件</div></div></div><div id="hintSep"><span class="sline"></span><span class="sdot"></span><span class="sline"></span></div><div id="recentBar"></div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
 <div id="bottomInfo"></div>
+<div id="trashModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;">
+  <div style="width:min(360px,90vw);background:#fff;border-radius:12px;padding:14px;max-height:calc(100vh - 60px);overflow-y:auto;box-sizing:border-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <strong style="font-size:15px;color:#1f2630">🗑 回收站</strong>
+      <button type="button" onclick="trashClose()" style="border:none;background:none;font-size:12px;cursor:pointer;color:#5a6472">×</button>
+    </div>
+    <div style="font-size:12px;color:#8a94a6;margin-bottom:8px">文件保留 7 天，过期自动清理</div>
+    <div id="trashList" style="font-size:13px;color:#1f2630"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button type="button" onclick="trashClose()" style="flex:1;border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:8px;padding:8px;font-size:12px;cursor:pointer">关闭</button>
+      <button type="button" onclick="trashPurgeAll()" style="flex:1;border:1px solid #ffc9c9;background:#fff5f5;color:#c92a2a;border-radius:8px;padding:8px;font-size:12px;cursor:pointer">清空回收站</button>
+    </div>
+  </div>
+</div>
 <div id="smodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:97;align-items:center;justify-content:center">
   <div style="width:min(360px,90vw);background:#fff;border-radius:12px;padding:14px;max-height:70vh;display:flex;flex-direction:column">
     <div style="display:flex;gap:8px;margin-bottom:8px">
@@ -389,6 +403,10 @@ window.addEventListener('keydown', function (e) {
       <input id="dlUrlWindows" readonly value="https://5130599.best/Translator/downloads/pdfviewer-windows-x64.zip" onclick="this.select()" onfocus="this.select()" style="width:100%;margin-top:4px;padding:7px 9px;border:1px solid #d5dbe4;border-radius:8px;font-size:12px;color:#5a6472;background:#fff;box-sizing:border-box">
       <button type="button" onclick="dlCopyUrl('dlUrlWindows')" style="margin-top:6px;border:1px solid #d5dbe4;background:#fff;border-radius:8px;padding:6px 12px;font-size:12px;color:#1f2630;cursor:pointer">📋 复制链接</button>
       <div id="dlCopyOut" style="font-size:12px;color:#5a6472;margin-top:6px"></div>
+    </div>
+    <div style="font-size:12px;color:#5a6472;font-weight:600;margin:10px 2px 6px">🗑 回收站</div>
+    <div style="background:#f6f8fb;border:1px solid #e3e8ef;border-radius:10px;padding:10px 12px;margin-bottom:4px">
+      <button type="button" onclick="trashOpen()" style="width:100%;border:none;background:#e8590c;color:#fff;border-radius:8px;padding:8px 16px;font-size:14px;cursor:pointer">打开回收站（长按文件可移入）</button>
     </div>
     <div style="font-size:12px;color:#5a6472;font-weight:600;margin:10px 2px 6px">🔄 版本与更新</div>
     <div style="background:#f6f8fb;border:1px solid #e3e8ef;border-radius:10px;padding:2px 12px">
@@ -748,13 +766,17 @@ function fbRenderTypeList(items) {
   }).join('');
   }
   list.querySelectorAll('.fbItem').forEach(function(el) {
+    fbBindTrashHold(el);
     el.onclick = function() {
+      if (el.__lp) { el.__lp = false; return; }
       audioQueue = sorted; audioQueueIdx = +(el.getAttribute('data-i') || 0);   // 连播队列=当前列表顺序（含歌手筛选）
       fbOpenFile(el.getAttribute('data-p'), el.getAttribute('data-n') || el.querySelector('.fbName').textContent);
     };
   });
   list.querySelectorAll('.fbCell').forEach(function(el) {
+    fbBindTrashHold(el);
     el.onclick = function() {
+      if (el.__lp) { el.__lp = false; return; }
       audioQueue = sorted; audioQueueIdx = +(el.getAttribute('data-i') || 0);
       fbOpenFile(el.getAttribute('data-p'), el.getAttribute('data-n') || el.querySelector('.fbCellName').textContent);
     };
@@ -788,6 +810,72 @@ function fbGoUp() {
 }
 var AUDIO_QUEUE_RE = /\.(mp3|wav|ogg|m4a|flac|aac|wma|opus|ncm|mgg|mgg1|mgg2|mggl|mflac|mflac0|mmp3|kgm|kgma|kwm|qmcflac|qmcmp3|qmcogg|qmc0|qmc2|qmc3|tm0|tm2|tm6|bkcmp3|bkcflac|x2m|x3m|vpr)$/i;
 var fbFolderAll = [];   // 当前文件夹累计条目（分页累积，作连播队列）
+function fbTrashAsk(p, nm) {
+  if (!confirm('移到回收站？\n\n' + nm + '\n\n7天内可在 设置→🗑回收站 恢复')) return;
+  try {
+    var r = JSON.parse(AppBridge.trashFile(p) || '{}');
+    if (!r.ok) { setInfo('删除失败：' + (r.err || '')); return; }
+    setInfo('🗑 已移到回收站：' + nm);
+    if (fbTab === 'folder') { fbLoad(fbCurrent); return; }
+    try {
+      if (fbTypeCache) fbTypeCache = fbTypeCache.filter(function (x) { return x.p !== p; });
+      var _tr = _treeLoad(); var _dir = p.substring(0, p.lastIndexOf('/')); var _nm = p.substring(p.lastIndexOf('/') + 1);
+      if (_tr.dirs[_dir]) { _tr.dirs[_dir].f = (_tr.dirs[_dir].f || []).filter(function (e) { return e[0] !== _nm; }); _treeSave(_tr); }
+    } catch (e) {}
+    fbRenderTypeList(fbTypeCache || []);
+  } catch (e) { setInfo('删除失败'); }
+}
+function fbBindTrashHold(el) {
+  // 长按700ms → 移入回收站（仅文件；目录不响应）
+  var p = el.getAttribute('data-p') || '';
+  var nm = el.getAttribute('data-n') || '';
+  var dv = el.getAttribute('data-d');
+  if (!p || dv === '1' || dv === 'true') return;
+  var t = null;
+  function fire() { t = null; el.__lp = true; fbTrashAsk(p, nm); }
+  el.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
+  el.addEventListener('touchstart', function () { t = setTimeout(fire, 700); }, { passive: true });
+  el.addEventListener('touchmove', function () { if (t) { clearTimeout(t); t = null; } }, { passive: true });
+  el.addEventListener('touchend', function () { if (t) { clearTimeout(t); t = null; } }, { passive: true });
+  el.addEventListener('pointerdown', function (e) { if (e.pointerType === 'touch') return; t = setTimeout(fire, 700); });
+  el.addEventListener('pointerup', function (e) { if (e.pointerType !== 'touch' && t) { clearTimeout(t); t = null; } });
+}
+function trashOpen() {
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('trashModal').style.display = 'flex';
+  trashRender();
+}
+function trashClose() { document.getElementById('trashModal').style.display = 'none'; }
+function trashRender() {
+  var box = document.getElementById('trashList'); if (!box) return;
+  try {
+    var arr = JSON.parse(AppBridge.listTrash() || '[]');
+    if (!arr.length) { box.innerHTML = '<div style="color:#8a94a6;text-align:center;padding:20px 0">回收站是空的</div>'; return; }
+    var h = '';
+    arr.forEach(function (t) {
+      h += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px dashed #e3e8ef">' +
+        '<span style="flex:1;overflow:hidden">' + fileIconOf(t[0]) + ' ' + esc(t[0]) +
+        '<div style="font-size:11px;color:#8a94a6">来自 ' + esc(t[1] || '未知目录') + ' · ' + fmtSize(t[2]) + '</div></span>' +
+        '<button class="trRestore" data-tn="' + esc(t[4]) + '" style="border:1px solid #91caff;background:#e7f1ff;color:#1c5fb8;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;flex:0 0 auto">恢复</button></div>';
+    });
+    box.innerHTML = h;
+    box.querySelectorAll('.trRestore').forEach(function (b) {
+      b.onclick = function () {
+        var nm2 = b.getAttribute('data-tn');
+        try {
+          var r = JSON.parse(AppBridge.restoreTrash(nm2) || '{}');
+          setInfo(r.ok ? ('已恢复到：' + r.to) : ('恢复失败：' + (r.err || '')));
+        } catch (e) { setInfo('恢复失败'); }
+        trashRender();
+      };
+    });
+  } catch (e) { box.innerHTML = '<div style="color:#8a94a6">读取失败</div>'; }
+}
+function trashPurgeAll() {
+  if (!confirm('永久清空回收站？\n此操作不可恢复')) return;
+  try { AppBridge.purgeTrash(); setInfo('回收站已清空'); } catch (e) {}
+  trashRender();
+}
 function fbLoad(path, offset) {
   offset = offset || 0;
   if (offset === 0) fbCurrent = path;
@@ -819,7 +907,9 @@ function fbLoad(path, offset) {
     list.insertAdjacentHTML('beforeend', html);
     list.querySelectorAll('.fbItem[data-p]').forEach(function (el) {
       if (el.__bd) return; el.__bd = 1;
+      fbBindTrashHold(el);
       el.onclick = function () {
+        if (el.__lp) { el.__lp = false; return; }
         var p = el.getAttribute('data-p');
         var dv = el.getAttribute('data-d'); if (dv === '1' || dv === 'true') { fbLoad(p); return; }
         // 打开音频 → 队列只保留音频类文件（避免下一首跳到PDF/图片）
