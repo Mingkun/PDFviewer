@@ -1509,7 +1509,16 @@ function openPdf(buf) {
   resetView();
   // pdf.js 会 detach 传入的 ArrayBuffer；>40MB 不预存副本（否则83M文件三份副本≈250M直接顶爆渲染进程）
   pdfBytes = (buf.byteLength < 40 * 1024 * 1024) ? buf.slice(0) : null;
-  pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise.then(function (doc) {
+  setInfo('📄 正在解析 PDF…（大文件请稍候）');
+  pdfjsLib.getDocument({
+    data: new Uint8Array(buf),
+    onProgress: function (evt) {
+      try {
+        if (evt && evt.total) setInfo('📄 解析中 ' + Math.min(99, Math.round(evt.loaded * 100 / evt.total)) + '% …');
+        else if (evt && evt.loaded) setInfo('📄 解析中 ' + (evt.loaded / 1048576).toFixed(1) + ' MB …');
+      } catch (e) {}
+    }
+  }).promise.then(function (doc) {
     pdf = doc;
     docKind = 'pdf';
     pageNum = 1;
@@ -1517,6 +1526,7 @@ function openPdf(buf) {
     cv.style.display = '';
     var _p = loadPos();
     if (_p && _p.page && _p.page > 1) pageNum = Math.min(_p.page, doc.numPages);
+    setInfo('📄 正在渲染第 1 页…');
     if (_p && _p.scale) { scale = _p.scale; updZoom(); render(); }
     else fitPage();
     buildDocFrame();
@@ -2162,6 +2172,7 @@ function render() {
     return renderFullPage(page, rot, dpr);
   }).then(function () {
     rendering = false;
+    try { setInfo(''); } catch (e) {}
     syncOverlay(); drawAnns();
     document.getElementById('pageInput').value = pageNum;
     document.getElementById('pslider').value = pageNum;
