@@ -541,14 +541,34 @@ class MainActivity : Activity() {
         jsCall("window.onScanDone && window.onScanDone(" + jsonq(kind) + ")")
     }
 
+    // HEIC/HEIF（苹果照片格式，WebView不能直接显示）→ 原生解码转JPEG，最长边压到4096
+    private fun heicToJpeg(name: String, bytes: ByteArray): ByteArray {
+        val ext = name.substringAfterLast('.', "").lowercase()
+        if (ext != "heic" && ext != "heif" && ext != "hif") return bytes
+        if (Build.VERSION.SDK_INT < 28) return bytes
+        return try {
+            val bo = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bo)
+            var sample = 1
+            while (bo.outWidth / (sample * 2) >= 4096 || bo.outHeight / (sample * 2) >= 4096) sample *= 2
+            val bo2 = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+            val bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bo2) ?: return bytes
+            val baos = java.io.ByteArrayOutputStream()
+            bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, baos)
+            bmp.recycle()
+            baos.toByteArray()
+        } catch (_: Exception) { bytes }
+    }
+
     private fun sendFileToPage(name: String, key: String, bytes: ByteArray) {
-        jsCall("window.onFileStart && window.onFileStart(" + jsonq(name) + "," + jsonq(key) + "," + bytes.size + ")")
+        val bytes2 = heicToJpeg(name, bytes)
+        jsCall("window.onFileStart && window.onFileStart(" + jsonq(name) + "," + jsonq(key) + "," + bytes2.size + ")")
         val chunk = 384 * 1024
         var off = 0
         var seq = 0
-        while (off < bytes.size) {
-            val n = minOf(chunk, bytes.size - off)
-            val b64 = android.util.Base64.encodeToString(bytes, off, n, android.util.Base64.NO_WRAP)
+        while (off < bytes2.size) {
+            val n = minOf(chunk, bytes2.size - off)
+            val b64 = android.util.Base64.encodeToString(bytes2, off, n, android.util.Base64.NO_WRAP)
             jsCall("window.onFileChunk && window.onFileChunk(" + seq + "," + jsonq(b64) + ")")
             off += n
             seq++
@@ -740,7 +760,7 @@ class MainActivity : Activity() {
                 thumbCache.get(key)?.let { return it }
                 val ext = f.extension.lowercase()
                 val vidExts = setOf("mp4", "webm", "mkv", "avi", "mov", "3gp", "m4v", "ts", "flv")
-                val imgExts = setOf("png", "jpg", "jpeg", "gif", "webp", "bmp")
+                val imgExts = setOf("png", "jpg", "jpeg", "gif", "webp", "bmp", "heic", "heif", "hif")
                 var bmp: android.graphics.Bitmap? = null
                 if (vidExts.contains(ext)) {
                     @Suppress("DEPRECATION")

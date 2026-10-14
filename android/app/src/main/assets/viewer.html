@@ -257,7 +257,7 @@
     <button id="sortAudio" onclick="fbSetType('mp3,wav,ogg,m4a,flac,aac,wma,opus')">🎵 音频</button>
     <button id="sortVideo" onclick="fbSetType('mp4,webm,mkv,avi,mov,3gp,m4v,ts,flv')">🎬 视频</button>
     <button id="sortText" onclick="fbSetType('txt,csv,json,log')">📄 文本</button>
-    <button id="sortImg" onclick="fbSetType('png,jpg,jpeg,gif,webp,bmp')">🖼️ 图片</button>
+    <button id="sortImg" onclick="fbSetType('png,jpg,jpeg,gif,webp,bmp,heic,heif,hif')">🖼️ 图片</button>
     <button id="sortMd" onclick="fbSetType('md,markdown,mdown,mkd')">📝 MD</button>
   </div>
   <div class="fbSortBar" id="fbOrderBy" style="display:none">
@@ -2833,7 +2833,7 @@ function openByBytes(name, buf, mime, key) {
   curFileKey = key || nm;
   try {
     if (nm.indexOf('.pdf') >= 0 || mime === 'application/pdf') openPdf(buf);
-    else if (/\.(png|jpe?g|gif|webp|bmp)$/.test(nm) || (mime || '').indexOf('image/') === 0) openImage(buf);
+    else if (/\.(png|jpe?g|gif|webp|bmp|hei[cf]|hif)$/i.test(nm) || (mime || '').indexOf('image/') === 0) openImage(buf);
     else if (/\.(mp3|wav|ogg|m4a|flac|aac|wma|opus)$/i.test(nm)) openAudio(buf, nm);
     else if (/\.(mp4|webm|mkv|avi|mov|3gp|m4v|ts|flv)$/i.test(nm)) openVideo(buf, nm);
     else if (nm.indexOf('.epub') >= 0) openEpub(buf);
@@ -2956,7 +2956,7 @@ var RB_CATS = [
   { k: 'xls', icon: '📊', label: '表格', re: /\.(xlsx?|csv)$/i },
   { k: 'ppt', icon: '📽️', label: '演示', re: /\.pptx?$/i },
   { k: 'text', icon: '📝', label: '文本', re: /\.(txt|md|markdown|log|json)$/i },
-  { k: 'img', icon: '🖼️', label: '图片', re: /\.(png|jpe?g|gif|webp|bmp)$/i },
+  { k: 'img', icon: '🖼️', label: '图片', re: /\.(png|jpe?g|gif|webp|bmp|hei[cf]|hif)$/i },
   { k: 'audio', icon: '🎵', label: '音频', re: /\.(mp3|wav|ogg|m4a|flac|aac|wma|opus)$/i },
   { k: 'video', icon: '🎬', label: '视频', re: /\.(mp4|webm|mkv|avi|mov|3gp|m4v|ts|flv)$/i },
   { k: 'enc', icon: '🔒', label: '加密', re: /\.(mgg2?|mflac0?|mmp3|ncm|qmcflac|qmcmp3|qmcogg|qmc[023]?|kgma?|kwm|tm[026]|bkcmp3|bkcflac|x[23]m|vpr)$/i },
