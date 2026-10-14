@@ -1198,6 +1198,8 @@ function collectPage(n) {
     return;
   }
   if (docKind === 'epub') {
+    var _esi = epubSpineIndex();
+    if (_esi > 0) setInfo('从第 ' + (_esi + 1) + ' 章开始朗读…');
     epubCollect(function (fullText) {
       if (!reading) return;
       docPages = chunksFromText(fullText || '');
@@ -1205,7 +1207,7 @@ function collectPage(n) {
       for (var k = 0; k < docPages.length; k++) readQueue.push({ p: k + 1, s: docPages[k] });
       readPage = docPages.length;
       feedNext();
-    });
+    }, _esi);
     return;
   }
   if (!docPages.length) { stopReading('没有可朗读的文字'); return; }
@@ -1952,11 +1954,21 @@ function openEpub(buf) {
   });
   });
 }
-function epubCollect(onDone) {
+function epubSpineIndex() {
+  // 当前渲染中的章节在 spine 里的序号（朗读"从当前页开始"用）
+  try {
+    var book = window.epubBook;
+    var items = (book && book.spine && book.spine.spineItems) || [];
+    var href = window.epubSectionHref || '';
+    for (var i = 0; i < items.length; i++) { if (items[i].href === href) return i; }
+  } catch (e) {}
+  return 0;
+}
+function epubCollect(onDone, startIdx) {
   var book = window.epubBook;
   var texts = [];
   var items = book && book.spine ? (book.spine.spineItems || []) : [];
-  var i = 0;
+  var i = startIdx || 0;
   function step() {
     if (i >= items.length) { onDone(texts.join('\n')); return; }
     try {
