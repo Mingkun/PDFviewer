@@ -3058,7 +3058,7 @@ function renderRecentBar() {
     var cc2 = catMeta(cur.k);
     var _rbIsAV = (cur.k === 'img' || cur.k === 'video');
     var _rbThumb = _rbIsAV && localStorage.getItem('pv_rbthumb') === '1';
-    h += '<div class="rbFiles"><div class="rbFHead"><span>' + cc2.icon + ' ' + cc2.label + ' · ' + cur.list.length + ' 个（长按可固定📌/取消）</span>' + (_rbIsAV ? '<span class="rbTBtn' + (_rbThumb ? ' on' : '') + '" id="rbTBtn">▦ 缩略图</span>' : '') + '</div>';
+    h += '<div class="rbFiles"><div class="rbFHead"><span>' + cc2.icon + ' ' + cc2.label + ' · ' + cur.list.length + ' 个（长按可固定/取消）</span>' + (_rbIsAV ? '<span class="rbTBtn' + (_rbThumb ? ' on' : '') + '" id="rbTBtn">▦ 缩略图</span>' : '') + '</div>';
     if (_rbThumb) {
       h += '<div class="rbGrid">';
       cur.list.forEach(function (it, idx) {
