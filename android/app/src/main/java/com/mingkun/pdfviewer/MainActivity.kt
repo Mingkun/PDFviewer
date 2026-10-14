@@ -697,7 +697,8 @@ class MainActivity : Activity() {
                 if (!hasStoragePermission()) return EMPTY
                 val dir = if (path.isEmpty()) java.io.File("/storage/emulated/0") else java.io.File(path)
                 if (!dir.exists() || !dir.isDirectory) return EMPTY
-                val all = dir.listFiles()?.sortedWith(compareByDescending<java.io.File> { it.isDirectory }.thenByDescending { it.lastModified() }) ?: emptyList()
+                val zhColl = java.text.Collator.getInstance(java.util.Locale.CHINA)
+                val all = dir.listFiles()?.sortedWith(compareByDescending<java.io.File> { it.isDirectory }.thenComparator { a, b -> zhColl.compare(a.name, b.name) }) ?: emptyList()
                 val total = all.size
                 val off = if (offset < 0) 0 else offset
                 val page = all.drop(off).take(3000)
