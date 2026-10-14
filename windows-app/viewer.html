@@ -157,7 +157,7 @@ window.addEventListener('keydown', function (e) {
   #videoPlayer { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:8px; padding:10px; }
   #videoPlayer video { max-width:100%; max-height:calc(100vh - 120px); border-radius:8px; outline:none; }
   #videoPlayer .vTitle { font-size:13px; color:#8e959f; text-align:center; padding:4px 12px; }
-  #audioPlayer .aLoop { display:flex; gap:8px; align-items:center; }
+  #audioPlayer .aLoop { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; align-items:center; }
   #audioPlayer .aLoop button { border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.08); color:#c8cdd5; border-radius:14px; padding:4px 12px; font-size:12px; cursor:pointer; font-family:inherit; }
   #audioPlayer .aLoop button.on { background:#0a84ff; color:#fff; border-color:#0a84ff; }
   #audioPlayer .aLrc { width:min(90%,400px); max-height:200px; overflow-y:auto; text-align:center; font-size:14px; line-height:2.2; color:#8e959f; padding-top:8px; box-sizing:border-box; }
@@ -2583,6 +2583,36 @@ function openVideo(buf, name, srcUrl) {
 }
 var curAudioEl = null;
 var audioQueue = null, audioQueueIdx = -1;   // 音频连播队列：从文件列表打开时=当前列表顺序
+function audioNext() {
+  if (!audioQueue || audioQueueIdx < 0) { setInfo('从文件列表打开即可连播/切歌'); return; }
+  var i = audioQueueIdx;
+  while (i + 1 < audioQueue.length) {
+    var nx = audioQueue[i + 1];
+    if (!nx || !nx.p) break;
+    i++;
+    if (nx.d) continue;
+    audioQueueIdx = i;
+    setInfo('▶ 下一首：' + nx.n);
+    try { fbOpenFile(nx.p, nx.n); } catch (e) {}
+    return;
+  }
+  setInfo('已经是最后一首');
+}
+function audioPrev() {
+  if (!audioQueue || audioQueueIdx < 0) { setInfo('从文件列表打开即可连播/切歌'); return; }
+  var i = audioQueueIdx;
+  while (i - 1 >= 0) {
+    var pv = audioQueue[i - 1];
+    if (!pv || !pv.p) break;
+    i--;
+    if (pv.d) continue;
+    audioQueueIdx = i;
+    setInfo('◀ 上一首：' + pv.n);
+    try { fbOpenFile(pv.p, pv.n); } catch (e) {}
+    return;
+  }
+  setInfo('已经是第一首');
+}
 function openAudio(buf, name, srcUrl) {
   resetView();
   docKind = 'audio';
@@ -2599,9 +2629,9 @@ function openAudio(buf, name, srcUrl) {
     '<div class="aIcon">🎵</div>' +
     '<div class="aTitle">' + esc(name) + '</div>' +
     '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
-    '<div class="aLoop"><button id="loopBtn" onclick="toggleLoop()">🔁 循环</button><button id="asrBtn" onclick="asrTranslate()">🌐 AI翻译</button><button id="asrToggle" style="display:none" onclick="asrToggleView()">📋 歌词</button></div>' +
+    '<div class="aLoop"><button id="prevBtn" onclick="audioPrev()">⏮ 上一首</button><button id="nextBtn" onclick="audioNext()">⏭ 下一首</button><button id="loopBtn" onclick="toggleLoop()">🔁 循环</button><button id="asrBtn" onclick="asrTranslate()">🌐 AI翻译</button><button id="asrToggle" style="display:none" onclick="asrToggleView()">📋 歌词</button></div>' +
     '<div class="aLrc" id="aLrc"></div>' +
-    '<div class="aInfo">支持循环/连播/歌词/AI翻译 · 双指右划关闭</div>' +
+    '<div class="aInfo">支持上一首/下一首/循环/连播/歌词/AI翻译 · 双指右划关闭</div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
   setTotal(1); document.getElementById('pageInput').value = 1;
