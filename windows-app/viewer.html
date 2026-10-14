@@ -472,6 +472,7 @@ function fbSetType(t) {
   var el = document.getElementById(id);
   if (el) el.classList.add('on');
   _fbSaveState();
+  fbUpdateThumbBtn();   // 切类型时同步缩略图按钮显隐/高亮（此前漏调导致按钮消失）
   fbLoadType();
 }
 function fbSetOrder(o) {
@@ -480,6 +481,7 @@ function fbSetOrder(o) {
   document.querySelectorAll('#fbOrderBy button').forEach(function(b) { b.classList.remove('on'); });
   var el = document.getElementById(o === 'time' ? 'ordTime' : o === 'name' ? 'ordName' : 'ordSize');
   if (el) el.classList.add('on');
+  fbUpdateThumbBtn();   // 排序按钮擦掉全部高亮后，恢复缩略图按钮的选中态
   _fbSaveState();
   if (fbTypeCache) fbRenderTypeList(fbTypeCache);
 }
