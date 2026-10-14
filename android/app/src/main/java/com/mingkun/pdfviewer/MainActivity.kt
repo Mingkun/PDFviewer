@@ -869,21 +869,26 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun getRecent(): String {
             val raw = loadRecentJson()
-            // 一次性迁移：把历史记录里带 -QQ- 等标记的名字清掉（否则点不开）
             try {
                 val arr = org.json.JSONArray(raw)
                 var changed = false
+                val out = org.json.JSONArray()
                 for (i in 0 until arr.length()) {
                     val o = arr.optJSONObject(i) ?: continue
                     val nm = o.optString("name")
                     val cl = cleanRecentName(nm)
                     if (cl != nm) { o.put("name", cl); changed = true }
+                    // 失效清理：带路径但文件已不存在 → 移出最近列表（不留死链接）
+                    val pth = o.optString("path")
+                    if (pth.isNotEmpty() && !java.io.File(pth).exists()) { changed = true; continue }
+                    out.put(o)
                 }
                 if (changed) {
-                    val s2 = arr.toString()
+                    val s2 = out.toString()
                     recentPrefs().edit().putString("list", s2).apply()
                     return s2
                 }
+                return arr.toString()
             } catch (_: Exception) {}
             return raw
         }
@@ -956,7 +961,20 @@ class MainActivity : Activity() {
                             } catch (_: Exception) {}
                         }
                     }
-                    if (!sent) runOnUiThread { jsCall("window.onRecentFail && window.onRecentFail(" + jsonq(nm) + ")") }
+                    if (!sent) {
+                        // 彻底打不开（路径/URI/自愈全失败）→ 从最近列表移除这条死链接
+                        try {
+                            val arr2 = org.json.JSONArray(loadRecentJson())
+                            val out2 = org.json.JSONArray()
+                            for (i2 in 0 until arr2.length()) {
+                                val o2 = arr2.optJSONObject(i2) ?: continue
+                                if (o2.optString("name") == nm && o2.optString("path") == path && o2.optString("uri") == uriStr) continue
+                                out2.put(o2)
+                            }
+                            recentPrefs().edit().putString("list", out2.toString()).apply()
+                        } catch (_: Exception) {}
+                        runOnUiThread { jsCall("window.onRecentFail && window.onRecentFail(" + jsonq(nm) + ")") }
+                    }
                 }.start()
             } catch (_: Exception) {
                 jsCall("window.onRecentFail && window.onRecentFail('')")

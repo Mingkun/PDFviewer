@@ -106,6 +106,9 @@ window.addEventListener('keydown', function (e) {
   #pageInput { width:30px; text-align:center; border-radius:8px; border:none; padding:4px 1px; font-size:11px; background:rgba(255,255,255,.08); color:#dfe3ea; }
   #total { font-size:11px; color:#8e959f; font-variant-numeric:tabular-nums; }
   #hint { color:#8a94a6; font-size:11px; line-height:1.7; text-align:center; height:30vh; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center; }
+  #hintShort { display:inline-block; padding:6px 20px; border-radius:16px; background:rgba(138,148,166,.13); font-size:12px; cursor:pointer; -webkit-user-select:none; user-select:none; }
+  body.dark #hintShort { background:rgba(255,255,255,.07); }
+  #hintFull { cursor:pointer; }
 
   #hintSep { display:none; width:56%; margin:0 auto 8px; align-items:center; justify-content:center; gap:10px; }
   #hintSep .sline { flex:1; height:2px; border-radius:1px; background:rgba(0,0,0,.35); box-shadow:0 1px 1px rgba(255,255,255,.06); }
@@ -289,7 +292,7 @@ window.addEventListener('keydown', function (e) {
     </div>
   </div>
 </div>
-<div id="stage"><div id="hint">点击「📄 打开」选择文件（PDF/EPUB/Word/Excel/PPT/TXT/MD/图片/音频/视频）<div style="margin-top:6px;font-size:11px;opacity:.8">屏幕下划：显示操作菜单，上划隐藏</div><div style="margin-top:3px;font-size:11px;opacity:.8">双指右划：关闭当前文件</div></div><div id="hintSep"><span class="sline"></span><span class="sdot"></span><span class="sline"></span></div><div id="recentBar"></div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
+<div id="stage"><div id="hint"><div id="hintShort" onclick="hintToggle()">💡 Tips</div><div id="hintFull" style="display:none" onclick="hintToggle()">点击「📄 打开」选择文件（PDF/EPUB/Word/Excel/PPT/TXT/MD/图片/音频/视频）<div style="margin-top:6px;font-size:11px;opacity:.8">屏幕下划：显示操作菜单，上划隐藏</div><div style="margin-top:3px;font-size:11px;opacity:.8">双指右划：关闭当前文件</div></div></div><div id="hintSep"><span class="sline"></span><span class="sdot"></span><span class="sline"></span></div><div id="recentBar"></div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
 <div id="bottomInfo"></div>
 <div id="smodal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:97;align-items:center;justify-content:center">
   <div style="width:min(360px,90vw);background:#fff;border-radius:12px;padding:14px;max-height:70vh;display:flex;flex-direction:column">
@@ -2903,7 +2906,7 @@ window.onFileEnd = function () {
   openByBytes(rxName, all.buffer, '', rxKey);
 };
 window.onRecentFail = function (name) {
-  setInfo((name ? ('「' + name + '」') : '') + ' 已失效（文件被移动或权限已收回），请重新选择');
+  setInfo((name ? ('「' + name + '」') : '文件') + ' 已失效，已从最近列表移除');
 };
 
 function recordRecent(name, buf) {
@@ -2951,6 +2954,13 @@ function fileIconOf(nm) {
   if (/\.(mp4|webm|mkv|avi|mov|3gp|m4v|ts|flv)$/i.test(nm)) return '🎬';
   if (/\.(mgg2?|mflac|mmp3|ncm|qmcflac|qmcmp3|qmcogg|kgm|kuwo)$/i.test(nm)) return '🔒';
   return '📄';
+}
+function hintToggle() {
+  var f = document.getElementById('hintFull'), sh = document.getElementById('hintShort');
+  if (!f || !sh) return;
+  var show = f.style.display === 'none';
+  f.style.display = show ? '' : 'none';
+  sh.style.display = show ? 'none' : '';
 }
 var RB_CATS = [
   { k: 'pdf', icon: '📕', label: 'PDF', re: /\.pdf$/i },
