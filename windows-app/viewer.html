@@ -157,8 +157,8 @@ window.addEventListener('keydown', function (e) {
   #videoPlayer { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:8px; padding:10px; }
   #videoPlayer video { max-width:100%; max-height:calc(100vh - 120px); border-radius:8px; outline:none; }
   #videoPlayer .vTitle { font-size:13px; color:#8e959f; text-align:center; padding:4px 12px; }
-  #audioPlayer .aLoop { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; align-items:center; }
-  #audioPlayer .aLoop button { border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.08); color:#c8cdd5; border-radius:14px; padding:4px 12px; font-size:12px; cursor:pointer; font-family:inherit; }
+  #audioPlayer .aLoop { display:flex; flex-wrap:nowrap; justify-content:center; gap:6px; align-items:center; }
+  #audioPlayer .aLoop button { border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.08); color:#c8cdd5; border-radius:14px; padding:4px 9px; font-size:12px; cursor:pointer; font-family:inherit; white-space:nowrap; }
   #audioPlayer .aLoop button.on { background:#0a84ff; color:#fff; border-color:#0a84ff; }
   #audioPlayer .aLrc { width:min(90%,400px); max-height:200px; overflow-y:auto; text-align:center; font-size:14px; line-height:2.2; color:#8e959f; padding-top:8px; box-sizing:border-box; }
   #audioPlayer .aLrc .on { color:#4ade80; font-size:16px; font-weight:600; }
@@ -2583,8 +2583,31 @@ function openVideo(buf, name, srcUrl) {
 }
 var curAudioEl = null;
 var audioQueue = null, audioQueueIdx = -1;   // 音频连播队列：从文件列表打开时=当前列表顺序
+function audioEnsureQueue() {
+  // 无连播队列时：以「按类型→音频」列表为基准（时间倒序，与文件列表默认一致）
+  if (audioQueue && audioQueueIdx >= 0) return true;
+  try {
+    var exts = ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac', 'wma', 'opus'];
+    var items = _treeItems(exts);
+    var seen = {}; items.forEach(function (x) { seen[x.p] = 1; });
+    _mediaLoad('audio').forEach(function (it) {
+      var fe = it.n.indexOf('.') >= 0 ? it.n.split('.').pop().toLowerCase() : '';
+      if (exts.indexOf(fe) >= 0 && !seen[it.p]) { seen[it.p] = 1; items.push(it); }
+    });
+    if (!items.length) { setInfo('先打开 文件列表→按类型→音频 生成歌曲列表'); return false; }
+    items.sort(function (a, b) { return (b.t || 0) - (a.t || 0); });
+    var key = curFileKey || '', nm = _asrName || '';
+    var idx = -1;
+    for (var i = 0; i < items.length; i++) {
+      if (key && items[i].p === key) { idx = i; break; }
+      if (nm && items[i].n === nm) idx = i;
+    }
+    audioQueue = items; audioQueueIdx = idx;
+    return true;
+  } catch (e) { return false; }
+}
 function audioNext() {
-  if (!audioQueue || audioQueueIdx < 0) { setInfo('从文件列表打开即可连播/切歌'); return; }
+  if (!audioEnsureQueue()) return;
   var i = audioQueueIdx;
   while (i + 1 < audioQueue.length) {
     var nx = audioQueue[i + 1];
@@ -2599,7 +2622,7 @@ function audioNext() {
   setInfo('已经是最后一首');
 }
 function audioPrev() {
-  if (!audioQueue || audioQueueIdx < 0) { setInfo('从文件列表打开即可连播/切歌'); return; }
+  if (!audioEnsureQueue()) return;
   var i = audioQueueIdx;
   while (i - 1 >= 0) {
     var pv = audioQueue[i - 1];
@@ -2629,7 +2652,7 @@ function openAudio(buf, name, srcUrl) {
     '<div class="aIcon">🎵</div>' +
     '<div class="aTitle">' + esc(name) + '</div>' +
     '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
-    '<div class="aLoop"><button id="prevBtn" onclick="audioPrev()">⏮ 上一首</button><button id="nextBtn" onclick="audioNext()">⏭ 下一首</button><button id="loopBtn" onclick="toggleLoop()">🔁 循环</button><button id="asrBtn" onclick="asrTranslate()">🌐 AI翻译</button><button id="asrToggle" style="display:none" onclick="asrToggleView()">📋 歌词</button></div>' +
+    '<div class="aLoop"><button id="prevBtn" onclick="audioPrev()" title="上一首">⏮</button><button id="nextBtn" onclick="audioNext()" title="下一首">⏭</button><button id="loopBtn" onclick="toggleLoop()">🔁 循环</button><button id="asrBtn" onclick="asrTranslate()">🌐 AI翻译</button><button id="asrToggle" style="display:none" onclick="asrToggleView()">📋 歌词</button></div>' +
     '<div class="aLrc" id="aLrc"></div>' +
     '<div class="aInfo">支持上一首/下一首/循环/连播/歌词/AI翻译 · 双指右划关闭</div>' +
     '</div>';
