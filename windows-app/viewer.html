@@ -172,6 +172,8 @@ window.addEventListener('keydown', function (e) {
   #recentBar .rbIcon { font-size:26px; line-height:1; }
   #recentBar .rbName { font-size:10px; color:#8a94a6; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   body.dark #recentBar .rbName { color:#8a93a3; }
+  body.dark #recentBar .rbHead { color:#7d8798; }
+  #recentBar .rbHead { text-align:center; font-size:12px; color:#8a94a6; margin-bottom:8px; letter-spacing:2px; }
   #recentBar .rbCats { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
   #recentBar .rbCat { width:100px; height:42px; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:0 4px; border-radius:13px; background:rgba(255,255,255,.78); border:1px solid #dfe5ee; cursor:pointer; -webkit-user-select:none; user-select:none; touch-action:manipulation; font-size:13px; color:#39414e; white-space:nowrap; overflow:hidden; }
   #recentBar .rbCat.on { background:#e7f1ff; border-color:#91caff; color:#1c5fb8; }
@@ -3013,7 +3015,7 @@ function renderRecentBar() {
     return { k: k, list: pin.concat(rest).slice(0, 50), newest: newest };
   }).sort(function (a, b) { return b.newest - a.newest; });
   if (rbExpanded) { var still = false; order.forEach(function (c) { if (c.k === rbExpanded) still = true; }); if (!still) rbExpanded = null; }
-  var h = '<div class="rbCats">';
+  var h = '<div class="rbHead">最近打开</div><div class="rbCats">';
   order.forEach(function (c) {
     var cc = catMeta(c.k);
     h += '<div class="rbCat' + (rbExpanded === c.k ? ' on' : '') + '" data-k="' + c.k + '">' + cc.icon + ' ' + cc.label + '<span class="rbCnt">' + (c.list.length >= 50 ? '50+' : c.list.length) + '</span></div>';
