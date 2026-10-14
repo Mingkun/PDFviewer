@@ -312,6 +312,7 @@ window.addEventListener('keydown', function (e) {
     <button id="ordName" onclick="fbSetOrder('name')">按名称</button>
     <button id="ordSize" onclick="fbSetOrder('size')">按大小</button>
     <button id="thumbBtn" onclick="fbToggleThumb()">▦ 缩略图</button>
+    <button id="fbRefreshBtn" onclick="fbForceRefresh()">🔄 刷新</button>
   </div>
   <div class="fbSearch" id="fbSearchBar"><input type="text" id="fbSearchInput" placeholder="🔍 输入文件名筛选…" oninput="fbFilterList()" /></div><div class="fbList" id="fbList"></div>
 </div>
@@ -434,6 +435,7 @@ function _fbLoadCache(type) {
   } catch (e) { return null; }
 }
 
+try { Object.keys(localStorage).forEach(function (k2) { if (k2.indexOf('pv_fbCache_') === 0) localStorage.removeItem(k2); }); } catch (e) {}
 function _fbSaveState() {
   try { localStorage.setItem('pv_fbState', JSON.stringify({ tab: fbTab, type: fbType, order: fbOrder, asc: fbAsc, path: fbCurrent })); } catch (e) {}
 }
@@ -481,37 +483,139 @@ function fbSetOrder(o) {
   _fbSaveState();
   if (fbTypeCache) fbRenderTypeList(fbTypeCache);
 }
+// ===== 扫描数据层 v4：按文件夹树缓存 + 增量扫描 + MediaStore =====
+function _treeLoad() {
+  try { var j = JSON.parse(localStorage.getItem('pv_fbTree') || 'null'); if (j && j.v === 4) return j; } catch (e) {}
+  return { v: 4, ts: 0, fullTs: 0, dirs: {} };
+}
+function _treeSave(t) { t.ts = Date.now(); try { localStorage.setItem('pv_fbTree', JSON.stringify(t)); } catch (e) {} }
+function _treeItems(exts) {
+  var out = [];
+  var tree = _treeLoad();
+  Object.keys(tree.dirs).forEach(function (d) {
+    var en = tree.dirs[d].f || [];
+    for (var i = 0; i < en.length; i++) {
+      var e = en[i], nm = e[0];
+      if (!nm) continue;
+      var fe = nm.indexOf('.') >= 0 ? nm.split('.').pop().toLowerCase() : '';
+      if (exts && exts.indexOf(fe) < 0) continue;
+      var it = { n: nm, s: e[1], t: e[2], p: d + '/' + nm };
+      if (e[3]) it.enc = true; if (e[4]) it.qq = true; if (e[5]) it.ar = e[5];
+      out.push(it);
+    }
+  });
+  return out;
+}
+function _mediaKindOf() {
+  if (fbType.indexOf('png') === 0) return 'img';
+  if (fbType.indexOf('mp4') === 0) return 'video';
+  if (fbType.indexOf('mp3') === 0) return 'audio';
+  return null;
+}
+var _mediaCache = {};
+function _mediaLoad(kind) {
+  if (_mediaCache[kind]) return _mediaCache[kind];
+  try { var j = JSON.parse(localStorage.getItem('pv_fbMedia_' + kind) || 'null'); if (j) { _mediaCache[kind] = j; return j; } } catch (e) {}
+  return [];
+}
+function _mediaSave(kind, a) { _mediaCache[kind] = a; try { localStorage.setItem('pv_fbMedia_' + kind, JSON.stringify(a)); } catch (e) {} }
+function _typeItems() {
+  var exts = fbType ? fbType.split(',') : null;
+  var items = _treeItems(exts);
+  var mk = _mediaKindOf();
+  if (mk) {
+    var seen = {}; items.forEach(function (it) { seen[it.p] = 1; });
+    _mediaLoad(mk).forEach(function (it) { if (!seen[it.p]) items.push(it); });
+  }
+  return items;
+}
+function _fbScanBanner(html) {
+  var list = document.getElementById('fbList'); if (!list) return;
+  var old = document.getElementById('fbScanBanner'); if (old) old.remove();
+  if (html) list.insertAdjacentHTML('afterbegin', '<div id="fbScanBanner" style="text-align:center;padding:4px;font-size:11px;color:#8e959f">' + html + '</div>');
+}
+function fbScanFail() { _fbScanBanner('⚠️ 更新失败，当前显示缓存数据'); }
+window.onScanStart = function (kind, total) {
+  var acc = window.__scanAcc || (window.__scanAcc = {});
+  acc[kind] = { s: '', t: Date.now(), to: setTimeout(function () { if (acc[kind] && Date.now() - acc[kind].t > 190000) { delete acc[kind]; fbScanFail(); _fbScanBanner('⚠️ 更新超时，当前显示缓存数据'); } }, 200000) };
+  _fbScanBanner('⏳ 后台更新中… (' + Math.round(total / 1024) + 'KB)');
+};
+window.onScanChunk = function (kind, seq, b64) {
+  var acc = window.__scanAcc; if (!acc || !acc[kind]) return;
+  try {
+    var bin = atob(b64);
+    acc[kind].s += bin;
+  } catch (e) {}
+};
+window.onScanDone = function (kind) {
+  var acc = window.__scanAcc || {}; var a = acc[kind]; if (!a) return;
+  clearTimeout(a.to); delete acc[kind];
+  var bin = a.s, u8 = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  var txt; try { txt = new TextDecoder('utf-8').decode(u8); } catch (e) { txt = bin; }
+  var j; try { j = JSON.parse(txt); } catch (e) { fbScanFail(); return; }
+  if (kind === 'scan') {
+    var tree = _treeLoad();
+    var snap = j.snap || {}, changed = j.changed || [], pruned = j.pruned || [];
+    var prunedSet = {}; pruned.forEach(function (p2) { prunedSet[p2] = 1; });
+    Object.keys(tree.dirs).forEach(function (p2) {
+      if (snap[p2] !== undefined) return;
+      var par = p2, keep = true;
+      while (true) {
+        var ix = par.lastIndexOf('/');
+        if (ix <= 0) { keep = true; break; }
+        par = par.slice(0, ix);
+        if (snap[par] !== undefined) { keep = !!prunedSet[par]; break; }
+      }
+      if (!keep) delete tree.dirs[p2];
+    });
+    changed.forEach(function (c) { tree.dirs[c.d] = { m: snap[c.d] || 0, f: c.f }; });
+    Object.keys(snap).forEach(function (p2) { if (tree.dirs[p2]) tree.dirs[p2].m = snap[p2]; });
+    if (!j.inc) tree.fullTs = Date.now();
+    _treeSave(tree);
+    _fbScanBanner('');
+    if (fbTab === 'type') { fbTypeCache = _typeItems(); fbRenderTypeList(fbTypeCache); }
+  } else if (kind.indexOf('media:') === 0) {
+    var kd = kind.slice(6);
+    _mediaSave(kd, j.map(function (e) { return { n: e[0], s: e[1], t: e[2], p: e[3] }; }));
+    _fbScanBanner('');
+    if (fbTab === 'type' && _mediaKindOf() === kd) { fbTypeCache = _typeItems(); fbRenderTypeList(fbTypeCache); }
+  }
+};
+window.onScanFail = function (kind) {
+  var acc = window.__scanAcc || {}; if (acc[kind]) { clearTimeout(acc[kind].to); delete acc[kind]; }
+  fbScanFail();
+};
+function _fbBgRefresh() {
+  try {
+    if (AppBridge.hasStoragePermission && !AppBridge.hasStoragePermission()) {
+      var list = document.getElementById('fbList');
+      list.innerHTML = '<div class="fbEmpty" style="padding:60px 30px">📂 需要文件访问权限<br><br><button onclick="fbReqPerm()" style="border:1px solid rgba(255,255,255,.3);background:rgba(10,132,255,.3);color:#0a84ff;border-radius:10px;padding:8px 24px;font-size:14px;cursor:pointer;font-family:inherit">授予权限</button><br><br><span style="font-size:11px;color:#8e959f">点按钮 → 系统设置 → 允许「所有文件访问」</span></div>';
+      return;
+    }
+  } catch (e) {}
+  var mk = _mediaKindOf();
+  if (mk) { try { AppBridge.queryMedia(mk); } catch (e) {} }
+  var tree = _treeLoad();
+  var needFull = Date.now() - (tree.fullTs || 0) > 6 * 3600 * 1000;
+  var needInc = Date.now() - (tree.ts || 0) > 10 * 60 * 1000;
+  if (needFull || needInc || !Object.keys(tree.dirs).length) {
+    var snap = {};
+    if (!needFull) Object.keys(tree.dirs).forEach(function (p2) { snap[p2] = tree.dirs[p2].m || 0; });
+    try { AppBridge.startScan(needFull ? '' : JSON.stringify(snap)); } catch (e) {}
+  }
+}
+function fbForceRefresh() {
+  try { AppBridge.startScan(''); } catch (e) {}
+  var mk = _mediaKindOf(); if (mk) { try { AppBridge.queryMedia(mk); } catch (e) {} }
+  setInfo('🔄 正在全量刷新文件列表…');
+}
 function fbLoadType() {
-  var list = document.getElementById('fbList');
   var label = fbType === '' ? '全部文件' : (document.querySelector('#fbSortBar button.on') || {}).textContent || '文件';
   document.getElementById('fbPath').textContent = label;
-  // 先显示缓存
-  var cached = _fbLoadCache(fbType);
-  if (cached) {
-    fbTypeCache = cached;
-    fbRenderTypeList(cached);
-    list.insertAdjacentHTML('afterbegin', '<div style="text-align:center;padding:4px;font-size:11px;color:#8e959f">⏳ 后台更新中…</div>');
-  } else {
-    list.innerHTML = '<div class="fbEmpty">🔍 首次扫描中…</div>';
-  }
-  // 后台扫描
-  setTimeout(function() {
-    try {
-      if (AppBridge.hasStoragePermission && !AppBridge.hasStoragePermission()) {
-        list.innerHTML = '<div class="fbEmpty" style="padding:60px 30px">📂 需要文件访问权限<br><br><button onclick="fbReqPerm()" style="border:1px solid rgba(255,255,255,.3);background:rgba(10,132,255,.3);color:#0a84ff;border-radius:10px;padding:8px 24px;font-size:14px;cursor:pointer;font-family:inherit">授予权限</button><br><br><span style="font-size:11px;color:#8e959f">点按钮 → 系统设置 → 允许「所有文件访问」</span></div>';
-        return;
-      }
-      var json = AppBridge.searchFiles(fbType);
-      var fresh = JSON.parse(json);
-      if (fresh.length === 1 && fresh[0].n === '__NEED_PERM__') {
-        list.innerHTML = '<div class="fbEmpty">📂 需要文件访问权限</div>';
-        return;
-      }
-      fbTypeCache = fresh;
-      _fbSaveCache(fbType, fresh);
-      fbRenderTypeList(fresh);
-    } catch (e) { if (!cached) list.innerHTML = '<div class="fbEmpty">扫描失败</div>'; }
-  }, 50);
+  fbTypeCache = _typeItems();
+  fbRenderTypeList(fbTypeCache);
+  _fbBgRefresh();
 }
 var fbAsc = false;
 function fbToggleOrder() {

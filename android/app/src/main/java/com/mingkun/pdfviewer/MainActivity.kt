@@ -526,6 +526,21 @@ class MainActivity : Activity() {
         }.start()
     }
 
+    private fun sendScanChunked(kind: String, json: String) {
+        // 扫描结果分块过桥：基址64每块256KB，防同步桥返回值截断
+        val b = json.toByteArray(Charsets.UTF_8)
+        val chunk = 256 * 1024
+        var off = 0; var seq = 0
+        jsCall("window.onScanStart && window.onScanStart(" + jsonq(kind) + "," + b.size + ")")
+        while (off < b.size) {
+            val n = minOf(chunk, b.size - off)
+            val b64 = android.util.Base64.encodeToString(b, off, n, android.util.Base64.NO_WRAP)
+            jsCall("window.onScanChunk && window.onScanChunk(" + jsonq(kind) + "," + seq + "," + jsonq(b64) + ")")
+            off += n; seq++
+        }
+        jsCall("window.onScanDone && window.onScanDone(" + jsonq(kind) + ")")
+    }
+
     private fun sendFileToPage(name: String, key: String, bytes: ByteArray) {
         jsCall("window.onFileStart && window.onFileStart(" + jsonq(name) + "," + jsonq(key) + "," + bytes.size + ")")
         val chunk = 384 * 1024
@@ -757,6 +772,97 @@ class MainActivity : Activity() {
             // 大文件在 Android 上走不通整包 base64 过桥，改为让网页直接用 file:// 播放
             runOnUiThread {
                 jsCall("window.onMediaPath && window.onMediaPath(" + jsonq(name) + "," + jsonq(path) + ")")
+            }
+        }
+
+        @JavascriptInterface
+        fun startScan(snapJson: String) {
+            // 增量全盘扫描：目录mtime没变的子树整棵跳过；结果分块过桥（防截断）
+            thread {
+                try {
+                    val snap = HashMap<String, Long>()
+                    if (snapJson.isNotEmpty()) {
+                        try { val o = org.json.JSONObject(snapJson); val ks = o.keys(); while (ks.hasNext()) { val kk = ks.next(); snap[kk] = o.optLong(kk) } } catch (_: Exception) {}
+                    }
+                    val inc = snapJson.isNotEmpty()
+                    val outDirs = org.json.JSONObject()
+                    val changed = org.json.JSONArray()
+                    val pruned = org.json.JSONArray()
+                    val visited = HashSet<String>()
+                    val audioE = setOf("mp3", "wav", "ogg", "m4a", "flac", "aac", "wma", "opus")
+                    val videoE = setOf("mp4", "webm", "mkv", "avi", "mov", "3gp", "m4v", "ts", "flv")
+                    val queue = ArrayDeque<java.io.File>()
+                    queue.add(java.io.File("/storage/emulated/0"))
+                    try { java.io.File("/storage").listFiles()?.forEach { d -> if (d.isDirectory && d.name != "emulated" && d.name != "self") queue.add(d) } } catch (_: Exception) {}
+                    val skipDirs = setOf("Android", "LOST.DIR", "obb", ".thumbnails", "cache")
+                    while (queue.isNotEmpty()) {
+                        val dir = queue.removeFirst()
+                        val mt = dir.lastModified()
+                        val listed = dir.listFiles()
+                        if (listed == null) {
+                            val oldMt = snap[dir.absolutePath]
+                            if (oldMt != null) { outDirs.put(dir.absolutePath, oldMt); pruned.put(dir.absolutePath); visited.add(dir.absolutePath) }
+                            continue
+                        }
+                        outDirs.put(dir.absolutePath, mt)
+                        visited.add(dir.absolutePath)
+                        val oldMt = snap[dir.absolutePath]
+                        val unchanged = inc && oldMt != null && oldMt == mt && mt > 0
+                        if (unchanged) { pruned.put(dir.absolutePath); continue }
+                        val files = org.json.JSONArray()
+                        for (f in listed) {
+                            if (f.name.startsWith(".")) continue
+                            if (f.isDirectory) { if (f.name !in skipDirs) queue.add(f); continue }
+                            val fe = f.extension.lowercase()
+                            val isMedia = audioE.contains(fe) || videoE.contains(fe)
+                            var enc = false; var qq = false; var ar: String? = null
+                            if (isMedia) { try { enc = isEncryptedMedia(f); qq = isQQEncFile(f) } catch (_: Exception) {} }
+                            if (audioE.contains(fe)) { try { val a = readAudioArtist(f); if (a.isNotEmpty()) ar = a } catch (_: Exception) {} }
+                            val row = org.json.JSONArray()
+                            row.put(f.name).put(f.length()).put(f.lastModified())
+                            row.put(if (enc) 1 else 0).put(if (qq) 1 else 0)
+                            row.put(ar ?: org.json.JSONObject.NULL)
+                            files.put(row)
+                        }
+                        changed.put(org.json.JSONObject().put("d", dir.absolutePath).put("f", files))
+                    }
+                    val res = org.json.JSONObject().put("inc", inc).put("snap", outDirs).put("changed", changed).put("pruned", pruned)
+                    sendScanChunked("scan", res.toString())
+                } catch (e: Exception) {
+                    jsCall("window.onScanFail && window.onScanFail('scan')")
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun queryMedia(kind: String) {
+            // MediaStore 快路径：图片/视频/音频由系统索引直接给，毫秒级且永远新鲜
+            thread {
+                try {
+                    @Suppress("DEPRECATION")
+                    val uri = when (kind) {
+                        "img" -> android.provider.MediaStore.Images.Media.getContentUri("external")
+                        "video" -> android.provider.MediaStore.Video.Media.getContentUri("external")
+                        else -> android.provider.MediaStore.Audio.Media.getContentUri("external")
+                    }
+                    @Suppress("DEPRECATION")
+                    val cols = arrayOf(
+                        android.provider.MediaStore.MediaColumns.DISPLAY_NAME,
+                        android.provider.MediaStore.MediaColumns.DATA,
+                        android.provider.MediaStore.MediaColumns.SIZE,
+                        android.provider.MediaStore.MediaColumns.DATE_MODIFIED
+                    )
+                    val arr = org.json.JSONArray()
+                    contentResolver.query(uri, cols, null, null, null)?.use { c ->
+                        while (c.moveToNext()) {
+                            val p = c.getString(1) ?: continue
+                            arr.put(org.json.JSONArray().put(c.getString(0) ?: "").put(c.getLong(2)).put(c.getLong(3) * 1000).put(p))
+                        }
+                    }
+                    sendScanChunked("media:" + kind, arr.toString())
+                } catch (e: Exception) {
+                    jsCall("window.onScanFail && window.onScanFail('media:" + kind + "')")
+                }
             }
         }
 
