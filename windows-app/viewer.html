@@ -958,6 +958,7 @@ function fbOpenFile(path, name, sz) {
   if ((sz || 0) > 8 * 1024 * 1024 && window.AppBridge && AppBridge.openFileBig) {
     // >8MB 走异步分块通道：同步桥返回超大base64会截断（大PDF/大书打不开的根因）
     window.__bigKeepCtx = 1;
+    fbClose();   // 大文件路径此前漏了关闭选择器（小文件路径一直有）
     try { AppBridge.openFileBig(path); } catch (e) { setInfo('打开失败'); }
     return;
   }
