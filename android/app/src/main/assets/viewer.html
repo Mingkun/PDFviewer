@@ -44,8 +44,9 @@
   #hintShort { display:inline-block; padding:6px 20px; border-radius:16px; background:rgba(138,148,166,.13); font-size:12px; cursor:pointer; -webkit-user-select:none; user-select:none; }
   body.dark #hintShort { background:rgba(255,255,255,.07); }
   #hintFull { cursor:pointer; }
-  .pvSay { background: rgba(255,213,79,.45) !important; border-radius: 4px; box-shadow: 0 0 0 2px rgba(255,213,79,.22); }
-  body.dark .pvSay { background: rgba(255,196,40,.30) !important; }
+  .pvSay { background: linear-gradient(90deg, rgba(255,196,40,.62) 50%, rgba(255,213,79,.10) 50%); background-size: 200% 100%; border-radius: 4px; -webkit-animation: pvFlow linear forwards; animation: pvFlow linear forwards; }
+  @-webkit-keyframes pvFlow { from { background-position: 100% 0; } to { background-position: 0 0; } }
+  @keyframes pvFlow { from { background-position: 100% 0; } to { background-position: 0 0; } }
 
   #hintSep { display:none; width:56%; margin:0 auto 8px; align-items:center; justify-content:center; gap:10px; }
   #hintSep .sline { flex:1; height:2px; border-radius:1px; background:rgba(0,0,0,.35); box-shadow:0 1px 1px rgba(255,255,255,.06); }
@@ -1182,34 +1183,56 @@ function collectPage(n) {
 // ===== 朗读流动染色：当前朗读的句子在页面上高亮（PDF按文字坐标画块 / DOM类按段落高亮） =====
 var __sayHl = { span: null };
 function sayHlClear() {
-  try { if (__sayHl.span) __sayHl.span.classList.remove('pvSay'); } catch (e) {}
+  try {
+    if (__sayHl.span && __sayHl.span.parentNode) {
+      var parent = __sayHl.span.parentNode;
+      while (__sayHl.span.firstChild) parent.insertBefore(__sayHl.span.firstChild, __sayHl.span);
+      parent.removeChild(__sayHl.span);
+      try { parent.normalize(); } catch (e2) {}
+    }
+  } catch (e) {}
   __sayHl.span = null;
 }
 function sayHlDom(sent) {
+  // 句级染色：按归一化文本在DOM里定位这句话的精确Range，包成带流动动画的span（金色从左往右按朗读时长铺满）
   sayHlClear();
   try {
     var root = null;
     if (docKind === 'epub') { var f = document.querySelector('#epubBox iframe'); root = f && f.contentDocument && f.contentDocument.body; }
     else if (contentEl && contentEl.style.display !== 'none') root = contentEl;
     if (!root || !sent) return;
-    var key = String(sent).replace(/\s+/g, '');
-    if (key.length > 16) key = key.slice(0, 16);
+    var key = String(sent).replace(/\s+/g, ' ').replace(/^ | $/g, '');
     if (key.length < 4) return;
     var doc = root.ownerDocument;
-    if (!doc.createTreeWalker) return;
+    if (!doc.createTreeWalker || !doc.createRange) return;
+    var norm = '', map = [];
     var walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
     var n;
     while ((n = walker.nextNode())) {
-      if ((n.textContent || '').replace(/\s+/g, '').indexOf(key) >= 0) {
-        var host = n.parentElement;
-        if (host) {
-          host.classList.add('pvSay');
-          __sayHl.span = host;
-          if (docKind !== 'epub') { try { host.scrollIntoView({ block: 'center' }); } catch (e2) {} }
-        }
-        return;
+      var t = n.textContent || '';
+      for (var i = 0; i < t.length; i++) {
+        var ch = t.charAt(i);
+        if (/\s/.test(ch)) { if (norm.length && norm.charAt(norm.length - 1) !== ' ') { norm += ' '; map.push([n, i]); } }
+        else { norm += ch; map.push([n, i]); }
       }
     }
+    var ix = norm.indexOf(key);
+    if (ix < 0) return;
+    var sp = map[ix], ep = map[ix + key.length - 1];
+    if (!sp || !ep) return;
+    var range = doc.createRange();
+    range.setStart(sp[0], sp[1]);
+    range.setEnd(ep[0], ep[1] + 1);
+    var span = doc.createElement('span');
+    span.className = 'pvSay';
+    var est = Math.max(0.8, key.length / 4.2);   // 估算朗读秒数（中文≈4字/秒）
+    span.style.animationDuration = est.toFixed(2) + 's';
+    span.style.webkitAnimationDuration = est.toFixed(2) + 's';
+    var frag = range.extractContents();
+    span.appendChild(frag);
+    range.insertNode(span);
+    __sayHl.span = span;
+    if (docKind !== 'epub') { try { span.scrollIntoView({ block: 'center' }); } catch (e3) {} }
   } catch (e) {}
 }
 function joinItemsAt(items) {
@@ -1240,9 +1263,7 @@ function sayDrawPdf(item) {
       try {
         if (!reading || !curVp) return;
         var cf = c.getContext('2d');
-        cf.setTransform(window.devicePixelRatio || 1, 0, 0, window.devicePixelRatio || 1, 0, 0);
-        cf.clearRect(0, 0, c.width, c.height);
-        cf.fillStyle = 'rgba(255,213,79,.38)';
+        var segs = [], totChars = 0;
         for (var i = 0; i < pg.items.length; i++) {
           var o = pg.offs[i];
           if (!o || o.b <= item.a || o.a >= item.b) continue;
@@ -1250,9 +1271,30 @@ function sayDrawPdf(item) {
           var tr = it.transform || [1, 0, 0, 1, 0, 0];
           var hh = Math.sqrt(tr[2] * tr[2] + tr[3] * tr[3]) || 10;
           var v = curVp.convertToViewportPoint(tr[4], tr[5]);
-          var w = Math.max(24, (it.str || '').length * hh * 0.62);
-          cf.fillRect(Math.max(0, v[0] - 2), Math.max(0, v[1] - hh), Math.min(w, c.width), hh * 1.25);
+          var w = Math.min(Math.max(24, (it.str || '').length * hh * 0.62), c.width);
+          var ch2 = Math.max(1, o.b - Math.max(o.a, item.a));
+          segs.push({ x: Math.max(0, v[0] - 2), y: Math.max(0, v[1] - hh), w: w, h: hh * 1.25, chars: ch2 });
+          totChars += ch2;
         }
+        var est = Math.max(0.8, (item.b - item.a) / 4.2) * 1000;
+        var t0 = performance.now();
+        var tok = (window.__sayDrawTok = (window.__sayDrawTok || 0) + 1);
+        function frame() {
+          if (!reading || window.__sayDrawTok !== tok) return;
+          var p = Math.min(1, (performance.now() - t0) / est);
+          cf.setTransform(window.devicePixelRatio || 1, 0, 0, window.devicePixelRatio || 1, 0, 0);
+          cf.clearRect(0, 0, c.width, c.height);
+          cf.fillStyle = 'rgba(255,213,79,.38)';
+          var acc = 0;
+          for (var j = 0; j < segs.length; j++) {
+            var sg = segs[j];
+            var fillC = Math.max(0, Math.min(sg.chars, p * totChars - acc));
+            if (fillC > 0) cf.fillRect(sg.x, sg.y, sg.w * (fillC / sg.chars), sg.h);
+            acc += sg.chars;
+          }
+          if (p < 1) requestAnimationFrame(frame);
+        }
+        frame();
       } catch (e) {}
     }, 340);
   } catch (e) {}
@@ -1504,7 +1546,7 @@ function applyEpubTheme(d) {
     var ex = d.getElementById('__pvDark');
     if (dark && !ex) {
       var st = d.createElement('style'); st.id = '__pvDark';
-      st.textContent = 'html,body{background:#1b1f27 !important;color:#d8dde6 !important;} a{color:#8ab4ff !important;} img,svg{filter:brightness(.88);} .pvSay{background:rgba(255,196,40,.32) !important;border-radius:4px;}';
+      st.textContent = 'html,body{background:#1b1f27 !important;color:#d8dde6 !important;} a{color:#8ab4ff !important;} img,svg{filter:brightness(.88);} .pvSay{background:linear-gradient(90deg,rgba(255,196,40,.55) 50%,rgba(255,213,79,.08) 50%);background-size:200% 100%;border-radius:4px;-webkit-animation:pvFlow linear forwards;}@-webkit-keyframes pvFlow{from{background-position:100% 0}to{background-position:0 0}}';
       d.head.appendChild(st);
     } else if (!dark && ex) { ex.remove(); }
   } catch (e) {}
