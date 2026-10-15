@@ -1064,7 +1064,7 @@ function stopReading(msg) {
   reading = false;
   localLocked = false;
   readQueue = []; readIdx = 0;
-  sayHlClear();
+  sayUnsplit(); sayHlClear();
   try { var _sc = document.getElementById('ocv'); if (_sc) { var _scx = _sc.getContext('2d'); _scx.setTransform(1, 0, 0, 1, 0, 0); _scx.clearRect(0, 0, _sc.width, _sc.height); } } catch (e) {}
   try { AppBridge.ttsStop(); } catch (e) {}
   try { if (cloudAudio) { cloudAudio.pause(); cloudAudio = null; } } catch (e) {}
@@ -1178,7 +1178,105 @@ function collectPage(n) {
   for (var j = 0; j < docPages.length; j++) readQueue.push({ p: j + 1, s: docPages[j] });
   feedNext();
 }
-// ===== 朗读流动染色：当前朗读的句子在页面上高亮（PDF按文字坐标画块 / DOM类按段落高亮） =====
+// ===== 朗读流动染色 v2（翻译鹦鹉同款模型）：章节一次性分词成token元素，播放期只改背景色（零DOM手术），
+//      云端音频按【实际时长】驱动逐字点亮（音频多长流动多快），本地TTS兜底整句点亮 =====
+var SAY = { tokens: [], norm: '', pos: [], split: false, lit: -1, raf: 0 };
+function saySplitChapter() {
+  SAY.tokens = []; SAY.norm = ''; SAY.pos = []; SAY.lit = -1; SAY.split = false;
+  try {
+    var f = document.querySelector('#epubBox iframe');
+    var d = f && f.contentDocument;
+    if (!d || !d.body || !d.createTreeWalker) return;
+    var total = (d.body.textContent || '').length;
+    if (total > 60000) return;   // 超大章节不分词（性能保护），退回句子路径
+    var walker = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT, null, false);
+    var nodes = [], n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    var re = /([\u4e00-\u9fff\u3000-\u303f\uff00-\uffef])|([A-Za-z0-9'’\-]+)|(\s+)|(.)/g;
+    nodes.forEach(function (node) {
+      var t = node.textContent;
+      if (!t) return;
+      var frag = d.createDocumentFragment();
+      if (!t.trim()) { frag.appendChild(d.createTextNode(t)); }
+      else {
+        var m;
+        while ((m = re.exec(t)) !== null) {
+          if (m[3]) { frag.appendChild(d.createTextNode(m[3])); continue; }
+          var sp = d.createElement('span');
+          sp.className = 'pvTk';
+          sp.textContent = m[0];
+          SAY.pos.push(SAY.norm.length);
+          SAY.norm += m[0];
+          SAY.tokens.push(sp);
+          frag.appendChild(sp);
+        }
+      }
+      try { node.parentNode.replaceChild(frag, node); } catch (e2) {}
+    });
+    SAY.split = SAY.tokens.length > 0;
+  } catch (e) {}
+}
+function sayUnsplit() {
+  try { SAY.raf && cancelAnimationFrame(SAY.raf); } catch (e) {}
+  SAY.raf = 0;
+  try {
+    var f = document.querySelector('#epubBox iframe');
+    var d = f && f.contentDocument;
+    if (d && d.body) {
+      var sps = d.body.querySelectorAll('span.pvTk');
+      for (var i = 0; i < sps.length; i++) {
+        var sp = sps[i], pa = sp.parentNode;
+        if (!pa) continue;
+        pa.replaceChild(d.createTextNode(sp.textContent), sp);
+      }
+      try { d.body.normalize(); } catch (e2) {}
+    }
+  } catch (e) {}
+  SAY.tokens = []; SAY.norm = ''; SAY.pos = []; SAY.split = false; SAY.lit = -1;
+  window.__sayCur = null;
+}
+function sayLitTo(k) {
+  // 逐字点亮到 token 下标 k（累积金色）
+  if (!SAY.split || k < SAY.lit) return;
+  var end = Math.min(k, SAY.tokens.length - 1);
+  for (var i = SAY.lit + 1; i <= end; i++) { SAY.tokens[i].style.background = 'rgba(255,213,79,.55)'; }
+  SAY.lit = Math.max(SAY.lit, end);
+}
+function sayFindRange(sent) {
+  // 在章节 token 归一化文本里定位这句话的 token 区间
+  if (!SAY.split) return null;
+  var key = String(sent || '').replace(/\s+/g, ' ').replace(/^ | $/g, '');
+  if (key.length < 2) return null;
+  var ix = SAY.norm.indexOf(key);
+  if (ix < 0) { ix = SAY.norm.indexOf(key.slice(0, Math.max(6, Math.floor(key.length / 2)))); if (ix < 0) return null; }
+  var lo = 0, hi = SAY.pos.length - 1, i0 = 0, i1 = SAY.pos.length - 1;
+  while (lo <= hi) { var mid = (lo + hi) >> 1; if (SAY.pos[mid] <= ix) { i0 = mid; lo = mid + 1; } else hi = mid - 1; }
+  var endIx = ix + key.length - 1;
+  lo = 0; hi = SAY.pos.length - 1;
+  while (lo <= hi) { var mid2 = (lo + hi) >> 1; if (SAY.pos[mid2] <= endIx) { i1 = mid2; lo = mid2 + 1; } else hi = mid2 - 1; }
+  return { a: i0, b: i1, chars: key.length };
+}
+function sayDriver() {
+  // rAF 循环：按云端音频实际播放进度逐字点亮（音频多长流动多快）
+  if (!reading || SAY.raf === 0) return;
+  try {
+    var cur = window.__sayCur;
+    if (cur && cloudAudio && cloudAudio.duration) {
+      window.__sayDur = cloudAudio.duration;
+      var p = Math.min(1, (cloudAudio.currentTime || 0) / cloudAudio.duration);
+      var litChars = Math.floor(p * cur.chars);
+      if (litChars > 0) {
+        // 字数进度 → token 下标（区间内按 pos 线性映射）
+        var targetChar = SAY.pos[cur.a] + litChars;
+        var k = cur.a;
+        for (var j = cur.b; j >= cur.a; j--) { if (SAY.pos[j] <= targetChar) { k = j; break; } }
+        sayLitTo(k);
+      }
+    }
+  } catch (e) {}
+  SAY.raf = requestAnimationFrame(sayDriver);
+}
+// ===== 兼容旧路径（TXT/MD/DOCX 用段落包裹法；EPUB 改用 token 引擎） =====
 var __sayHl = { span: null };
 function sayHlClear() {
   // 清场式：扫掉书页(Epub iframe)与内容区所有 pvSay，不再依赖旧 span 引用（翻章换页后引用失效会导致金底残留）
@@ -1280,7 +1378,7 @@ function sayDrawPdf(item) {
           segs.push({ x: Math.max(0, v[0] - 2), y: Math.max(0, v[1] - hh), w: w, h: hh * 1.25, chars: ch2 });
           totChars += ch2;
         }
-        var est = Math.max(0.8, (item.b - item.a) / 4.2) * 1000;
+        var est = (window.__sayDur > 0.2 ? window.__sayDur : Math.max(0.8, (item.b - item.a) / 4.2)) * 1000;
         var t0 = performance.now();
         var tok = (window.__sayDrawTok = (window.__sayDrawTok || 0) + 1);
         function frame() {
@@ -1333,6 +1431,19 @@ function feedNext() {
     } catch (e) {}
   }
   if (docKind === 'pdf') sayDrawPdf(item);
+  else if (docKind === 'epub' && SAY.split) {
+    var _rg = sayFindRange(item.s);
+    if (_rg) {
+      window.__sayCur = _rg;
+      var _g = voiceGender();
+      if ((_g === 'default' || localLocked) && !engineLocked) {
+        // 本地TTS无时间轴：整句一次性点亮（兜底）
+        sayLitTo(_rg.b);
+      } else if (!SAY.raf) {
+        SAY.raf = requestAnimationFrame(sayDriver);
+      }
+    } else sayHlDom(item.s);
+  }
   else sayHlDom(item.s);
   readIdx += 1;
   lastItem = { s: item.s, id: 'u' + readIdx };
@@ -1346,6 +1457,8 @@ function readerToggle() {
   if (!docKind) return;
   reading = true; paused = false;
   readQueue = []; readIdx = 0; readPage = pageNum;
+  if (docKind === 'epub') saySplitChapter();   // 章节一次性分词（播放期零DOM手术）
+  window.__sayDur = 0;
   document.getElementById('speak').innerHTML = ic('pause') + '<i>暂停</i>'; document.getElementById('speak').classList.add('onb');
   collectPage(pageNum);
 }
@@ -2175,7 +2288,7 @@ function openEpub(buf) {
           setTimeout(function () {
             try {
               var ifs = document.querySelectorAll('#epubBox iframe');
-              for (var q = 0; q < ifs.length; q++) { attachTwoFinger(ifs[q].contentDocument); attachEpubSwipe(ifs[q].contentDocument); applyEpubTheme(ifs[q].contentDocument); epubFixLineHeight(ifs[q].contentDocument); }
+              for (var q = 0; q < ifs.length; q++) { attachTwoFinger(ifs[q].contentDocument); attachEpubSwipe(ifs[q].contentDocument); applyEpubTheme(ifs[q].contentDocument); epubFixLineHeight(ifs[q].contentDocument); if (reading) saySplitChapter(); }   // 朗读跨章：新章重新分词
             } catch (err) {}
           }, 50);
         });
