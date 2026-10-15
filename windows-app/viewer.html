@@ -1407,14 +1407,22 @@ function epubFixLineHeight(d) {
   } catch (e) {}
 }
 function epubOnLayoutChange() {
-  // 顶栏显隐后可用空间变化：EPUB 按新高度重排分页（防抖，连划只重排最后一次）
+  // 顶栏显隐后按新空间重排；【变动前先缓存当前阅读位置】，重排后锚回该处——频繁上下划也能精确恢复原状
   if (docKind !== 'epub' || !window.epubRendition) return;
   try {
+    var now = Date.now();
+    var hidden = document.body.classList.contains('hidebar');
+    var myKey = hidden ? '__epubPosOff' : '__epubPosOn';
+    var otherKey = hidden ? '__epubPosOn' : '__epubPosOff';
+    if (window._epubCfi) window[otherKey] = { cfi: window._epubCfi, t: now };   // 离开旧状态：记下旧状态的位置和时间
     clearTimeout(window.__epubLzT);
     window.__epubLzT = setTimeout(function () {
       try {
         epubFixPaging();
-        if (window.epubRendition.resize) window.epubRendition.resize(); else if (window._epubCfi) window.epubRendition.display(window._epubCfi);
+        var save = window[myKey];
+        var cfi = (save && now - save.t < 10000) ? save.cfi : window._epubCfi;   // 10秒内往返=精确还原原状；隔久了(读了一阵)=锚定当前位置不回跳
+        if (cfi) window.epubRendition.display(cfi);
+        else if (window.epubRendition.resize) window.epubRendition.resize();
       } catch (e) {}
     }, 350);
   } catch (e) {}
