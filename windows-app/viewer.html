@@ -1383,9 +1383,11 @@ function attachTwoFinger(d) {
 }
 function epubFixPaging() {
   // 分页切进行中间 = 列高/行高带小数 → 容器高度取整，正文行高也归整，让分页线落在行间
+  // 注意：先还原成随容器的弹性高度再量，否则上次钉死的像素值会让藏栏后的新空间量不到
   try {
     var eb = document.getElementById('epubBox');
     if (eb) {
+      eb.style.height = 'calc(100% - 8px)';
       var h = Math.floor(eb.getBoundingClientRect().height);
       if (h > 100) eb.style.height = h + 'px';
     }
