@@ -1404,6 +1404,19 @@ function epubFixLineHeight(d) {
     }
   } catch (e) {}
 }
+function epubOnLayoutChange() {
+  // 顶栏显隐后可用空间变化：EPUB 按新高度重排分页（防抖，连划只重排最后一次）
+  if (docKind !== 'epub' || !window.epubRendition) return;
+  try {
+    clearTimeout(window.__epubLzT);
+    window.__epubLzT = setTimeout(function () {
+      try {
+        epubFixPaging();
+        if (window.epubRendition.resize) window.epubRendition.resize(); else if (window._epubCfi) window.epubRendition.display(window._epubCfi);
+      } catch (e) {}
+    }, 350);
+  } catch (e) {}
+}
 function applyEpubTheme(d) {
   // 夜间模式：书籍 iframe 自带黑字在暗底上看不见 → 注入暗底浅字样式；日间则移除
   try {
@@ -1451,6 +1464,7 @@ function attachEpubSwipe(d) {
       if (dy < 0) document.body.classList.add('hidebar');
       else document.body.classList.remove('hidebar');
       setTimeout(updateStageCenter, 30);
+      epubOnLayoutChange();
     }
     else if (Math.abs(dx) < 25 && Math.abs(dy) < 25) {
       // 顶部轻点 = 下划（隐藏状态下点顶部恢复顶栏，与主页面行为一致）
@@ -1458,6 +1472,7 @@ function attachEpubSwipe(d) {
       if (_ty < 90 && document.body.classList.contains('hidebar')) {
         document.body.classList.remove('hidebar');
         setTimeout(updateStageCenter, 30);
+        epubOnLayoutChange();
       }
     }
   }, { passive: true });
@@ -1514,6 +1529,7 @@ stage.addEventListener('touchmove', function (e) {
         }
       }
       if (!(docKind === 'audio' && _ap && _ap.classList.contains('compact'))) setTimeout(updateStageCenter, 30);
+      epubOnLayoutChange();
     }
   }
   if (!pinchActive || e.touches.length !== 2) return;
@@ -1587,6 +1603,7 @@ stage.addEventListener('touchend', function (e) {
       if (_apC && _apC.classList.contains('compact')) { _apC.classList.remove('compact'); setInfo('已恢复布局'); }
       else { document.body.classList.remove('hidebar'); }
       setTimeout(updateStageCenter, 30);
+      epubOnLayoutChange();
       lastTap = 0;
       return;
     }
