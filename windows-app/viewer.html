@@ -1976,7 +1976,11 @@ function epubCollect(onDone, startIdx) {
     if (i >= items.length) { onDone(texts.join('\n')); return; }
     try {
       items[i].load(book.load.bind(book)).then(function (doc) {
-        try { texts.push(doc && doc.body ? doc.body.textContent : ''); } catch (e) {}
+        try {
+          // 定制版 epub.js 的 load 返回 HTMLHtmlElement（根元素）而非 Document，doc.body 恒为 undefined → 必须用 querySelector 取 body
+          var bd = doc && (doc.body || (doc.querySelector ? doc.querySelector('body') : null));
+          texts.push(bd ? String(bd.textContent || '') : (doc ? String(doc.textContent || '') : ''));
+        } catch (e) {}
         try { items[i].unload(); } catch (e) {}
         i += 1; step();
       }).catch(function () { i += 1; step(); });
