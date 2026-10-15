@@ -3425,6 +3425,7 @@ function updateLoopBtn() {
 var _lrcLines = [], _lrcCache = {};
 function _loadLrc(base) {
   _lrcLines = [];
+  window.__lrcReady = 0; window.__lrcRatio = 1; window.__lrcOffset = 0;
   var el = document.getElementById('aLrc');
   if (el) { el.innerHTML = '<div style="color:#8e959f;padding:8px">🔍 搜索歌词中…</div>'; el._curIdx = -1; }
   if (_lrcCache[base]) { _lrcLines = _lrcCache[base]; _renderLrcList(); return; }
@@ -3491,21 +3492,95 @@ function _parseLrc(txt) {
   });
   return out.sort(function (a, b) { return a.t - b.t; });
 }
+// ===== 歌词锚点对齐：找音频实际人声区间，把LRC时间轴线性映射进去 =====
+// 有PCM数据→能量检测精确锚点；流媒体→启发式估算（live版前奏短/尾奏长）
+function _lrcSetup() {
+  window.__lrcReady = 1;
+  window.__lrcRatio = 1;
+  window.__lrcOffset = 0;
+  try {
+    if (_lrcLines.length < 3 || !curAudioEl || curAudioEl.duration < 30) return;
+    var dur = curAudioEl.duration;
+    var firstTs = _lrcLines[0].t;
+    var lastTs = _lrcLines[_lrcLines.length - 1].t;
+    var lrcSpan = lastTs - firstTs;
+    if (lrcSpan < 20 || firstTs < 0) return;
+
+    // 判断是否需要对齐：总时长偏差>8% 才启动
+    var tempo = dur / (lastTs + 3);
+    if (Math.abs(tempo - 1) < 0.05) return;   // 已同步，不处理
+
+    if (_asrBuf && _asrBuf.byteLength > 10000) {
+      // 有PCM数据：能量检测精确锚点
+      _lrcDetectAnchors(_asrBuf, function(va) {
+        if (va && va.end - va.start > lrcSpan * 0.6) {
+          _lrcApply(firstTs, lastTs, va.start, va.end);
+        }
+      });
+    } else {
+      // 流媒体：启发式（live版：前奏短、尾奏长）
+      var vocalStart = Math.min(firstTs * 0.25, 12);
+      var vocalEnd = Math.min(lastTs * tempo, dur - 5);
+      if (vocalEnd - vocalStart > lrcSpan * 0.6) {
+        _lrcApply(firstTs, lastTs, vocalStart, vocalEnd);
+      }
+    }
+  } catch (e) {}
+}
+function _lrcApply(lrcStart, lrcEnd, audioStart, audioEnd) {
+  var span = audioEnd - audioStart;
+  if (span < 10) return;
+  window.__lrcRatio = (lrcEnd - lrcStart) / span;
+  window.__lrcOffset = lrcStart - audioStart * window.__lrcRatio;
+}
+function _lrcDetectAnchors(buf, cb) {
+  // PCM能量检测：找持续有声区间 = 人声区间（排除前奏/尾奏/掌声）
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    ctx.decodeAudioData(buf.slice(0)).then(function(ab) {
+      try { ctx.close(); } catch (e2) {}
+      try {
+        var sr = ab.sampleRate;
+        var ch = ab.getChannelData(0);
+        var win = Math.floor(sr * 0.25);
+        var nW = Math.floor(ch.length / win);
+        if (nW < 40) { cb(null); return; }
+        var energy = new Float32Array(nW);
+        for (var i = 0; i < nW; i++) {
+          var sum = 0;
+          for (var j = 0; j < win; j++) { var v = ch[i * win + j]; sum += v * v; }
+          energy[i] = Math.sqrt(sum / win);
+        }
+        var sorted = Array.from(energy).sort(function(a, b) { return a - b; });
+        var median = sorted[Math.floor(nW / 2)];
+        var maxE = sorted[nW - 1];
+        var thresh = Math.max(median * 2.5, maxE * 0.12);
+
+        // 起点：≥4个连续窗口有声（≥1秒）
+        var start = -1, cc = 0;
+        for (var i = 0; i < nW; i++) {
+          if (energy[i] > thresh) { cc++; if (cc >= 4) { start = (i - 3) * 0.25; break; } }
+          else cc = 0;
+        }
+        // 终点：从尾部找≥4个连续有声，往回推
+        var end = -1; cc = 0;
+        for (var i = nW - 1; i >= 0; i--) {
+          if (energy[i] > thresh) { cc++; if (cc >= 4) { end = (i + 4) * 0.25; break; } }
+          else cc = 0;
+        }
+        if (start >= 0 && end > start) cb({ start: start, end: Math.min(end, ab.duration) });
+        else cb(null);
+      } catch (e3) { cb(null); }
+    }).catch(function() { try { ctx.close(); } catch (e4) {} cb(null); });
+  } catch (e) { cb(null); }
+}
 function _syncLrc() {
   if (_asrView) return;  // 翻译视图下不刷歌词，避免两个同步器互相覆盖 #aLrc 导致跳变
   if (!_lrcLines.length || !curAudioEl || _lrcLines[0].t < 0) return;
   var now = curAudioEl.currentTime;
-  // Live/Remix版速度与LRC源版本不同→渐进漂移：按音频实际时长与LRC最后时间戳等比缩放
-  try {
-    if (!window.__lrcScale && _lrcLines.length > 3 && curAudioEl.duration > 10) {
-      var _lt = _lrcLines[_lrcLines.length - 1].t || 0;
-      if (_lt > 30) {
-        var _sc = curAudioEl.duration / (_lt + 3);
-        window.__lrcScale = (_sc > 0.8 && _sc < 1.35 && Math.abs(_sc - 1) > 0.02) ? _sc : 1;
-      } else window.__lrcScale = 1;
-    }
-    if (window.__lrcScale && window.__lrcScale !== 1) now = now / window.__lrcScale;
-  } catch (e) { window.__lrcScale = 1; }
+  // 锚点对齐：LRC歌词区间线性映射到音频实际人声区间（同时消除前奏/尾奏差和速度差）
+  try { if (!window.__lrcReady) _lrcSetup(); } catch (e) { window.__lrcReady = 1; }
+  if (window.__lrcRatio && window.__lrcRatio !== 1) now = now * window.__lrcRatio + window.__lrcOffset;
   var idx = -1;
   for (var i = 0; i < _lrcLines.length; i++) { if (_lrcLines[i].t <= now) idx = i; else break; }
   var el = document.getElementById('aLrc');
