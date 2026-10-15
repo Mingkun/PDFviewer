@@ -3501,7 +3501,7 @@ function _syncLrc() {
       var _lt = _lrcLines[_lrcLines.length - 1].t || 0;
       if (_lt > 30) {
         var _sc = curAudioEl.duration / (_lt + 3);
-        window.__lrcScale = (_sc > 0.9 && _sc < 1.15 && Math.abs(_sc - 1) > 0.02) ? _sc : 1;
+        window.__lrcScale = (_sc > 0.8 && _sc < 1.35 && Math.abs(_sc - 1) > 0.02) ? _sc : 1;
       } else window.__lrcScale = 1;
     }
     if (window.__lrcScale && window.__lrcScale !== 1) now = now / window.__lrcScale;
