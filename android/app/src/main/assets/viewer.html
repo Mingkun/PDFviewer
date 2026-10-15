@@ -3230,6 +3230,14 @@ function openAudio(buf, name, srcUrl) {
     setTimeout(updateStageCenter, 30);
   }
   if (_iconEl) { _iconEl.style.cursor = 'pointer'; _iconEl.onclick = _audioToggleCompact; }
+  if (_apEl) {
+    _apEl.addEventListener('click', function (ev) {
+      // 只响应播放条(.aBar)以上的空白区域（图标/歌名已有各自handler，不重复）
+      if (ev.target.closest && (ev.target.closest('.aBar') || ev.target.closest('.aLoop') || ev.target.closest('.aLrc') || ev.target.closest('audio') || ev.target.closest('button') || ev.target.closest('input'))) return;
+      if (ev.target === _iconEl || ev.target === _titleEl || (_titleEl && _titleEl.contains(ev.target))) return;
+      _audioToggleCompact();
+    });
+  }
   if (_titleEl) { _titleEl.style.cursor = 'pointer'; _titleEl.onclick = _audioToggleCompact; }
   setTotal(1); document.getElementById('pageInput').value = 1;
   updateStageCenter();
