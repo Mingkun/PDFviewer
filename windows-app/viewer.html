@@ -1570,7 +1570,18 @@ stage.addEventListener('touchend', function (e) {
   }
 }, { passive: true });
 stage.addEventListener('dblclick', function () { fitAll(); });
-window.addEventListener('resize', function () { updateStageCenter(); });
+window.addEventListener('resize', function () {
+  updateStageCenter();
+  // 仅真实窗口尺寸变化才重排 EPUB 分页（上下划切换顶栏不再触发，避免页面跳动）
+  if (docKind === 'epub' && window.epubRendition) {
+    try {
+      clearTimeout(window.__epubRzT);
+      window.__epubRzT = setTimeout(function () {
+        try { if (window.epubRendition.resize) window.epubRendition.resize(); else if (window._epubCfi) window.epubRendition.display(window._epubCfi); } catch (e2) {}
+      }, 300);
+    } catch (e3) {}
+  }
+});
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 var docKind = null, docPages = [];
 var contentEl = document.getElementById('content');
@@ -2086,14 +2097,7 @@ function updateStageCenter() {
     if (docKind === 'epub') { fits = false; ctrContent = false; }   // epub的居中布局会改变contentEl尺寸导致分页底部裁切
     document.body.classList.toggle('ctrcontent', fits);
     if (contentEl) contentEl.classList.toggle('ctr', ctrContent);
-    if (docKind === 'epub' && window.epubRendition) {
-      try {
-        clearTimeout(window.__epubRzT);
-        window.__epubRzT = setTimeout(function () {
-          try { if (window.epubRendition.resize) window.epubRendition.resize(); else if (window._epubCfi) window.epubRendition.display(window._epubCfi); } catch (e2) {}
-        }, 250);
-      } catch (e3) {}
-    }
+
   } catch (e) {
   }
 }

@@ -11,8 +11,8 @@ android {
         applicationId = "com.mingkun.pdfviewer"
         minSdk = 26
         targetSdk = 34
-        versionCode = 230
-        versionName = "4.134"
+        versionCode = 231
+        versionName = "4.135"
     }
 
     buildTypes {
