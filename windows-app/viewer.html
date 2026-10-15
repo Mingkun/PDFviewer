@@ -1218,7 +1218,8 @@ function collectPage(n) {
       // 朗读同步：各章文字起点（扣除当前页偏移），feedNext 按进度跳章
       window.__epubMarks = (marks || []).map(function (m) { return { i: m.i, c: Math.max(0, m.c - _off) }; });
       window.__epubOff0 = _off;
-      window.__epubMarkSec = -1;
+      window.__epubMarkSec = _esi;        // 起读就在当前章：画面停在当前页，不要跳回章首
+      window.__epubPageStart = _off;      // 页级同步基线 = 当前页章内起点
       window.__epubReadChars = 0;
       for (var k = 0; k < docPages.length; k++) readQueue.push({ p: k + 1, s: docPages[k] });
       readPage = docPages.length;
