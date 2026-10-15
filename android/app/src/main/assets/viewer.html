@@ -1181,12 +1181,21 @@ function collectPage(n) {
 // ===== 朗读流动染色：当前朗读的句子在页面上高亮（PDF按文字坐标画块 / DOM类按段落高亮） =====
 var __sayHl = { span: null };
 function sayHlClear() {
+  // 清场式：扫掉书页(Epub iframe)与内容区所有 pvSay，不再依赖旧 span 引用（翻章换页后引用失效会导致金底残留）
   try {
-    if (__sayHl.span && __sayHl.span.parentNode) {
-      var parent = __sayHl.span.parentNode;
-      while (__sayHl.span.firstChild) parent.insertBefore(__sayHl.span.firstChild, __sayHl.span);
-      parent.removeChild(__sayHl.span);
-      try { parent.normalize(); } catch (e2) {}
+    var roots = [];
+    try { var f = document.querySelector('#epubBox iframe'); if (f && f.contentDocument && f.contentDocument.body) roots.push(f.contentDocument.body); } catch (e1) {}
+    if (contentEl) roots.push(contentEl);
+    for (var r = 0; r < roots.length; r++) {
+      var sps = roots[r].querySelectorAll('.pvSay');
+      for (var i = 0; i < sps.length; i++) {
+        var sp = sps[i];
+        var pa = sp.parentNode;
+        if (!pa) continue;
+        while (sp.firstChild) pa.insertBefore(sp.firstChild, sp);
+        pa.removeChild(sp);
+        try { pa.normalize(); } catch (e2) {}
+      }
     }
   } catch (e) {}
   __sayHl.span = null;
