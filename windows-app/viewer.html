@@ -1418,11 +1418,15 @@ function epubFixLineHeight(d) {
   } catch (e) {}
 }
 function epubOnLayoutChange() {
-  // 【v4.150 决策】顶栏显隐不再触发 EPUB 重排：真机上跨分页几何的位置保持无法可靠做到（CFI定位/原生resize/偏移走页均实测漂移），
-  // 频繁上下划造成页码漂移伤体验 → EPUB 布局保持不变（腾出的空间留白），换取绝对稳定零漂移。PDF等其它内容仍自动利用新空间。
-  // 转屏等真实窗口尺寸变化仍会重排（见 resize 监听）。
+  // 【v4.151】显隐不重排（零漂移），只做视觉小改进：藏栏腾出的空间把书页垂直居中（纯CSS位移，瞬时、不动分页）
   if (docKind !== 'epub' || !window.epubRendition) return;
-  return;   // 显隐切换：什么都不做（保持当前分页与位置）
+  try {
+    var st = document.getElementById('stage'), eb = document.getElementById('epubBox');
+    if (!st || !eb) return;
+    var free = st.clientHeight - eb.offsetHeight;
+    eb.style.marginTop = (free > 4 ? Math.floor(free / 2) : 0) + 'px';
+    return;
+  } catch (e) {}
   try {
     var now = Date.now();
     var hidden = document.body.classList.contains('hidebar');
