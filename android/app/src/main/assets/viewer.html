@@ -1853,6 +1853,7 @@ stage.addEventListener('touchend', function (e) {
       }
     } catch (e9) {}
     if (!_onCtl && _tY < _tapLimit && (document.body.classList.contains('hidebar') || (_apC && _apC.classList.contains('compact')))) {
+      window.__compactTs = Date.now();   // 冷却标记：阻止随后的 click 双触发
       if (_apC && _apC.classList.contains('compact')) { _apC.classList.remove('compact'); setInfo('已恢复布局'); }
       else { document.body.classList.remove('hidebar'); }
       setTimeout(updateStageCenter, 30);
@@ -3223,6 +3224,7 @@ function openAudio(buf, name, srcUrl) {
   var _iconEl = contentEl.querySelector('.aIcon');
   var _titleEl = contentEl.querySelector('.aTitle');
   function _audioToggleCompact() {
+    if (window.__compactTs && Date.now() - window.__compactTs < 300) return;   // touchend 刚处理过，跳过 click 双触发
     var ap = document.getElementById('audioPlayer');
     if (!ap) return;
     if (ap.classList.contains('compact')) {
@@ -3236,14 +3238,8 @@ function openAudio(buf, name, srcUrl) {
     setTimeout(updateStageCenter, 30);
   }
   if (_iconEl) { _iconEl.style.cursor = 'pointer'; _iconEl.onclick = _audioToggleCompact; }
-  if (_apEl) {
-    _apEl.addEventListener('click', function (ev) {
-      // 只响应播放条(.aBar)以上的空白区域（图标/歌名已有各自handler，不重复）
-      if (ev.target.closest && (ev.target.closest('.aBar') || ev.target.closest('.aLoop') || ev.target.closest('.aLrc') || ev.target.closest('audio') || ev.target.closest('button') || ev.target.closest('input'))) return;
-      if (ev.target === _iconEl || ev.target === _titleEl || (_titleEl && _titleEl.contains(ev.target))) return;
-      _audioToggleCompact();
-    });
-  }
+  // 注意：不给 _apEl 加容器级 click 监听——与 stage touchend 形成"touch退出→click又进入"双触发；
+  // 手机端"点上方区域"由 stage touchend 处理，桌面端点图标/歌名由各自 onclick 处理
   if (_titleEl) { _titleEl.style.cursor = 'pointer'; _titleEl.onclick = _audioToggleCompact; }
   setTotal(1); document.getElementById('pageInput').value = 1;
   updateStageCenter();
