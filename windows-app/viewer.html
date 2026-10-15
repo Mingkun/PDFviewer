@@ -1379,6 +1379,29 @@ function attachTwoFinger(d) {
   }, { passive: true });
   d.addEventListener('touchmove', function (e) { if (e.touches.length === 2) twoFingerCheck(e); }, { passive: false });
 }
+function epubFixPaging() {
+  // 分页切进行中间 = 列高/行高带小数 → 容器高度取整，正文行高也归整，让分页线落在行间
+  try {
+    var eb = document.getElementById('epubBox');
+    if (eb) {
+      var h = Math.floor(eb.getBoundingClientRect().height);
+      if (h > 100) eb.style.height = h + 'px';
+    }
+  } catch (e) {}
+}
+function epubFixLineHeight(d) {
+  try {
+    if (!d || !d.body || !d.defaultView) return;
+    var lh = parseFloat(d.defaultView.getComputedStyle(d.body).lineHeight);
+    if (!lh || isNaN(lh) || lh < 10) return;
+    var ipx = Math.round(lh);
+    if (ipx !== lh) {
+      var st = d.getElementById('__pvLH');
+      if (!st) { st = d.createElement('style'); st.id = '__pvLH'; (d.head || d.documentElement).appendChild(st); }
+      st.textContent = 'body{line-height:' + ipx + 'px !important;}';
+    }
+  } catch (e) {}
+}
 function applyEpubTheme(d) {
   // 夜间模式：书籍 iframe 自带黑字在暗底上看不见 → 注入暗底浅字样式；日间则移除
   try {
@@ -1577,7 +1600,7 @@ window.addEventListener('resize', function () {
     try {
       clearTimeout(window.__epubRzT);
       window.__epubRzT = setTimeout(function () {
-        try { if (window.epubRendition.resize) window.epubRendition.resize(); else if (window._epubCfi) window.epubRendition.display(window._epubCfi); } catch (e2) {}
+        try { epubFixPaging(); if (window.epubRendition.resize) window.epubRendition.resize(); else if (window._epubCfi) window.epubRendition.display(window._epubCfi); } catch (e2) {}
       }, 300);
     } catch (e3) {}
   }
@@ -1989,7 +2012,7 @@ function openEpub(buf) {
   loadScript('libs/epub.min.js', function (err) {
     if (err || typeof ePub === 'undefined' || typeof JSZip === 'undefined') { setInfo('打开失败（EPUB组件未就绪）'); return; }
     contentEl.innerHTML = '<div id="epubBox" style="width:100%;height:calc(100% - 8px);background:#fff"></div>';
-    contentEl.style.display = 'block'; updateStageCenter();
+    contentEl.style.display = 'block'; updateStageCenter(); epubFixPaging();
     try {
       epubBytes = buf.slice(0);
       var book = ePub(buf);
@@ -1999,7 +2022,7 @@ function openEpub(buf) {
           setTimeout(function () {
             try {
               var ifs = document.querySelectorAll('#epubBox iframe');
-              for (var q = 0; q < ifs.length; q++) { attachTwoFinger(ifs[q].contentDocument); attachEpubSwipe(ifs[q].contentDocument); applyEpubTheme(ifs[q].contentDocument); }
+              for (var q = 0; q < ifs.length; q++) { attachTwoFinger(ifs[q].contentDocument); attachEpubSwipe(ifs[q].contentDocument); applyEpubTheme(ifs[q].contentDocument); epubFixLineHeight(ifs[q].contentDocument); }
             } catch (err) {}
           }, 50);
         });
