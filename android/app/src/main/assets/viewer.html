@@ -44,6 +44,8 @@
   #hintShort { display:inline-block; padding:6px 20px; border-radius:16px; background:rgba(138,148,166,.13); font-size:12px; cursor:pointer; -webkit-user-select:none; user-select:none; }
   body.dark #hintShort { background:rgba(255,255,255,.07); }
   #hintFull { cursor:pointer; }
+  .pvSay { background: rgba(255,213,79,.45) !important; border-radius: 4px; box-shadow: 0 0 0 2px rgba(255,213,79,.22); }
+  body.dark .pvSay { background: rgba(255,196,40,.30) !important; }
 
   #hintSep { display:none; width:56%; margin:0 auto 8px; align-items:center; justify-content:center; gap:10px; }
   #hintSep .sline { flex:1; height:2px; border-radius:1px; background:rgba(0,0,0,.35); box-shadow:0 1px 1px rgba(255,255,255,.06); }
@@ -1063,6 +1065,8 @@ function stopReading(msg) {
   reading = false;
   localLocked = false;
   readQueue = []; readIdx = 0;
+  sayHlClear();
+  try { var _sc = document.getElementById('ocv'); if (_sc) { var _scx = _sc.getContext('2d'); _scx.setTransform(1, 0, 0, 1, 0, 0); _scx.clearRect(0, 0, _sc.width, _sc.height); } } catch (e) {}
   try { AppBridge.ttsStop(); } catch (e) {}
   try { if (cloudAudio) { cloudAudio.pause(); cloudAudio = null; } } catch (e) {}
   cloudCache = {};
@@ -1126,14 +1130,23 @@ function collectPage(n) {
   if (docKind === 'pdf') {
     pdf.getPage(n).then(function (page) { return page.getTextContent(); }).then(function (tc) {
       if (!reading) return;
-      var txt = joinItems(tc.items || []);
+      var jm = joinItemsAt(tc.items || []);
+      var txt = jm.txt;
+      if (!window.__sayPages) window.__sayPages = {};
+      window.__sayPages[n] = { items: tc.items || [], offs: jm.offs };
       var sents = txt.trim() ? toChunks(splitS(txt)) : [];
       if (!sents.length) {
         if (n < pdf.numPages) { readPage = n + 1; displayPage(readPage); collectPage(n + 1); }
         else stopReading('没有可朗读的文字');
         return;
       }
-      for (var i = 0; i < sents.length; i++) readQueue.push({ p: n, s: sents[i] });
+      var pos = 0;
+      for (var i = 0; i < sents.length; i++) {
+        var ix = txt.indexOf(sents[i], pos);
+        if (ix < 0) ix = pos;
+        readQueue.push({ p: n, s: sents[i], a: ix, b: ix + sents[i].length });
+        pos = ix + sents[i].length;
+      }
       feedNext();
     }).catch(function () { stopReading(); });
     return;
@@ -1166,6 +1179,84 @@ function collectPage(n) {
   for (var j = 0; j < docPages.length; j++) readQueue.push({ p: j + 1, s: docPages[j] });
   feedNext();
 }
+// ===== 朗读流动染色：当前朗读的句子在页面上高亮（PDF按文字坐标画块 / DOM类按段落高亮） =====
+var __sayHl = { span: null };
+function sayHlClear() {
+  try { if (__sayHl.span) __sayHl.span.classList.remove('pvSay'); } catch (e) {}
+  __sayHl.span = null;
+}
+function sayHlDom(sent) {
+  sayHlClear();
+  try {
+    var root = null;
+    if (docKind === 'epub') { var f = document.querySelector('#epubBox iframe'); root = f && f.contentDocument && f.contentDocument.body; }
+    else if (contentEl && contentEl.style.display !== 'none') root = contentEl;
+    if (!root || !sent) return;
+    var key = String(sent).replace(/\s+/g, '');
+    if (key.length > 16) key = key.slice(0, 16);
+    if (key.length < 4) return;
+    var doc = root.ownerDocument;
+    if (!doc.createTreeWalker) return;
+    var walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+    var n;
+    while ((n = walker.nextNode())) {
+      if ((n.textContent || '').replace(/\s+/g, '').indexOf(key) >= 0) {
+        var host = n.parentElement;
+        if (host) {
+          host.classList.add('pvSay');
+          __sayHl.span = host;
+          if (docKind !== 'epub') { try { host.scrollIntoView({ block: 'center' }); } catch (e2) {} }
+        }
+        return;
+      }
+    }
+  } catch (e) {}
+}
+function joinItemsAt(items) {
+  // 与 joinItems 相同拼接，同时记录每个 item 的字符区间（染色映射用）
+  var out = '', offs = [];
+  for (var i = 0; i < items.length; i++) {
+    var s2 = items[i].str || '';
+    if (!s2) { offs.push(null); continue; }
+    var ins = '';
+    if (out.length) {
+      var lc = out.charAt(out.length - 1), fc = s2.charAt(0);
+      if (/[A-Za-z0-9]/.test(lc) && /[A-Za-z0-9]/.test(fc)) ins = ' ';
+    }
+    var st2 = out.length + ins.length;
+    out += ins + s2;
+    offs.push({ a: st2, b: out.length });
+  }
+  return { txt: out, offs: offs };
+}
+function sayDrawPdf(item) {
+  try {
+    if (docKind !== 'pdf' || !pdf || !curVp || !item || item.a === undefined) return;
+    var pg = window.__sayPages && window.__sayPages[item.p];
+    if (!pg) return;
+    var c = document.getElementById('ocv');
+    if (!c || c.style.display === 'none') return;
+    setTimeout(function () {
+      try {
+        if (!reading || !curVp) return;
+        var cf = c.getContext('2d');
+        cf.setTransform(window.devicePixelRatio || 1, 0, 0, window.devicePixelRatio || 1, 0, 0);
+        cf.clearRect(0, 0, c.width, c.height);
+        cf.fillStyle = 'rgba(255,213,79,.38)';
+        for (var i = 0; i < pg.items.length; i++) {
+          var o = pg.offs[i];
+          if (!o || o.b <= item.a || o.a >= item.b) continue;
+          var it = pg.items[i];
+          var tr = it.transform || [1, 0, 0, 1, 0, 0];
+          var hh = Math.sqrt(tr[2] * tr[2] + tr[3] * tr[3]) || 10;
+          var v = curVp.convertToViewportPoint(tr[4], tr[5]);
+          var w = Math.max(24, (it.str || '').length * hh * 0.62);
+          cf.fillRect(Math.max(0, v[0] - 2), Math.max(0, v[1] - hh), Math.min(w, c.width), hh * 1.25);
+        }
+      } catch (e) {}
+    }, 340);
+  } catch (e) {}
+}
 function feedNext() {
   if (!reading || paused) return;
   if (readIdx >= readQueue.length) {
@@ -1193,6 +1284,8 @@ function feedNext() {
       }
     } catch (e) {}
   }
+  if (docKind === 'pdf') sayDrawPdf(item);
+  else sayHlDom(item.s);
   readIdx += 1;
   lastItem = { s: item.s, id: 'u' + readIdx };
   speakText(item.s, lastItem.id);
@@ -1411,7 +1504,7 @@ function applyEpubTheme(d) {
     var ex = d.getElementById('__pvDark');
     if (dark && !ex) {
       var st = d.createElement('style'); st.id = '__pvDark';
-      st.textContent = 'html,body{background:#1b1f27 !important;color:#d8dde6 !important;} a{color:#8ab4ff !important;} img,svg{filter:brightness(.88);}';
+      st.textContent = 'html,body{background:#1b1f27 !important;color:#d8dde6 !important;} a{color:#8ab4ff !important;} img,svg{filter:brightness(.88);} .pvSay{background:rgba(255,196,40,.32) !important;border-radius:4px;}';
       d.head.appendChild(st);
     } else if (!dark && ex) { ex.remove(); }
   } catch (e) {}
