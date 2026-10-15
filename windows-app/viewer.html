@@ -1431,15 +1431,18 @@ function epubOnLayoutChange() {
       try {
         epubFixPaging();
         var save = window[myKey];
+        window.__epubWalkGen = (window.__epubWalkGen || 0) + 1;   // 走页代数：新一轮开始即作废旧一轮（连划时旧轮不得再动可见性/翻页）
+        var gen = window.__epubWalkGen;
+        var box = document.getElementById('epubBox');
         if (save && now - save.t < 10000) {
-          // 重排后CFI直显会偏一页：先回原章(display本身会按新盒高重排)，等落定后按章内字偏移走到原页
+          // 重排后CFI直显会偏一页：先回原章，等落定后按章内字偏移走到原页
           // 走页过程隐藏阅读区，落位后再显示——视觉上就是直接跳回缓存的那页
-          var box = document.getElementById('epubBox');
           if (box) box.style.visibility = 'hidden';
-          var done = function () { if (box) box.style.visibility = ''; };
+          var done = function () { if (window.__epubWalkGen === gen && box) box.style.visibility = ''; };
           var p0 = null;
           try { p0 = window.epubRendition.display(save.sec); } catch (e3) { done(); }
           var walk = function (n) {
+            if (window.__epubWalkGen !== gen) return;   // 已被更新的切换接管，立即退出
             var cur;
             try { cur = epubCurPageOffset(); } catch (e4) { cur = -1; }
             if (n > 200 || cur < 0 || cur >= save.off) { done(); return; }
@@ -1449,8 +1452,11 @@ function epubOnLayoutChange() {
           };
           var start = function () { setTimeout(function () { walk(0); }, 260); };
           if (p0 && p0.then) p0.then(start, start); else start();
-        } else if (window._epubCfi) {
-          try { window.epubRendition.display(window._epubCfi); } catch (e6) {}
+        } else {
+          if (box) box.style.visibility = '';   // 无走页路径也要确保可见（防止上一轮隐藏后被中断遗留）
+          if (window._epubCfi) {
+            try { window.epubRendition.display(window._epubCfi); } catch (e6) {}
+          }
         }
       } catch (e) {}
     }, 350);
