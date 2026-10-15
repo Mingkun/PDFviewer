@@ -1964,7 +1964,7 @@ function openEpub(buf) {
       window.epubBook = book;
       window.epubRendition = rendition;
       rendition.on('rendered', function (section) { window.epubSectionHref = section && section.href; if (editMode && docKind === 'epub') setEpubEditable(true); });
-      rendition.on('relocated', function (loc) { try { var _cf = loc && loc.start && loc.start.cfi; if (_cf) { window._epubCfi = _cf; if (!window._epubFirstCfi && !window._epubResumed) window._epubFirstCfi = _cf; try { var _ps = epubCurPageOffset(_cf); if (typeof _ps === 'number' && _ps >= 0) { if (window.__epubPageStart !== undefined && _ps > window.__epubPageStart + 50) window.__epubPageChars = _ps - window.__epubPageStart; window.__epubPageStart = _ps; } else window.__epubPageStart = 0; } catch (e3) {} try { savePos(); } catch (e2) {} } } catch (e) {} });
+      rendition.on('relocated', function (loc) { try { var _cf = loc && loc.start && loc.start.cfi; if (_cf) { window._epubCfi = _cf; if (!window._epubFirstCfi && !window._epubResumed) window._epubFirstCfi = _cf; try { var _ps = epubCurPageOffset(_cf); if (typeof _ps === 'number' && _ps >= 0) { if (window.__epubPageStart !== undefined && _ps > window.__epubPageStart + 50) window.__epubPageChars = _ps - window.__epubPageStart; window.__epubPageStart = _ps; } else window.__epubPageStart = 0; } catch (e3) {} try { savePos(); } catch (e2) {} } var _pg = loc && loc.start && loc.start.displayed; if (_pg && _pg.total) { try { window.__epubPgCur = _pg.page || 1; setTotal(_pg.total); pageNum = window.__epubPgCur; var _pi = document.getElementById('pageInput'); if (_pi) _pi.value = pageNum; var _p2 = document.getElementById('pslider'); if (_p2) { _p2.max = _pg.total; _p2.value = pageNum; } } catch (e4) {} } } catch (e) {} });
       docKind = 'epub';
       setTotal(0);
       var _sp2 = loadPos();
@@ -2030,7 +2030,18 @@ function epubCollect(onDone, startIdx) {
   }
   step();
 }
+function epubGotoPage(n) {
+  try {
+    var cur = window.__epubPgCur || 1;
+    var d = (n || 1) - cur;
+    if (!d || !window.epubRendition) return;
+    var step = d > 0 ? function () { return window.epubRendition.next(); } : function () { return window.epubRendition.prev(); };
+    var pr = Promise.resolve();
+    for (var k = 0; k < Math.abs(d); k++) pr = pr.then(step);
+  } catch (e) {}
+}
 function displayPage(n) {
+  if (docKind === 'epub') { epubGotoPage(n); return; }
   pageNum = n;
   if (docKind === 'pdf') { render(); return; }
   if (docKind === 'pptx') { showSlide(n); document.getElementById('pageInput').value = n; document.getElementById('pslider').value = n; return; }
