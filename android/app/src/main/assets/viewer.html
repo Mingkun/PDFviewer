@@ -3220,8 +3220,7 @@ function openAudio(buf, name, srcUrl) {
     if (!ap) return;
     if (ap.classList.contains('compact')) {
       ap.classList.remove('compact');
-      document.body.classList.remove('hidebar');
-      setInfo('已恢复布局');
+      setInfo('已恢复布局 · 再点顶部区域显示顶栏');
     } else {
       document.body.classList.add('hidebar');
       ap.classList.add('compact');
