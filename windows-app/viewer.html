@@ -1202,12 +1202,16 @@ function collectPage(n) {
     var _off = epubCurPageOffset();
     if (_off > 0) setInfo('从当前页开始朗读…');
     else if (_esi > 0) setInfo('从第 ' + (_esi + 1) + ' 章开始朗读…');
-    epubCollect(function (fullText) {
+    epubCollect(function (fullText, marks) {
       if (!reading) return;
       var txt = String(fullText || '');
       if (_off > 0 && _off < txt.length) txt = txt.slice(_off);
       docPages = chunksFromText(txt);
       if (!docPages.length) { stopReading('没有可朗读的文字'); return; }
+      // 朗读同步：各章文字起点（扣除当前页偏移），feedNext 按进度跳章
+      window.__epubMarks = (marks || []).map(function (m) { return { i: m.i, c: Math.max(0, m.c - _off) }; });
+      window.__epubMarkSec = -1;
+      window.__epubReadChars = 0;
       for (var k = 0; k < docPages.length; k++) readQueue.push({ p: k + 1, s: docPages[k] });
       readPage = docPages.length;
       feedNext();
@@ -1228,6 +1232,19 @@ function feedNext() {
   }
   var item = readQueue[readIdx];
   if (docKind === 'pdf' || docKind === 'pptx') displayPage(item.p);
+  if (docKind === 'epub') {
+    // 朗读同步翻章：累计已读字数落在哪一章就把画面跳到哪一章
+    try {
+      window.__epubReadChars = (window.__epubReadChars || 0) + item.s.length;
+      var mks = window.__epubMarks || [];
+      var want = mks.length ? mks[0].i : -1;
+      for (var mi = 0; mi < mks.length; mi++) { if (mks[mi].c <= window.__epubReadChars) want = mks[mi].i; else break; }
+      if (want >= 0 && want !== window.__epubMarkSec && window.epubRendition) {
+        window.__epubMarkSec = want;
+        window.epubRendition.display(want);
+      }
+    } catch (e) {}
+  }
   readIdx += 1;
   lastItem = { s: item.s, id: 'u' + readIdx };
   speakText(item.s, lastItem.id);
@@ -2010,15 +2027,20 @@ function epubCollect(onDone, startIdx) {
   var book = window.epubBook;
   var texts = [];
   var items = book && book.spine ? (book.spine.spineItems || []) : [];
+  var marks = [];   // 各章在合并文本中的字符起点（朗读同步翻章用）
+  var total = 0;
   var i = startIdx || 0;
   function step() {
-    if (i >= items.length) { onDone(texts.join('\n')); return; }
+    if (i >= items.length) { onDone(texts.join('\n'), marks); return; }
+    marks.push({ i: i, c: total });
     try {
       items[i].load(book.load.bind(book)).then(function (doc) {
         try {
           // 定制版 epub.js 的 load 返回 HTMLHtmlElement（根元素）而非 Document，doc.body 恒为 undefined → 必须用 querySelector 取 body
           var bd = doc && (doc.body || (doc.querySelector ? doc.querySelector('body') : null));
-          texts.push(bd ? String(bd.textContent || '') : (doc ? String(doc.textContent || '') : ''));
+          var tx = bd ? String(bd.textContent || '') : (doc ? String(doc.textContent || '') : '');
+          texts.push(tx);
+          total += tx.length + 1;
         } catch (e) {}
         try { items[i].unload(); } catch (e) {}
         i += 1; step();
