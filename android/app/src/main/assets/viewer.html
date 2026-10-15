@@ -1373,18 +1373,23 @@ function epubOnLayoutChange() {
           // 走页过程隐藏阅读区，落位后再显示——视觉上就是直接跳回缓存的那页
           if (box) box.style.visibility = 'hidden';
           var done = function () { if (window.__epubWalkGen === gen && box) box.style.visibility = ''; };
+          // 不再从章首逐页走：display(CFI)粗落到目标附近（±1页），再最多前进/回退一步微调——全程隐藏，落位直显
           var p0 = null;
-          try { p0 = window.epubRendition.display(save.sec); } catch (e3) { done(); }
-          var walk = function (n) {
-            if (window.__epubWalkGen !== gen) return;   // 已被更新的切换接管，立即退出
+          try { p0 = window.epubRendition.display(save.cfi || window._epubCfi); } catch (e3) { done(); }
+          var adj = function (n, didPrev) {
+            if (window.__epubWalkGen !== gen) return;
             var cur;
             try { cur = epubCurPageOffset(); } catch (e4) { cur = -1; }
-            if (n > 200 || cur < 0 || cur >= save.off) { done(); return; }
+            if (n > 6 || cur < 0 || didPrev) { done(); return; }
+            var mv = null;
+            if (cur < save.off - 120) mv = 'next';
+            else if (cur > save.off + 120) mv = 'prev';
+            if (!mv) { done(); return; }
             try {
-              window.epubRendition.next().then(function () { setTimeout(function () { walk(n + 1); }, 160); }).catch(function () { done(); });
+              window.epubRendition[mv]().then(function () { setTimeout(function () { adj(n + 1, mv === 'prev'); }, 180); }).catch(function () { done(); });
             } catch (e5) { done(); }
           };
-          var start = function () { setTimeout(function () { walk(0); }, 260); };
+          var start = function () { setTimeout(function () { adj(0, false); }, 300); };
           if (p0 && p0.then) p0.then(start, start); else start();
         } else {
           if (box) box.style.visibility = '';   // 无走页路径也要确保可见（防止上一轮隐藏后被中断遗留）
