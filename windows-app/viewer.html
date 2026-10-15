@@ -1345,6 +1345,25 @@ function attachTwoFinger(d) {
   }, { passive: true });
   d.addEventListener('touchmove', function (e) { if (e.touches.length === 2) twoFingerCheck(e); }, { passive: false });
 }
+function applyEpubTheme(d) {
+  // 夜间模式：书籍 iframe 自带黑字在暗底上看不见 → 注入暗底浅字样式；日间则移除
+  try {
+    if (!d || !d.head) return;
+    var dark = document.body.classList.contains('dark');
+    var ex = d.getElementById('__pvDark');
+    if (dark && !ex) {
+      var st = d.createElement('style'); st.id = '__pvDark';
+      st.textContent = 'html,body{background:#1b1f27 !important;color:#d8dde6 !important;} a{color:#8ab4ff !important;} img,svg{filter:brightness(.88);}';
+      d.head.appendChild(st);
+    } else if (!dark && ex) { ex.remove(); }
+  } catch (e) {}
+}
+function refreshEpubTheme() {
+  try {
+    var ifs = document.querySelectorAll('#epubBox iframe');
+    for (var q = 0; q < ifs.length; q++) applyEpubTheme(ifs[q].contentDocument);
+  } catch (e) {}
+}
 function attachEpubSwipe(d) {
   // epub 内容在 iframe 里，触摸事件传不到页面的手势处理器 → 必须在 iframe 内识别横划并转成翻页
   if (!d || d.__es) return;
@@ -1935,7 +1954,7 @@ function openEpub(buf) {
           setTimeout(function () {
             try {
               var ifs = document.querySelectorAll('#epubBox iframe');
-              for (var q = 0; q < ifs.length; q++) { attachTwoFinger(ifs[q].contentDocument); attachEpubSwipe(ifs[q].contentDocument); }
+              for (var q = 0; q < ifs.length; q++) { attachTwoFinger(ifs[q].contentDocument); attachEpubSwipe(ifs[q].contentDocument); applyEpubTheme(ifs[q].contentDocument); }
             } catch (err) {}
           }, 50);
         });
@@ -2710,6 +2729,7 @@ document.getElementById('nightb').onclick = function () {
   var on = document.body.classList.contains('dark');
   try { localStorage.setItem('pv_dark', on ? '1' : '0'); } catch (e) {}
   this.innerHTML = (on ? ic('sun') + '<i>日间</i>' : ic('moon') + '<i>夜间</i>');
+  refreshEpubTheme();
   setInfo(on ? '夜间模式已开启' : '已切回日间模式');
 };
 try { if (localStorage.getItem('pv_dark') === '1') { document.body.classList.add('dark'); document.getElementById('nightb').innerHTML = ic('sun') + '<i>日间</i>'; } } catch (e) {}
