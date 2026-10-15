@@ -44,9 +44,7 @@
   #hintShort { display:inline-block; padding:6px 20px; border-radius:16px; background:rgba(138,148,166,.13); font-size:12px; cursor:pointer; -webkit-user-select:none; user-select:none; }
   body.dark #hintShort { background:rgba(255,255,255,.07); }
   #hintFull { cursor:pointer; }
-  .pvSay { background: linear-gradient(90deg, rgba(255,196,40,.62) 50%, rgba(255,213,79,.10) 50%); background-size: 200% 100%; border-radius: 4px; -webkit-animation: pvFlow linear forwards; animation: pvFlow linear forwards; }
-  @-webkit-keyframes pvFlow { from { background-position: 100% 0; } to { background-position: 0 0; } }
-  @keyframes pvFlow { from { background-position: 100% 0; } to { background-position: 0 0; } }
+  .pvSay { background: rgba(255,213,79,.50); border-radius: 4px; box-shadow: 0 0 0 1px rgba(230,180,20,.25); }
 
   #hintSep { display:none; width:56%; margin:0 auto 8px; align-items:center; justify-content:center; gap:10px; }
   #hintSep .sline { flex:1; height:2px; border-radius:1px; background:rgba(0,0,0,.35); box-shadow:0 1px 1px rgba(255,255,255,.06); }
@@ -1225,9 +1223,6 @@ function sayHlDom(sent) {
     range.setEnd(ep[0], ep[1] + 1);
     var span = doc.createElement('span');
     span.className = 'pvSay';
-    var est = Math.max(0.8, key.length / 4.2);   // 估算朗读秒数（中文≈4字/秒）
-    span.style.animationDuration = est.toFixed(2) + 's';
-    span.style.webkitAnimationDuration = est.toFixed(2) + 's';
     var frag = range.extractContents();
     span.appendChild(frag);
     range.insertNode(span);
@@ -1547,7 +1542,7 @@ function applyEpubTheme(d) {
     // 朗读染色样式：无论日夜都要在（此前只在夜间表里 → 日间朗读染色隐形）
     if (!d.getElementById('__pvSayCss')) {
       var saySt = d.createElement('style'); saySt.id = '__pvSayCss';
-      saySt.textContent = '.pvSay{background:linear-gradient(90deg,rgba(255,196,40,.55) 50%,rgba(255,213,79,.10) 50%);background-size:200% 100%;border-radius:4px;-webkit-animation:pvFlow linear forwards;}@-webkit-keyframes pvFlow{from{background-position:100% 0}to{background-position:0 0}}';
+      saySt.textContent = '.pvSay{background:rgba(255,213,79,.50);border-radius:4px;box-shadow:0 0 0 1px rgba(230,180,20,.25);}';
       d.head.appendChild(saySt);
     }
     var dark = document.body.classList.contains('dark');
