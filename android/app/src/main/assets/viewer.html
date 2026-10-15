@@ -1348,15 +1348,28 @@ function epubOnLayoutChange() {
     var hidden = document.body.classList.contains('hidebar');
     var myKey = hidden ? '__epubPosOff' : '__epubPosOn';
     var otherKey = hidden ? '__epubPosOn' : '__epubPosOff';
-    if (window._epubCfi) window[otherKey] = { cfi: window._epubCfi, t: now };   // 离开旧状态：记下旧状态的位置和时间
+    if (window._epubCfi) window[otherKey] = { cfi: window._epubCfi, off: epubCurPageOffset(), sec: epubSpineIndex(), t: now };   // 离开旧状态：记下位置(章+章内字偏移)和时间
     clearTimeout(window.__epubLzT);
     window.__epubLzT = setTimeout(function () {
       try {
         epubFixPaging();
+        try { if (window.epubRendition.resize) window.epubRendition.resize(); } catch (e2) {}
         var save = window[myKey];
-        var cfi = (save && now - save.t < 10000) ? save.cfi : window._epubCfi;   // 10秒内往返=精确还原原状；隔久了(读了一阵)=锚定当前位置不回跳
-        if (cfi) window.epubRendition.display(cfi);
-        else if (window.epubRendition.resize) window.epubRendition.resize();
+        if (save && now - save.t < 10000) {
+          // 重排后CFI直显会偏一页：先回原章，再按章内字偏移正向走到原页（精确恢复原状）
+          var p0 = null;
+          try { p0 = window.epubRendition.display(save.sec); } catch (e3) {}
+          var walk = function (n) {
+            var cur;
+            try { cur = epubCurPageOffset(); } catch (e4) { cur = -1; }
+            if (n > 200 || cur < 0 || cur >= save.off) return;
+            try { window.epubRendition.next().then(function () { walk(n + 1); }).catch(function () {}); } catch (e5) {}
+          };
+          var start = function () { walk(0); };
+          if (p0 && p0.then) p0.then(start, start); else start();
+        } else if (window._epubCfi) {
+          try { window.epubRendition.display(window._epubCfi); } catch (e6) {}
+        }
       } catch (e) {}
     }, 350);
   } catch (e) {}
