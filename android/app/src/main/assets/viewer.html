@@ -1152,7 +1152,8 @@ function collectPage(n) {
   }
   if (docKind === 'epub') {
     var _esi = epubSpineIndex();
-    var _off = epubCurPageOffset();
+    var _off = epubCurPageOffset();   // 必须在分词前取：分词会改变DOM节点结构，旧CFI解析会错位
+    saySplitChapter();   // 偏移已备好，现在做章节一次性分词（播放期零DOM手术）
     if (_off > 0) setInfo('从当前页开始朗读…');
     else if (_esi > 0) setInfo('从第 ' + (_esi + 1) + ' 章开始朗读…');
     epubCollect(function (fullText, marks) {
@@ -1457,7 +1458,6 @@ function readerToggle() {
   if (!docKind) return;
   reading = true; paused = false;
   readQueue = []; readIdx = 0; readPage = pageNum;
-  if (docKind === 'epub') saySplitChapter();   // 章节一次性分词（播放期零DOM手术）
   window.__sayDur = 0;
   document.getElementById('speak').innerHTML = ic('pause') + '<i>暂停</i>'; document.getElementById('speak').classList.add('onb');
   collectPage(pageNum);
