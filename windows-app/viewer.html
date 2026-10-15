@@ -1394,15 +1394,26 @@ function epubFixPaging() {
   } catch (e) {}
 }
 function epubFixLineHeight(d) {
+  // 逐元素归整：标题/段落/列表/强调等任何小数行高都会让分页切进文字，全部取整像素；图片显示高度同理
   try {
     if (!d || !d.body || !d.defaultView) return;
-    var lh = parseFloat(d.defaultView.getComputedStyle(d.body).lineHeight);
-    if (!lh || isNaN(lh) || lh < 10) return;
-    var ipx = Math.round(lh);
-    if (ipx !== lh) {
-      var st = d.getElementById('__pvLH');
-      if (!st) { st = d.createElement('style'); st.id = '__pvLH'; (d.head || d.documentElement).appendChild(st); }
-      st.textContent = 'body{line-height:' + ipx + 'px !important;}';
+    var cs = d.defaultView.getComputedStyle.bind(d.defaultView);
+    var blh = parseFloat(cs(d.body).lineHeight);
+    if (blh && !isNaN(blh) && blh >= 8 && Math.round(blh) !== blh) d.body.style.lineHeight = Math.round(blh) + 'px';
+    var els = d.body.querySelectorAll('p,div,li,span,h1,h2,h3,h4,h5,h6,blockquote,td,th,dd,dt,em,strong,b,i,a,section,article');
+    for (var i = 0; i < els.length && i < 3000; i++) {
+      try {
+        var el = els[i];
+        var lh = parseFloat(cs(el).lineHeight);
+        if (lh && !isNaN(lh) && lh >= 8 && Math.round(lh) !== lh) el.style.lineHeight = Math.round(lh) + 'px';
+      } catch (e2) {}
+    }
+    var ims = d.body.querySelectorAll('img');
+    for (var j = 0; j < ims.length && j < 300; j++) {
+      try {
+        var ih = parseFloat(cs(ims[j]).height);
+        if (ih && !isNaN(ih) && ih >= 4 && Math.round(ih) !== ih) ims[j].style.height = Math.round(ih) + 'px';
+      } catch (e3) {}
     }
   } catch (e) {}
 }
