@@ -1199,10 +1199,14 @@ function collectPage(n) {
   }
   if (docKind === 'epub') {
     var _esi = epubSpineIndex();
-    if (_esi > 0) setInfo('从第 ' + (_esi + 1) + ' 章开始朗读…');
+    var _off = epubCurPageOffset();
+    if (_off > 0) setInfo('从当前页开始朗读…');
+    else if (_esi > 0) setInfo('从第 ' + (_esi + 1) + ' 章开始朗读…');
     epubCollect(function (fullText) {
       if (!reading) return;
-      docPages = chunksFromText(fullText || '');
+      var txt = String(fullText || '');
+      if (_off > 0 && _off < txt.length) txt = txt.slice(_off);
+      docPages = chunksFromText(txt);
       if (!docPages.length) { stopReading('没有可朗读的文字'); return; }
       for (var k = 0; k < docPages.length; k++) readQueue.push({ p: k + 1, s: docPages[k] });
       readPage = docPages.length;
@@ -1985,6 +1989,22 @@ function epubSpineIndex() {
     for (var i = 0; i < items.length; i++) { if (items[i].href === href) return i; }
   } catch (e) {}
   return 0;
+}
+function epubCurPageOffset() {
+  // 当前页之前本章已有多少字（CFI→Range 量出，量不出回退 0=从章首）
+  try {
+    var cfi = window._epubCfi;
+    if (!cfi || !window.epubRendition || !window.epubRendition.getRange) return 0;
+    var rng = window.epubRendition.getRange(cfi);
+    if (!rng || !rng.startContainer) return 0;
+    var f = document.querySelector('#epubBox iframe');
+    var d = f && f.contentDocument;
+    if (!d || !d.body || rng.startContainer.ownerDocument !== d) return 0;
+    var r2 = d.createRange();
+    r2.setStart(d.body, 0);
+    r2.setEnd(rng.startContainer, rng.startOffset);
+    return String(r2.toString() || '').length;
+  } catch (e) { return 0; }
 }
 function epubCollect(onDone, startIdx) {
   var book = window.epubBook;
