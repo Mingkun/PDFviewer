@@ -3277,6 +3277,26 @@ function openAudio(buf, name, srcUrl) {
     '<div class="aInfo">支持上一首/下一首/循环/连播/歌词/AI翻译 · 双指右划关闭</div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
+  // 点歌名上方区域（图标+歌名）= 切换紧凑模式（等同上划）
+  var _apEl = contentEl.querySelector('#audioPlayer');
+  var _iconEl = contentEl.querySelector('.aIcon');
+  var _titleEl = contentEl.querySelector('.aTitle');
+  function _audioToggleCompact() {
+    var ap = document.getElementById('audioPlayer');
+    if (!ap) return;
+    if (ap.classList.contains('compact')) {
+      ap.classList.remove('compact');
+      document.body.classList.remove('hidebar');
+      setInfo('已恢复布局');
+    } else {
+      document.body.classList.add('hidebar');
+      ap.classList.add('compact');
+      setInfo('紧凑模式 · 点击歌名恢复');
+    }
+    setTimeout(updateStageCenter, 30);
+  }
+  if (_iconEl) { _iconEl.style.cursor = 'pointer'; _iconEl.onclick = _audioToggleCompact; }
+  if (_titleEl) { _titleEl.style.cursor = 'pointer'; _titleEl.onclick = _audioToggleCompact; }
   setTotal(1); document.getElementById('pageInput').value = 1;
   updateStageCenter();
   // 循环播放
