@@ -3495,6 +3495,17 @@ function _syncLrc() {
   if (_asrView) return;  // 翻译视图下不刷歌词，避免两个同步器互相覆盖 #aLrc 导致跳变
   if (!_lrcLines.length || !curAudioEl || _lrcLines[0].t < 0) return;
   var now = curAudioEl.currentTime;
+  // Live/Remix版速度与LRC源版本不同→渐进漂移：按音频实际时长与LRC最后时间戳等比缩放
+  try {
+    if (!window.__lrcScale && _lrcLines.length > 3 && curAudioEl.duration > 10) {
+      var _lt = _lrcLines[_lrcLines.length - 1].t || 0;
+      if (_lt > 30) {
+        var _sc = curAudioEl.duration / (_lt + 3);
+        window.__lrcScale = (_sc > 0.9 && _sc < 1.15 && Math.abs(_sc - 1) > 0.02) ? _sc : 1;
+      } else window.__lrcScale = 1;
+    }
+    if (window.__lrcScale && window.__lrcScale !== 1) now = now / window.__lrcScale;
+  } catch (e) { window.__lrcScale = 1; }
   var idx = -1;
   for (var i = 0; i < _lrcLines.length; i++) { if (_lrcLines[i].t <= now) idx = i; else break; }
   var el = document.getElementById('aLrc');
