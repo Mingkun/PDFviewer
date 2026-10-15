@@ -1432,17 +1432,20 @@ function epubOnLayoutChange() {
         epubFixPaging();
         var save = window[myKey];
         if (save && now - save.t < 10000) {
-          // 重排后CFI直显会偏一页：先回原章(display本身会按新盒高重排)，等落定后按章内字偏移逐步走到原页
-          // 每步等 relocated 落定再量，否则量到上一页的位置会多走一步
+          // 重排后CFI直显会偏一页：先回原章(display本身会按新盒高重排)，等落定后按章内字偏移走到原页
+          // 走页过程隐藏阅读区，落位后再显示——视觉上就是直接跳回缓存的那页
+          var box = document.getElementById('epubBox');
+          if (box) box.style.visibility = 'hidden';
+          var done = function () { if (box) box.style.visibility = ''; };
           var p0 = null;
-          try { p0 = window.epubRendition.display(save.sec); } catch (e3) {}
+          try { p0 = window.epubRendition.display(save.sec); } catch (e3) { done(); }
           var walk = function (n) {
             var cur;
             try { cur = epubCurPageOffset(); } catch (e4) { cur = -1; }
-            if (n > 200 || cur < 0 || cur >= save.off) return;
+            if (n > 200 || cur < 0 || cur >= save.off) { done(); return; }
             try {
-              window.epubRendition.next().then(function () { setTimeout(function () { walk(n + 1); }, 160); }).catch(function () {});
-            } catch (e5) {}
+              window.epubRendition.next().then(function () { setTimeout(function () { walk(n + 1); }, 160); }).catch(function () { done(); });
+            } catch (e5) { done(); }
           };
           var start = function () { setTimeout(function () { walk(0); }, 260); };
           if (p0 && p0.then) p0.then(start, start); else start();
