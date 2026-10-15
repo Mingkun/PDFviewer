@@ -1368,35 +1368,30 @@ function epubOnLayoutChange() {
         window.__epubWalkGen = (window.__epubWalkGen || 0) + 1;   // 走页代数：新一轮开始即作废旧一轮（连划时旧轮不得再动可见性/翻页）
         var gen = window.__epubWalkGen;
         var box = document.getElementById('epubBox');
-        if (save && now - save.t < 10000) {
-          // 重排后CFI直显会偏一页：先回原章，等落定后按章内字偏移走到原页
-          // 走页过程隐藏阅读区，落位后再显示——视觉上就是直接跳回缓存的那页
-          if (box) box.style.visibility = 'hidden';
-          var done = function () { if (window.__epubWalkGen === gen && box) box.style.visibility = ''; };
-          // 不再从章首逐页走：display(CFI)粗落到目标附近（±1页），再最多前进/回退一步微调——全程隐藏，落位直显
-          var p0 = null;
-          try { p0 = window.epubRendition.display(save.cfi || window._epubCfi); } catch (e3) { done(); }
-          var adj = function (n, didPrev) {
-            if (window.__epubWalkGen !== gen) return;
-            var cur;
-            try { cur = epubCurPageOffset(); } catch (e4) { cur = -1; }
-            if (n > 6 || cur < 0 || didPrev) { done(); return; }
-            var mv = null;
-            if (cur < save.off - 120) mv = 'next';
-            else if (cur > save.off + 120) mv = 'prev';
-            if (!mv) { done(); return; }
-            try {
-              window.epubRendition[mv]().then(function () { setTimeout(function () { adj(n + 1, mv === 'prev'); }, 180); }).catch(function () { done(); });
-            } catch (e5) { done(); }
-          };
-          var start = function () { setTimeout(function () { adj(0, false); }, 300); };
-          if (p0 && p0.then) p0.then(start, start); else start();
-        } else {
-          if (box) box.style.visibility = '';   // 无走页路径也要确保可见（防止上一轮隐藏后被中断遗留）
-          if (window._epubCfi) {
-            try { window.epubRendition.display(window._epubCfi); } catch (e6) {}
-          }
-        }
+        if (box) box.style.visibility = 'hidden';
+        var done = function () { if (window.__epubWalkGen === gen && box) box.style.visibility = ''; };
+        // 真机CFI直落不可靠(落到远处再补步=看得见翻页) → 引擎原生resize()：变尺寸自动保位置、瞬时无走页
+        try { if (window.epubRendition.resize) window.epubRendition.resize(); } catch (e2) {}
+        if (save && now - save.t < 10000 && !isNaN(save.off)) {
+          // resize落在"包含当前内容的页"，可能与该状态缓存页起点差一页 → 最多一步校正精确回位
+          setTimeout(function () {
+            var adj = function (n, didPrev) {
+              if (window.__epubWalkGen !== gen) return;
+              var cur;
+              try { cur = epubCurPageOffset(); } catch (e4) { cur = -1; }
+              if (n > 2 || cur < 0 || didPrev) { done(); return; }
+              var diff = save.off - cur;
+              var mv = null;
+              if (diff > 150) mv = 'next';
+              else if (diff < -150) mv = 'prev';
+              if (!mv) { done(); return; }
+              try {
+                window.epubRendition[mv]().then(function () { setTimeout(function () { adj(n + 1, mv === 'prev'); }, 180); }).catch(function () { done(); });
+              } catch (e5) { done(); }
+            };
+            adj(0, false);
+          }, 320);
+        } else setTimeout(done, 350);
       } catch (e) {}
     }, 350);
   } catch (e) {}
