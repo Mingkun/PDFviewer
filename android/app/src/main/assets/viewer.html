@@ -103,7 +103,7 @@
   #audioPlayer .asrEn.on { color:#ff5a5a; font-weight:600; }
   #audioPlayer.compact { gap:4px; padding:6px 10px; justify-content:flex-start; padding-top:24px; }
   #audioPlayer.compact .aIcon { display:none !important; }
-  #audioPlayer.compact .aTitle { font-size:12px; margin:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:14px 0; }
+  #audioPlayer.compact .aTitle { font-size:12px; margin:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #audioPlayer.compact .aBar { width:min(85%,380px); }
   #audioPlayer.compact .aLoop button { padding:2px 8px; font-size:11px; }
   #audioPlayer.compact .aInfo { display:none !important; }
@@ -1845,15 +1845,7 @@ stage.addEventListener('touchend', function (e) {
     var _tY = e.changedTouches[0].clientY;
     var _onCtl = e.target && e.target.closest && e.target.closest('audio,video,input,button,.aBar,.aLoop');
     var _apC = docKind === 'audio' ? document.getElementById('audioPlayer') : null;
-    var _tapLimit = 90;
-    try {
-      if (docKind === 'audio' && _apC && _apC.classList.contains('compact')) {
-        var _barEl = _apC.querySelector('.aBar');
-        if (_barEl) _tapLimit = Math.max(90, _barEl.getBoundingClientRect().top + 10);
-      }
-    } catch (e9) {}
-    if (!_onCtl && _tY < _tapLimit && (document.body.classList.contains('hidebar') || (_apC && _apC.classList.contains('compact')))) {
-      window.__compactTs = Date.now();   // 冷却标记：阻止随后的 click 双触发
+    if (!_onCtl && _tY < 90 && (document.body.classList.contains('hidebar') || (_apC && _apC.classList.contains('compact')))) {
       if (_apC && _apC.classList.contains('compact')) { _apC.classList.remove('compact'); setInfo('已恢复布局'); }
       else { document.body.classList.remove('hidebar'); }
       setTimeout(updateStageCenter, 30);
@@ -3219,28 +3211,6 @@ function openAudio(buf, name, srcUrl) {
     '<div class="aInfo">支持上一首/下一首/循环/连播/歌词/AI翻译 · 双指右划关闭</div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
-  // 点歌名上方区域（图标+歌名）= 切换紧凑模式（等同上划）
-  var _apEl = contentEl.querySelector('#audioPlayer');
-  var _iconEl = contentEl.querySelector('.aIcon');
-  var _titleEl = contentEl.querySelector('.aTitle');
-  function _audioToggleCompact() {
-    if (window.__compactTs && Date.now() - window.__compactTs < 300) return;   // touchend 刚处理过，跳过 click 双触发
-    var ap = document.getElementById('audioPlayer');
-    if (!ap) return;
-    if (ap.classList.contains('compact')) {
-      ap.classList.remove('compact');
-      setInfo('已恢复布局 · 再点顶部区域显示顶栏');
-    } else {
-      document.body.classList.add('hidebar');
-      ap.classList.add('compact');
-      setInfo('紧凑模式 · 点击歌名恢复');
-    }
-    setTimeout(updateStageCenter, 30);
-  }
-  if (_iconEl) { _iconEl.style.cursor = 'pointer'; _iconEl.onclick = _audioToggleCompact; }
-  // 注意：不给 _apEl 加容器级 click 监听——与 stage touchend 形成"touch退出→click又进入"双触发；
-  // 手机端"点上方区域"由 stage touchend 处理，桌面端点图标/歌名由各自 onclick 处理
-  if (_titleEl) { _titleEl.style.cursor = 'pointer'; _titleEl.onclick = _audioToggleCompact; }
   setTotal(1); document.getElementById('pageInput').value = 1;
   updateStageCenter();
   // 循环播放
