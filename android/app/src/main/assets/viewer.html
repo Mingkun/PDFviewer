@@ -103,7 +103,7 @@
   #audioPlayer .asrEn.on { color:#ff5a5a; font-weight:600; }
   #audioPlayer.compact { gap:4px; padding:6px 10px; justify-content:flex-start; padding-top:24px; }
   #audioPlayer.compact .aIcon { display:none !important; }
-  #audioPlayer.compact .aTitle { font-size:12px; margin:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #audioPlayer.compact .aTitle { font-size:12px; margin:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:14px 0; }
   #audioPlayer.compact .aBar { width:min(85%,380px); }
   #audioPlayer.compact .aLoop button { padding:2px 8px; font-size:11px; }
   #audioPlayer.compact .aInfo { display:none !important; }
@@ -1845,7 +1845,14 @@ stage.addEventListener('touchend', function (e) {
     var _tY = e.changedTouches[0].clientY;
     var _onCtl = e.target && e.target.closest && e.target.closest('audio,video,input,button,.aBar,.aLoop');
     var _apC = docKind === 'audio' ? document.getElementById('audioPlayer') : null;
-    if (!_onCtl && _tY < 90 && (document.body.classList.contains('hidebar') || (_apC && _apC.classList.contains('compact')))) {
+    var _tapLimit = 90;
+    try {
+      if (docKind === 'audio' && _apC && _apC.classList.contains('compact')) {
+        var _barEl = _apC.querySelector('.aBar');
+        if (_barEl) _tapLimit = Math.max(90, _barEl.getBoundingClientRect().top + 10);
+      }
+    } catch (e9) {}
+    if (!_onCtl && _tY < _tapLimit && (document.body.classList.contains('hidebar') || (_apC && _apC.classList.contains('compact')))) {
       if (_apC && _apC.classList.contains('compact')) { _apC.classList.remove('compact'); setInfo('已恢复布局'); }
       else { document.body.classList.remove('hidebar'); }
       setTimeout(updateStageCenter, 30);
