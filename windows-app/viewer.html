@@ -1325,7 +1325,7 @@ function sayDrawPdf(item) {
     if (!pg) return;
     var c = document.getElementById('ocv');
     if (!c || c.style.display === 'none') return;
-    setTimeout(function () {
+    var drawOnce = function () {
       try {
         if (!reading || !curVp) return;
         var cf = c.getContext('2d');
@@ -1362,7 +1362,9 @@ function sayDrawPdf(item) {
         }
         frame();
       } catch (e) {}
-    }, 340);
+    };
+    setTimeout(drawOnce, 340);
+    setTimeout(drawOnce, 1100);
   } catch (e) {}
 }
 function feedNext() {
@@ -1608,6 +1610,12 @@ function applyEpubTheme(d) {
   // 夜间模式：书籍 iframe 自带黑字在暗底上看不见 → 注入暗底浅字样式；日间则移除
   try {
     if (!d || !d.head) return;
+    // 朗读染色样式：无论日夜都要在（此前只在夜间表里 → 日间朗读染色隐形）
+    if (!d.getElementById('__pvSayCss')) {
+      var saySt = d.createElement('style'); saySt.id = '__pvSayCss';
+      saySt.textContent = '.pvSay{background:linear-gradient(90deg,rgba(255,196,40,.55) 50%,rgba(255,213,79,.10) 50%);background-size:200% 100%;border-radius:4px;-webkit-animation:pvFlow linear forwards;}@-webkit-keyframes pvFlow{from{background-position:100% 0}to{background-position:0 0}}';
+      d.head.appendChild(saySt);
+    }
     var dark = document.body.classList.contains('dark');
     var ex = d.getElementById('__pvDark');
     if (dark && !ex) {
