@@ -1210,6 +1210,7 @@ function collectPage(n) {
       if (!docPages.length) { stopReading('没有可朗读的文字'); return; }
       // 朗读同步：各章文字起点（扣除当前页偏移），feedNext 按进度跳章
       window.__epubMarks = (marks || []).map(function (m) { return { i: m.i, c: Math.max(0, m.c - _off) }; });
+      window.__epubOff0 = _off;
       window.__epubMarkSec = -1;
       window.__epubReadChars = 0;
       for (var k = 0; k < docPages.length; k++) readQueue.push({ p: k + 1, s: docPages[k] });
@@ -1233,15 +1234,20 @@ function feedNext() {
   var item = readQueue[readIdx];
   if (docKind === 'pdf' || docKind === 'pptx') displayPage(item.p);
   if (docKind === 'epub') {
-    // 朗读同步翻章：累计已读字数落在哪一章就把画面跳到哪一章
+    // 朗读同步：跨章跳章 + 章内按已读字数翻页（页字数由 relocated 自适应校准）
     try {
       window.__epubReadChars = (window.__epubReadChars || 0) + item.s.length;
       var mks = window.__epubMarks || [];
-      var want = mks.length ? mks[0].i : -1;
-      for (var mi = 0; mi < mks.length; mi++) { if (mks[mi].c <= window.__epubReadChars) want = mks[mi].i; else break; }
+      var want = mks.length ? mks[0].i : -1, secBase = mks.length ? mks[0].c : 0;
+      for (var mi = 0; mi < mks.length; mi++) { if (mks[mi].c <= window.__epubReadChars) { want = mks[mi].i; secBase = mks[mi].c; } else break; }
       if (want >= 0 && want !== window.__epubMarkSec && window.epubRendition) {
         window.__epubMarkSec = want;
         window.epubRendition.display(want);
+      } else if (window.epubRendition && window.__epubPageStart !== undefined) {
+        var off0 = window.__epubOff0 || 0;
+        var posInSec = window.__epubReadChars - secBase + (mks.length && want === mks[0].i ? off0 : 0);
+        var pc = window.__epubPageChars || 500;
+        if (posInSec >= window.__epubPageStart + pc) { try { window.epubRendition.next(); } catch (e2) {} }
       }
     } catch (e) {}
   }
@@ -1964,7 +1970,7 @@ function openEpub(buf) {
   loadScript('libs/jszip.min.js', function () {
   loadScript('libs/epub.min.js', function (err) {
     if (err || typeof ePub === 'undefined' || typeof JSZip === 'undefined') { setInfo('打开失败（EPUB组件未就绪）'); return; }
-    contentEl.innerHTML = '<div id="epubBox" style="width:100%;height:100%;background:#fff"></div>';
+    contentEl.innerHTML = '<div id="epubBox" style="width:100%;height:calc(100% - 8px);background:#fff"></div>';
     contentEl.style.display = 'block'; updateStageCenter();
     try {
       epubBytes = buf.slice(0);
@@ -1983,7 +1989,7 @@ function openEpub(buf) {
       window.epubBook = book;
       window.epubRendition = rendition;
       rendition.on('rendered', function (section) { window.epubSectionHref = section && section.href; if (editMode && docKind === 'epub') setEpubEditable(true); });
-      rendition.on('relocated', function (loc) { try { var _cf = loc && loc.start && loc.start.cfi; if (_cf) { window._epubCfi = _cf; if (!window._epubFirstCfi && !window._epubResumed) window._epubFirstCfi = _cf; try { savePos(); } catch (e2) {} } } catch (e) {} });
+      rendition.on('relocated', function (loc) { try { var _cf = loc && loc.start && loc.start.cfi; if (_cf) { window._epubCfi = _cf; if (!window._epubFirstCfi && !window._epubResumed) window._epubFirstCfi = _cf; try { var _ps = epubCurPageOffset(_cf); if (typeof _ps === 'number' && _ps >= 0) { if (window.__epubPageStart !== undefined && _ps > window.__epubPageStart + 50) window.__epubPageChars = _ps - window.__epubPageStart; window.__epubPageStart = _ps; } else window.__epubPageStart = 0; } catch (e3) {} try { savePos(); } catch (e2) {} } } catch (e) {} });
       docKind = 'epub';
       setTotal(0);
       var _sp2 = loadPos();
@@ -2007,10 +2013,10 @@ function epubSpineIndex() {
   } catch (e) {}
   return 0;
 }
-function epubCurPageOffset() {
+function epubCurPageOffset(cfiIn) {
   // 当前页之前本章已有多少字（CFI→Range 量出，量不出回退 0=从章首）
   try {
-    var cfi = window._epubCfi;
+    var cfi = cfiIn || window._epubCfi;
     if (!cfi || !window.epubRendition || !window.epubRendition.getRange) return 0;
     var rng = window.epubRendition.getRange(cfi);
     if (!rng || !rng.startContainer) return 0;
@@ -2070,8 +2076,17 @@ function updateStageCenter() {
       fits = ih > 0 && ih <= stage.clientHeight - 4;
       ctrContent = fits;
     }
+    if (docKind === 'epub') { fits = false; ctrContent = false; }   // epub的居中布局会改变contentEl尺寸导致分页底部裁切
     document.body.classList.toggle('ctrcontent', fits);
     if (contentEl) contentEl.classList.toggle('ctr', ctrContent);
+    if (docKind === 'epub' && window.epubRendition) {
+      try {
+        clearTimeout(window.__epubRzT);
+        window.__epubRzT = setTimeout(function () {
+          try { if (window.epubRendition.resize) window.epubRendition.resize(); else if (window._epubCfi) window.epubRendition.display(window._epubCfi); } catch (e2) {}
+        }, 250);
+      } catch (e3) {}
+    }
   } catch (e) {
   }
 }
