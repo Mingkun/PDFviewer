@@ -173,6 +173,7 @@ window.addEventListener('keydown', function (e) {
   #audioPlayer.compact .aBar { width:min(85%,380px); }
   #audioPlayer.compact .aLoop button { padding:2px 8px; font-size:11px; }
   #audioPlayer.compact .aInfo { display:none !important; }
+  #tapZone { position:absolute; left:0; right:0; top:0; z-index:5; background:transparent; cursor:pointer; }
   #audioPlayer.compact .aLrc { max-height:calc(100vh - 160px) !important; flex:1; width:100%; font-size:15px; line-height:2.4; padding-top:12px; box-sizing:border-box; scroll-padding-top:12px; }
   #recentBar .rbIcon { font-size:26px; line-height:1; }
   #recentBar .rbName { font-size:10px; color:#8a94a6; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -1827,6 +1828,7 @@ stage.addEventListener('touchmove', function (e) {
           // 已在最紧凑，不再处理
         } else if (docKind === 'audio' && _ap && document.body.classList.contains('hidebar') && !_inLrc) {
           _ap.classList.add('compact');
+          try { var _tzH = document.getElementById('tapZone'); if (_tzH) { var _apH = document.getElementById('audioPlayer'); var _bH = _apH && _apH.querySelector('.aBar'); if (_bH) _tzH.style.height = Math.max(50, _bH.getBoundingClientRect().top - _apH.getBoundingClientRect().top) + 'px'; } } catch (e7) {}
           setInfo('紧凑模式 · 下划恢复');
         } else {
           document.body.classList.add('hidebar');
@@ -1835,6 +1837,7 @@ stage.addEventListener('touchmove', function (e) {
         if (_inLrc) { /* 歌词区内下划=滚动歌词，不退出紧凑 */ }
         else if (docKind === 'audio' && _ap && _ap.classList.contains('compact')) {
           _ap.classList.remove('compact');
+          try { var _tzL = document.getElementById('tapZone'); if (_tzL) { var _apL = document.getElementById('audioPlayer'); var _bL = _apL && _apL.querySelector('.aBar'); if (_bL) _tzL.style.height = Math.max(50, _bL.getBoundingClientRect().top - _apL.getBoundingClientRect().top) + 'px'; } } catch (e8) {}
           setInfo('已恢复布局');
         } else {
           document.body.classList.remove('hidebar');
@@ -3277,6 +3280,45 @@ function openAudio(buf, name, srcUrl) {
     '<div class="aInfo">支持上一首/下一首/循环/连播/歌词/AI翻译 · 双指右划关闭</div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
+  // 方案②：透明覆盖层切换紧凑模式——仅 touchend（stopPropagation阻断stage + preventDefault阻断click合成），无双触发
+  var _playerEl = contentEl.querySelector('#audioPlayer');
+  if (_playerEl) {
+    _playerEl.style.position = 'relative';
+    var _tz = document.createElement('div');
+    _tz.id = 'tapZone';
+    _playerEl.appendChild(_tz);
+    var _tzResize = function () {
+      try {
+        var ap2 = document.getElementById('audioPlayer');
+        var tz2 = document.getElementById('tapZone');
+        var bar2 = ap2 && ap2.querySelector('.aBar');
+        if (tz2 && bar2 && ap2) tz2.style.height = Math.max(50, bar2.getBoundingClientRect().top - ap2.getBoundingClientRect().top) + 'px';
+      } catch (e2) {}
+    };
+    var _tzToggle = function () {
+      var ap = document.getElementById('audioPlayer');
+      if (!ap) return;
+      if (ap.classList.contains('compact')) {
+        ap.classList.remove('compact');
+        setInfo('已恢复布局 · 再点顶部显示顶栏');
+      } else {
+        document.body.classList.add('hidebar');
+        ap.classList.add('compact');
+        setInfo('紧凑模式 · 点上方区域恢复');
+      }
+      setTimeout(function () { _tzResize(); updateStageCenter(); }, 60);
+    };
+    _tz.addEventListener('touchend', function (ev) {
+      ev.stopPropagation();
+      ev.preventDefault();
+      _tzToggle();
+    }, { passive: false });
+    _tz.addEventListener('pointerdown', function (ev) {
+      if (ev.pointerType === 'touch') return;
+      _tzToggle();
+    });
+    setTimeout(_tzResize, 100);
+  }
   setTotal(1); document.getElementById('pageInput').value = 1;
   updateStageCenter();
   // 循环播放
