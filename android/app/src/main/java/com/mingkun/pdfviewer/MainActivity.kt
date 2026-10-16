@@ -227,7 +227,15 @@ class MainActivity : Activity() {
         try {
             val arr = org.json.JSONArray(loadRecentJson())
             val out = org.json.JSONArray()
-            out.put(org.json.JSONObject().put("path", path).put("name", cleanRecentName(name)).put("time", System.currentTimeMillis()))
+            // 重新打开已固定的文件：保留 pin 标记（此前每次打开固定都会丢）
+            var wasPinned = false
+            for (i in 0 until arr.length()) {
+                val op = arr.optJSONObject(i) ?: continue
+                if (op.optString("path") == path && op.optBoolean("pin")) { wasPinned = true; break }
+            }
+            val newRec = org.json.JSONObject().put("path", path).put("name", cleanRecentName(name)).put("time", System.currentTimeMillis())
+            if (wasPinned) newRec.put("pin", true)
+            out.put(newRec)
             for (i in 0 until arr.length()) {
                 val o = arr.optJSONObject(i) ?: continue
                 if (o.optString("path") == path) continue
