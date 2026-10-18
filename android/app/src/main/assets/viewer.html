@@ -3280,9 +3280,28 @@ function openAudio(buf, name, srcUrl) {
       }
       setTimeout(function () { _tzResize(); updateStageCenter(); }, 60);
     };
+    var _tzSY = -1, _tzSX = -1, _tzMoved = false;
+    _tz.addEventListener('touchstart', function (ev) {
+      if (ev.touches.length === 1) { _tzSX = ev.touches[0].clientX; _tzSY = ev.touches[0].clientY; _tzMoved = false; }
+    }, { passive: true });
+    _tz.addEventListener('touchmove', function (ev) {
+      if (ev.touches.length !== 1 || _tzSY < 0) return;
+      var dy = ev.touches[0].clientY - _tzSY, dx = ev.touches[0].clientX - _tzSX;
+      if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) {
+        try { ev.preventDefault(); } catch (e) {}
+        if (dy < 0) document.body.classList.add('hidebar');   // 上滑：隐藏顶部按钮
+        else document.body.classList.remove('hidebar');       // 下滑：显示顶部按钮
+        _tzMoved = true;
+      }
+    }, { passive: false });
     _tz.addEventListener('touchend', function (ev) {
       ev.stopPropagation();
       ev.preventDefault();
+      if (_tzMoved) {
+        _tzMoved = false; _tzSY = -1;
+        setTimeout(function () { _tzResize(); updateStageCenter(); }, 30);
+        return;
+      }
       _tzToggle();
     }, { passive: false });
     _tz.addEventListener('pointerdown', function (ev) {
@@ -3433,14 +3452,9 @@ function toggleLoop() {
   updateLoopBtn();
 }
 function audioStop() {
-  try {
-    if (curAudioEl) {
-      try { curAudioEl.pause(); } catch (e) {}
-      try { curAudioEl.currentTime = 0; } catch (e) {}
-    }
-  } catch (e) {}
-  try { if (typeof reading !== 'undefined' && reading) stopReading(); } catch (e) {}
-  setInfo('已终止播放');
+  // 终止 = 退出播放并返回首页（closeDoc 会暂停音频、清空当前文件、回到最近打开）
+  try { closeDoc(); } catch (e) {}
+  setInfo('已退出播放');
 }
 function updateLoopBtn() {
   var b = document.getElementById('loopBtn');
