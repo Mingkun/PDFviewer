@@ -1254,19 +1254,18 @@ class MainActivity : Activity() {
             jsCall("window.onUpdateDownload && window.onUpdateDownload('start')")
             Thread {
                 try {
-                    val url = java.net.URL(apkUrl)
-                    val conn = url.openConnection() as java.net.HttpURLConnection
-                    conn.connectTimeout = 15000
-                    conn.readTimeout = 60000
-                    conn.setRequestProperty("User-Agent", "Mozilla/5.0")
-                    val file = java.io.File(getExternalFilesDir(null), "pdfviewer-update.apk")
-                    val output = java.io.FileOutputStream(file)
-                    val input = conn.inputStream
-                    val buf = ByteArray(8192)
-                    var n: Int
-                    while (input.read(buf).also { n = it } > 0) output.write(buf, 0, n)
-                    output.close(); input.close(); conn.disconnect()
-                    runOnUiThread { installApk(file) }
+                    // 改用系统 DownloadManager：断点续传 + 自动重试 + 通知栏进度
+                    // （旧实现用 HttpURLConnection，弱网下中途断开不留神就拿到残包，安装必失败）
+                    val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
+                    val dest = java.io.File(getExternalFilesDir(null), "pdfviewer-update.apk")
+                    try { if (dest.exists()) dest.delete() } catch (_: Exception) {}
+                    val req = DownloadManager.Request(Uri.parse(apkUrl))
+                        .setTitle("PDF 阅读器更新")
+                        .setDescription("下载完成后自动打开安装")
+                        .setMimeType("application/vnd.android.package-archive")
+                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                        .setDestinationInExternalFilesDir(this@MainActivity, Environment.DIRECTORY_DOWNLOADS, "pdfviewer-update.apk")
+                    downloadId = dm.enqueue(req)
                 } catch (e: Exception) {
                     runOnUiThread {
                         jsCall("window.onUpdateDownload && window.onUpdateDownload('fail')")
