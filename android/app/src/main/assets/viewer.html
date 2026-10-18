@@ -270,7 +270,7 @@
     <button id="sortPdf" onclick="fbSetType('pdf')">📕 PDF</button>
     <button id="sortEpub" onclick="fbSetType('epub')">📗 EPUB</button>
     <button id="sortDoc" onclick="fbSetType('doc,docx')">📘 Word</button>
-    <button id="sortXls" onclick="fbSetType('xlsx,xls,csv')">📊 Excel</button>
+    <button id="sortXls" onclick="fbSetType('xlsx,xls,csv')">📊 Excel</button><button id="sortPpt" onclick="fbSetType('ppt,pptx')">📽 PPT</button>
     <button id="sortAudio" onclick="fbSetType('mp3,wav,ogg,m4a,flac,aac,wma,opus')">🎵 音频</button>
     <button id="sortVideo" onclick="fbSetType('mp4,webm,mkv,avi,mov,3gp,m4v,ts,flv')">🎬 视频</button>
     <button id="sortText" onclick="fbSetType('txt,csv,json,log')">📄 文本</button>
@@ -359,7 +359,7 @@
     </div>
   </div>
 </div>
-<input type="file" id="fpick" accept=".pdf,.epub,.txt,.csv,.doc,.docx,.xlsx,.pptx,.md,.markdown,image/*">
+<input type="file" id="fpick" accept=".pdf,.epub,.txt,.csv,.doc,.docx,.xlsx,.ppt,.pptx,.md,.markdown,image/*">
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdfjs/pdf.worker.min.js';
 var pdf = null, pageNum = 1, scale = 1.5, rendering = false, pending = null;
@@ -443,7 +443,7 @@ function fbSetType(t) {
   fbArtist = '';   // 切类型时清掉歌手筛选
   fbTypeCache = null;
   document.querySelectorAll('#fbSortBar button').forEach(function(b) { b.classList.remove('on'); });
-  var id = t === '' ? 'sortAll' : t.indexOf('pdf') >= 0 ? 'sortPdf' : t.indexOf('epub') >= 0 ? 'sortEpub' : t.indexOf('doc') >= 0 ? 'sortDoc' : t.indexOf('xls') >= 0 ? 'sortXls' : t.indexOf('mp3') >= 0 ? 'sortAudio' : t.indexOf('mp4') >= 0 ? 'sortVideo' : t.indexOf('txt') >= 0 ? 'sortText' : t.indexOf('md') >= 0 ? 'sortMd' : 'sortImg';
+  var id = t === '' ? 'sortAll' : t.indexOf('pdf') >= 0 ? 'sortPdf' : t.indexOf('epub') >= 0 ? 'sortEpub' : t.indexOf('doc') >= 0 ? 'sortDoc' : t.indexOf('xls') >= 0 ? 'sortXls' : t.indexOf('mp3') >= 0 ? 'sortAudio' : t.indexOf('mp4') >= 0 ? 'sortVideo' : t.indexOf('txt') >= 0 ? 'sortText' : t.indexOf('md') >= 0 ? 'sortMd' : t.indexOf('ppt') >= 0 ? 'sortPpt' : 'sortImg';
   var el = document.getElementById(id);
   if (el) el.classList.add('on');
   _fbSaveState();
@@ -2282,6 +2282,18 @@ function openPptx(buf) {
     }).catch(function () { setInfo('打开失败'); });
   });
 }
+function openPptLegacy(buf) {
+  resetView();
+  var msg = '旧版 .ppt 文件（二进制格式）暂不支持直接预览。\n\n请在电脑上用 PowerPoint / WPS 打开后，另存为 .pptx 或 PDF，再传回手机打开。';
+  txtRaw = msg;
+  docPages = chunksFromText(msg);
+  contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(msg) + '</div>';
+  contentEl.style.background = '#fff';
+  contentEl.style.display = 'block'; updateStageCenter();
+  docKind = 'txt';
+  setTotal(docPages.length);
+  if (autoReadOn()) readerToggle();
+}
 function finishPptx() {
   var html = '';
   for (var i = 0; i < docPages.length; i++) {
@@ -3674,6 +3686,7 @@ function openByBytes(name, buf, mime, key) {
     else if (nm.indexOf('.doc') >= 0) openDoc(buf);
     else if (nm.indexOf('.xlsx') >= 0 || nm.indexOf('.csv') >= 0) openXlsx(buf);
     else if (nm.indexOf('.pptx') >= 0) openPptx(buf);
+    else if (/\.ppt$/i.test(nm)) openPptLegacy(buf);
     else if (/\.(md|markdown|mdown|mkd)$/.test(nm) || mime === 'text/markdown' || mime === 'text/x-markdown') openMd(buf);
     else openTxt(buf);
   } catch (e) { setInfo('打开失败'); }
