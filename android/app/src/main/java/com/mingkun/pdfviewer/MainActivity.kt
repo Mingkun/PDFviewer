@@ -42,6 +42,8 @@ class MainActivity : Activity() {
     private val REQ_OPEN = 2001
     private lateinit var web: WebView
     private var downloadId: Long = -1
+    @Volatile private var pendingApkFile: java.io.File? = null
+    @Volatile private var installLaunched = false
     private var pendingInstall = false
     private val currentPdf by lazy { File(cacheDir, "current.pdf") }
     private var tts: TextToSpeech? = null
@@ -137,7 +139,10 @@ class MainActivity : Activity() {
                     }
                     return
                 }
-                fireInstall()
+                runOnUiThread {
+                    val f = java.io.File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "pdfviewer-update.apk")
+                    launchInstaller(f)
+                }
             }
         }
     }
@@ -163,6 +168,7 @@ class MainActivity : Activity() {
         try {
             if (!packageManager.canRequestPackageInstalls()) {
                 pendingInstall = true
+                pendingApkFile = file
                 jsCall("window.onUpdateDownload && window.onUpdateDownload('permission')")
                 try {
                     val s = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
@@ -184,13 +190,36 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun launchInstaller(file: java.io.File) {
+        if (installLaunched) return
+        installLaunched = true
+        if (!file.exists() || file.length() < 1024) {
+            jsCall("window.onUpdateDownload && window.onUpdateDownload('fail')")
+            return
+        }
+        if (!packageManager.canRequestPackageInstalls()) {
+            pendingInstall = true
+            pendingApkFile = file
+            jsCall("window.onUpdateDownload && window.onUpdateDownload('permission')")
+            try {
+                val s2 = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                s2.data = Uri.parse("package:" + packageName)
+                startActivity(s2)
+            } catch (e: Exception) { }
+            return
+        }
+        installApk(file)
+    }
+
     override fun onResume() {
         super.onResume()
         if (pendingInstall) {
             pendingInstall = false
-            if (packageManager.canRequestPackageInstalls() && downloadId >= 0) {
+            if (packageManager.canRequestPackageInstalls()) {
                 jsCall("window.onUpdateDownload && window.onUpdateDownload('installing')")
-                fireInstall()
+                val f = pendingApkFile
+                if (f != null && f.exists()) installApk(f)
+                else if (downloadId >= 0) fireInstall()
             }
         }
     }
@@ -1286,6 +1315,30 @@ class MainActivity : Activity() {
                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                         .setDestinationInExternalFilesDir(this@MainActivity, Environment.DIRECTORY_DOWNLOADS, "pdfviewer-update.apk")
                     downloadId = dm.enqueue(req)
+                    installLaunched = false
+                    // Android 13+ 上 DownloadManager 完成广播可能收不到（RECEIVER_NOT_EXPORTED），
+                    // 改为主动轮询：下载成功即直接安装（FileProvider 路径），失败则提示
+                    Thread {
+                        try {
+                            val deadline = System.currentTimeMillis() + 10 * 60 * 1000
+                            while (System.currentTimeMillis() < deadline) {
+                                Thread.sleep(1000)
+                                var st = -1
+                                val c = dm.query(DownloadManager.Query().setFilterById(downloadId))
+                                try {
+                                    if (c.moveToFirst()) st = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                                } finally { c.close() }
+                                if (st == DownloadManager.STATUS_SUCCESSFUL) {
+                                    val f = java.io.File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "pdfviewer-update.apk")
+                                    runOnUiThread { launchInstaller(f) }
+                                    break
+                                } else if (st == DownloadManager.STATUS_FAILED) {
+                                    runOnUiThread { jsCall("window.onUpdateDownload && window.onUpdateDownload('fail')") }
+                                    break
+                                }
+                            }
+                        } catch (_: Exception) { }
+                    }.start()
                 } catch (e: Exception) {
                     runOnUiThread {
                         jsCall("window.onUpdateDownload && window.onUpdateDownload('fail')")
