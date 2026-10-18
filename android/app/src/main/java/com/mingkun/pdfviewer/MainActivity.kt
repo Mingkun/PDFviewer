@@ -645,6 +645,26 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun volumeGet(): Int {
+            return try {
+                val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                val cur = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+                Math.round(cur * 100f / max)
+            } catch (e: Exception) { 50 }
+        }
+
+        @JavascriptInterface
+        fun volumeSet(pct: Int) {
+            try {
+                val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+                val target = Math.round(pct.coerceIn(0, 100) * max / 100f)
+                am.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+            } catch (e: Exception) { }
+        }
+
+        @JavascriptInterface
         fun hasStoragePermission(): Boolean {
             return if (android.os.Build.VERSION.SDK_INT >= 30) {
                 android.os.Environment.isExternalStorageManager()
