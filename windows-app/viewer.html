@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.7 (windows)'; },
+  appVersion: function () { return '1.2.8 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.7';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.8';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -3313,9 +3313,9 @@ function openAudio(buf, name, srcUrl) {
     '<div class="aIcon">🎵</div>' +
     '<div class="aTitle">' + esc(name) + '</div>' +
     '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
-    '<div class="aLoop"><button id="prevBtn" onclick="audioPrev()" title="上一首">⏮</button><button id="nextBtn" onclick="audioNext()" title="下一首">⏭</button><button id="loopBtn" onclick="toggleLoop()">🔁 循环</button><button id="asrBtn" onclick="asrTranslate()">🌐 AI翻译</button><button id="asrToggle" style="display:none" onclick="asrToggleView()">📋 歌词</button></div>' +
+    '<div class="aLoop"><button id="prevBtn" onclick="audioPrev()" title="上一首">⏮</button><button id="nextBtn" onclick="audioNext()" title="下一首">⏭</button><button id="loopBtn" onclick="toggleLoop()" title="循环">🔁</button><button id="stopBtn" onclick="audioStop()" title="终止">⏹</button><button id="asrBtn" onclick="asrTranslate()">🌐 AI翻译</button><button id="asrToggle" style="display:none" onclick="asrToggleView()">📋 歌词</button></div>' +
     '<div class="aLrc" id="aLrc"></div>' +
-    '<div class="aInfo">支持上一首/下一首/循环/连播/歌词/AI翻译 · 双指右划关闭</div>' +
+    '<div class="aInfo">支持上一首/下一首/循环/连播/歌词/AI翻译/终止 · 双指右划关闭</div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
   // 方案②：透明覆盖层切换紧凑模式——仅 touchend（stopPropagation阻断stage + preventDefault阻断click合成），无双触发
@@ -3498,9 +3498,19 @@ function toggleLoop() {
   localStorage.setItem('pv_audioLoop', curAudioEl.loop ? '1' : '0');
   updateLoopBtn();
 }
+function audioStop() {
+  try {
+    if (curAudioEl) {
+      try { curAudioEl.pause(); } catch (e) {}
+      try { curAudioEl.currentTime = 0; } catch (e) {}
+    }
+  } catch (e) {}
+  try { if (typeof reading !== 'undefined' && reading) stopReading(); } catch (e) {}
+  setInfo('已终止播放');
+}
 function updateLoopBtn() {
   var b = document.getElementById('loopBtn');
-  if (b && curAudioEl) { b.classList.toggle('on', curAudioEl.loop); b.textContent = curAudioEl.loop ? '🔁 循环中' : '🔁 循环'; }
+  if (b && curAudioEl) { b.classList.toggle('on', curAudioEl.loop); b.textContent = '🔁'; }
 }
 var _lrcLines = [], _lrcCache = {};
 function _loadLrc(base) {
