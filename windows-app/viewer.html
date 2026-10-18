@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.6 (windows)'; },
+  appVersion: function () { return '1.2.7 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.6';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.7';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -1607,6 +1607,32 @@ function dist2(t1, t2) {
   var dx = t1.clientX - t2.clientX, dy = t1.clientY - t2.clientY;
   return Math.sqrt(dx * dx + dy * dy);
 }
+function anyAudioPlaying() {
+  if (reading && !paused) return true;
+  try {
+    var els = document.querySelectorAll('audio,video');
+    for (var i = 0; i < els.length; i++) {
+      if (els[i] && !els[i].paused && !els[i].ended) return true;
+    }
+  } catch (e) {}
+  return false;
+}
+function volStep(dir) {
+  var ok = false;
+  try {
+    if (dir > 0 && window.AppBridge && AppBridge.volumeUp) { AppBridge.volumeUp(); ok = true; }
+    else if (dir < 0 && window.AppBridge && AppBridge.volumeDown) { AppBridge.volumeDown(); ok = true; }
+  } catch (e) {}
+  if (!ok) {
+    try {
+      if (typeof cloudAudio !== 'undefined' && cloudAudio) {
+        cloudAudio.volume = Math.max(0, Math.min(1, (cloudAudio.volume || 1) + dir * 0.1));
+        ok = true;
+      }
+    } catch (e2) {}
+  }
+  try { setInfo(ok ? ('音量 ' + (dir > 0 ? '＋' : '－')) : '双指音量：当前不可用'); } catch (e3) {}
+}
 function twoFingerCheck(e) {
   if (twoFired || !tf0 || !tf1) return false;
   var a = e.touches[0], b = e.touches[1];
@@ -1621,6 +1647,18 @@ function twoFingerCheck(e) {
     try { e.preventDefault(); } catch (err) {}
     closeDoc();
     return true;
+  }
+  // 双指上下滑：有音频在播放时调音量（上滑加、下滑减）
+  if (anyAudioPlaying() && dNow > d0 * 0.7 && dNow < d0 * 1.3) {
+    var up = dy0 < -60 && dy1 < -60 && Math.abs(dx0) < 60 && Math.abs(dx1) < 60;
+    var dn = dy0 > 60 && dy1 > 60 && Math.abs(dx0) < 60 && Math.abs(dx1) < 60;
+    if (up || dn) {
+      twoFired = true;
+      pinchActive = false;
+      try { e.preventDefault(); } catch (err) {}
+      volStep(up ? 1 : -1);
+      return true;
+    }
   }
   return false;
 }

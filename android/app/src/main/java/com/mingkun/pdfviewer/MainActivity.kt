@@ -10,6 +10,7 @@ import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.RectF
 import android.graphics.pdf.PdfRenderer
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -627,6 +628,22 @@ class MainActivity : Activity() {
     }
 
     inner class Bridge {
+        @JavascriptInterface
+        fun volumeUp() {
+            try {
+                val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
+            } catch (e: Exception) { }
+        }
+
+        @JavascriptInterface
+        fun volumeDown() {
+            try {
+                val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
+            } catch (e: Exception) { }
+        }
+
         @JavascriptInterface
         fun hasStoragePermission(): Boolean {
             return if (android.os.Build.VERSION.SDK_INT >= 30) {
