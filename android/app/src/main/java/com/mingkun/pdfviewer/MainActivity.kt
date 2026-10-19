@@ -177,12 +177,25 @@ class MainActivity : Activity() {
                 } catch (e: Exception) {}
                 return
             }
+            if (!file.exists() || file.length() < 1024L) {
+                jsCall("window.onUpdateDownload && window.onUpdateDownload('fail')")
+                return
+            }
             val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
             val install = Intent(Intent.ACTION_VIEW)
             install.setDataAndType(uri, "application/vnd.android.package-archive")
             install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             install.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(install)
+            try { install.clipData = android.content.ClipData.newRawUri("apk", uri) } catch (_: Exception) {}
+            try {
+                startActivity(install)
+            } catch (e: Exception) {
+                val fb = Intent(Intent.ACTION_INSTALL_PACKAGE)
+                fb.setData(uri)
+                fb.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                fb.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(fb)
+            }
             jsCall("window.onUpdateDownload && window.onUpdateDownload('done')")
         } catch (e: Exception) {
             jsCall("window.onUpdateDownload && window.onUpdateDownload('fail')")
@@ -1252,7 +1265,7 @@ class MainActivity : Activity() {
                     var lastErr: String? = null
                     for (attempt in 0 until 2) {
                         try {
-                            val conn = URL(VERSION_URL).openConnection() as HttpURLConnection
+                            val conn = URL(VERSION_URL + "?t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection
                             conn.connectTimeout = 20000
                             conn.readTimeout = 20000
                             conn.useCaches = false
@@ -1308,7 +1321,8 @@ class MainActivity : Activity() {
                     val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
                     val dest = java.io.File(getExternalFilesDir(null), "pdfviewer-update.apk")
                     try { if (dest.exists()) dest.delete() } catch (_: Exception) {}
-                    val req = DownloadManager.Request(Uri.parse(apkUrl))
+                    val bust = apkUrl + (if (apkUrl.contains("?")) "&" else "?") + "t=" + System.currentTimeMillis()
+                    val req = DownloadManager.Request(Uri.parse(bust))
                         .setTitle("PDF 阅读器更新")
                         .setDescription("下载完成后自动打开安装")
                         .setMimeType("application/vnd.android.package-archive")
@@ -1329,7 +1343,27 @@ class MainActivity : Activity() {
                                     if (c.moveToFirst()) st = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
                                 } finally { c.close() }
                                 if (st == DownloadManager.STATUS_SUCCESSFUL) {
-                                    val f = java.io.File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "pdfviewer-update.apk")
+                                    var f = java.io.File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "pdfviewer-update.apk")
+                                    try {
+                                        val q = dm.query(DownloadManager.Query().setFilterById(downloadId))
+                                        q.use { cc ->
+                                            if (cc.moveToFirst()) {
+                                                val u = cc.getString(cc.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
+                                                val p = android.net.Uri.parse(u).path
+                                                if (p != null) f = java.io.File(p)
+                                            }
+                                        }
+                                    } catch (_: Exception) {}
+                                    val ai = try { packageManager.getPackageArchiveInfo(f.absolutePath, 0) } catch (_: Exception) { null }
+                                    val code = if (ai == null) -1 else if (android.os.Build.VERSION.SDK_INT >= 28) (ai.longVersionCode and 0x7FFFFFFFL).toInt() else ai.versionCode
+                                    if (ai == null || ai.packageName != packageName || code <= currentVersionCode()) {
+                                        try { f.delete() } catch (_: Exception) {}
+                                        runOnUiThread {
+                                            jsCall("window.onUpdateDownload && window.onUpdateDownload('fail')")
+                                            android.widget.Toast.makeText(this@MainActivity, "安装包版本不正确或下载不完整，请重试", android.widget.Toast.LENGTH_LONG).show()
+                                        }
+                                        break
+                                    }
                                     runOnUiThread { launchInstaller(f) }
                                     break
                                 } else if (st == DownloadManager.STATUS_FAILED) {
