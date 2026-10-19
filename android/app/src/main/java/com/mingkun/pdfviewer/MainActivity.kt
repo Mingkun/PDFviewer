@@ -1370,6 +1370,23 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun printHtml() {
+            runOnUiThread {
+                try {
+                    val pm = getSystemService(PRINT_SERVICE) as PrintManager
+                    pm.print(
+                        "文档打印",
+                        web.createPrintDocumentAdapter("文档打印"),
+                        PrintAttributes.Builder().build()
+                    )
+                    jsCall("window.onPrintResult && window.onPrintResult('ok')")
+                } catch (e: Exception) {
+                    jsCall("window.onPrintResult && window.onPrintResult('fail')")
+                }
+            }
+        }
+
+        @JavascriptInterface
         fun openExternal(url: String) {
             try {
                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))

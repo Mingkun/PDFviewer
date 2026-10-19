@@ -180,6 +180,19 @@
   #ebar button.et.on { background:#1e88e5; color:#fff; border-color:#1e88e5; }
   .ec { display:inline-block; width:20px; height:20px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px #c3ccd8; cursor:pointer; }
   .ec.on { box-shadow:0 0 0 2px #1e88e5; }
+
+@media print{
+  body{background:#fff !important}
+  #stage{position:static !important;inset:auto !important;height:auto !important;overflow:visible !important;padding:0 !important;margin:0 !important;display:block !important}
+  #hint,#hintSep,#recentBar,#bottomInfo,#menu,#fileBrowser,#toast,#tmodal,#trashModal,#smodal,
+  #topbar,#toolbar,#floatBar,#ap,#updateBar{display:none !important}
+  #cv,#ocv,#tarea{display:none !important}
+  #content{display:block !important;width:100% !important;height:auto !important;overflow:visible !important}
+  #imgWrap{width:100% !important;margin:0 !important}
+  #imgView{max-width:100% !important;box-shadow:none !important}
+  #epubBox{height:auto !important;min-height:80vh !important}
+  a{color:#000 !important}
+}
 </style>
 </head>
 <body>
@@ -927,8 +940,11 @@ document.getElementById('open').onclick = function () {
   document.getElementById('fpick').click();
 };
 document.getElementById('print').onclick = function () {
-  if (docKind !== 'pdf') { if (docKind) setInfo('打印仅支持 PDF'); return; }
-  try { AppBridge.printPdf(); } catch (e) {}
+  if (docKind === 'pdf') {
+    try { if (window.AppBridge && AppBridge.printPdf) { AppBridge.printPdf(); return; } } catch (e) {}
+  }
+  try { if (window.AppBridge && AppBridge.printHtml) { AppBridge.printHtml(); return; } } catch (e) {}
+  try { window.print(); } catch (e) {}
 };
 try {
   ['bar', 'ebar'].forEach(function (bid) {

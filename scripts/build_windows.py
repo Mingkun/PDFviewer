@@ -9,10 +9,10 @@ DST = ROOT / 'windows-app'
 POLYFILL = """
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.11 (windows)'; },
+  appVersion: function () { return '1.2.12 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.11';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.12';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
