@@ -24,6 +24,7 @@
   #readbar { position:absolute; left:0; top:0; height:2px; width:0; background:#39c97e; transition:width .3s; }
   body.slimbar #bar, body.slimbar #ebar { padding-top:2px; padding-bottom:2px; }
   body.hidebar #bar, body.hidebar #ebar { display:none !important; }
+  body.audiobaroff #bar { display:none !important; } /*v4185-audiobaroff*/
   body.ctrcontent #stage { display:flex; flex-direction:column; align-items:center; justify-content:center; }
   #content.ctr { display:flex !important; flex-direction:column; align-items:center; justify-content:center; }
   body.slimbar #bar .bb { height:34px; }
@@ -1956,6 +1957,7 @@ var contentEl = document.getElementById('content');
 function resetView() {
   frameToken++; docFrame = null; frameBusy = false; frameCount = 0;
   document.body.classList.remove('hidebar');
+  document.body.classList.remove('audiobaroff');
   document.body.classList.remove('ctrcontent');
   cv.style.display = 'none';
   contentEl.style.display = 'none';
@@ -3284,6 +3286,7 @@ function audioPrev() {
 }
 function openAudio(buf, name, srcUrl) {
   resetView();
+  document.body.classList.add('audiobaroff');
   docKind = 'audio';
   contentEl.style.display = 'block';
   contentEl.style.background = '#1e2126';
