@@ -108,7 +108,7 @@
   #audioPlayer.compact .aBar { width:min(85%,380px); }
   #audioPlayer.compact .aLoop button { padding:2px 8px; font-size:11px; }
   #audioPlayer.compact .aInfo { display:none !important; }
-  /*v4187-notaptoggle: 点按切换已移除 */
+  /*v4188-swaprows: 按钮行与播放条互换(按钮在上) */
   #audioPlayer.compact .aLrc { max-height:calc(100vh - 160px) !important; flex:1; width:100%; font-size:15px; line-height:2.4; padding-top:12px; box-sizing:border-box; scroll-padding-top:12px; }
   #recentBar .rbIcon { font-size:26px; line-height:1; }
   #recentBar .rbName { font-size:10px; color:#8a94a6; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -3300,8 +3300,8 @@ function openAudio(buf, name, srcUrl) {
   contentEl.innerHTML = '<div id="audioPlayer">' +
     '<div class="aLrc" id="aLrc"></div>' +
     '<div class="aTitle">' + esc(name) + '</div>' +
-    '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
     '<div class="aLoop"><button id="prevBtn" onclick="audioPrev()" title="上一首">⏮</button><button id="nextBtn" onclick="audioNext()" title="下一首">⏭</button><button id="loopBtn" onclick="toggleLoop()" title="循环">🔁</button><button id="stopBtn" onclick="audioStop()" title="终止">⏹</button></div>' +
+    '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
   setTotal(1); document.getElementById('pageInput').value = 1;
