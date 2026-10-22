@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.15 (windows)'; },
+  appVersion: function () { return '1.2.16 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.15';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.16';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -151,7 +151,8 @@ window.addEventListener('keydown', function (e) {
   #recentBar .rbItem .rbHold { position:absolute; top:50%; left:50%; width:56px; height:56px; margin:-28px 0 0 -28px; opacity:0; pointer-events:none; z-index:2; }
   #recentBar .rbItem.holding .rbHold { opacity:1; }
   #audioPlayer { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:16px; padding:20px; }
-  #audioPlayer .aIcon { font-size:64px; }
+  #audioPlayer .aIcon { font-size:28px; cursor:pointer; padding:6px 18px; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; } /*v4182-audioicon*/
+  #audioPlayer.hidebelow .aLoop { display:none; }
   #audioPlayer .aTitle { font-size:16px; color:#c8cdd5; text-align:center; word-break:break-all; max-width:90%; }
   #audioPlayer .aBar { width:min(85%,380px); }
   #audioPlayer audio { width:100%; }
@@ -1884,7 +1885,7 @@ stage.addEventListener('touchstart', function (e) {
     tf1 = { x: e.touches[1].clientX, y: e.touches[1].clientY };
     twoFired = false;
     volTrack.active = false;
-  } else if (e.touches.length === 1) { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; swipeFired = false; swipeOnCtrl = !!(e.target && e.target.closest && e.target.closest('audio,video,.aBar,.aLoop,input,button')); }
+  } else if (e.touches.length === 1) { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; swipeFired = false; swipeOnCtrl = !!(e.target && e.target.closest && e.target.closest('audio,video,.aBar,.aLoop,input,button,.aIcon')); }
 }, { passive: true });
 stage.addEventListener('touchmove', function (e) {
   if (e.touches.length === 2 && twoFingerCheck(e)) return;
@@ -1989,7 +1990,7 @@ stage.addEventListener('touchend', function (e) {
   if (Math.abs(dx) < 25 && Math.abs(dy) < 25) {
     // 隐藏/紧凑下点一下屏幕底边或顶边空区 = 恢复底栏 / 退出紧凑布局
     var _tY = e.changedTouches[0].clientY;
-    var _onCtl = e.target && e.target.closest && e.target.closest('audio,video,input,button,.aBar,.aLoop');
+    var _onCtl = e.target && e.target.closest && e.target.closest('audio,video,input,button,.aBar,.aLoop,.aIcon');
     var _apC = docKind === 'audio' ? document.getElementById('audioPlayer') : null;
     if (!_onCtl && (_tY < 90 || _tY > window.innerHeight - 90) && (document.body.classList.contains('hidebar') || (_apC && _apC.classList.contains('compact')))) {
       if (_apC && _apC.classList.contains('compact')) { _apC.classList.remove('compact'); setInfo('已恢复布局'); }
@@ -3365,10 +3366,16 @@ function openAudio(buf, name, srcUrl) {
     '<div class="aTitle">' + esc(name) + '</div>' +
     '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
     '<div class="aLoop"><button id="prevBtn" onclick="audioPrev()" title="上一首">⏮</button><button id="nextBtn" onclick="audioNext()" title="下一首">⏭</button><button id="loopBtn" onclick="toggleLoop()" title="循环">🔁</button><button id="stopBtn" onclick="audioStop()" title="终止">⏹</button><button id="asrBtn" onclick="asrTranslate()">🌐 AI翻译</button><button id="asrToggle" style="display:none" onclick="asrToggleView()">📋 歌词</button></div>' +
-    '<div class="aInfo">支持上一首/下一首/循环/连播/歌词/AI翻译/终止 · 双指右划关闭</div>' +
-    '<div class="aIcon">🎵</div>' +
+    '<div class="aIcon" title="点击隐藏/显示按钮区">🎵</div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
+  var _iconEl = contentEl.querySelector('.aIcon');
+  if (_iconEl) {
+    _iconEl.addEventListener('click', function () {
+      var ap = document.getElementById('audioPlayer');
+      if (ap) ap.classList.toggle('hidebelow');
+    });
+  }
   // 方案②：透明覆盖层切换紧凑模式——仅 touchend（stopPropagation阻断stage + preventDefault阻断click合成），无双触发
   var _playerEl = contentEl.querySelector('#audioPlayer');
   if (_playerEl) {
