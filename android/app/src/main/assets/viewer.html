@@ -85,8 +85,7 @@
   #recentBar .rbItem .rbHold { position:absolute; top:50%; left:50%; width:56px; height:56px; margin:-28px 0 0 -28px; opacity:0; pointer-events:none; z-index:2; }
   #recentBar .rbItem.holding .rbHold { opacity:1; }
   #audioPlayer { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:16px; padding:20px; }
-  #audioPlayer .aIcon { font-size:28px; cursor:pointer; padding:6px 18px; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; } /*v4182-audioicon*/
-  #audioPlayer.hidebelow .aLoop { display:none; }
+  /*v4183-audiomin: 音符与按钮行已移除 */
   #audioPlayer .aTitle { font-size:16px; color:#c8cdd5; text-align:center; word-break:break-all; max-width:90%; }
   #audioPlayer .aBar { width:min(85%,380px); }
   #audioPlayer audio { width:100%; }
@@ -3299,17 +3298,8 @@ function openAudio(buf, name, srcUrl) {
     '<div class="aLrc" id="aLrc"></div>' +
     '<div class="aTitle">' + esc(name) + '</div>' +
     '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
-    '<div class="aLoop"><button id="prevBtn" onclick="audioPrev()" title="上一首">⏮</button><button id="nextBtn" onclick="audioNext()" title="下一首">⏭</button><button id="loopBtn" onclick="toggleLoop()" title="循环">🔁</button><button id="stopBtn" onclick="audioStop()" title="终止">⏹</button><button id="asrBtn" onclick="asrTranslate()">🌐 AI翻译</button><button id="asrToggle" style="display:none" onclick="asrToggleView()">📋 歌词</button></div>' +
-    '<div class="aIcon" title="点击隐藏/显示按钮区">🎵</div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
-  var _iconEl = contentEl.querySelector('.aIcon');
-  if (_iconEl) {
-    _iconEl.addEventListener('click', function () {
-      var ap = document.getElementById('audioPlayer');
-      if (ap) ap.classList.toggle('hidebelow');
-    });
-  }
   // 方案②：透明覆盖层切换紧凑模式——仅 touchend（stopPropagation阻断stage + preventDefault阻断click合成），无双触发
   var _playerEl = contentEl.querySelector('#audioPlayer');
   if (_playerEl) {
