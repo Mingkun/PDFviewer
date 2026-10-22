@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.20 (windows)'; },
+  appVersion: function () { return '1.2.21 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.20';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.21';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -174,7 +174,7 @@ window.addEventListener('keydown', function (e) {
   #audioPlayer.compact .aBar { width:min(85%,380px); }
   #audioPlayer.compact .aLoop button { padding:2px 8px; font-size:11px; }
   #audioPlayer.compact .aInfo { display:none !important; }
-  #tapZone { position:absolute; left:0; right:0; top:0; z-index:5; background:transparent; cursor:pointer; }
+  /*v4187-notaptoggle: 点按切换已移除 */
   #audioPlayer.compact .aLrc { max-height:calc(100vh - 160px) !important; flex:1; width:100%; font-size:15px; line-height:2.4; padding-top:12px; box-sizing:border-box; scroll-padding-top:12px; }
   #recentBar .rbIcon { font-size:26px; line-height:1; }
   #recentBar .rbName { font-size:10px; color:#8a94a6; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -3370,81 +3370,6 @@ function openAudio(buf, name, srcUrl) {
     '<div class="aLoop"><button id="prevBtn" onclick="audioPrev()" title="上一首">⏮</button><button id="nextBtn" onclick="audioNext()" title="下一首">⏭</button><button id="loopBtn" onclick="toggleLoop()" title="循环">🔁</button><button id="stopBtn" onclick="audioStop()" title="终止">⏹</button></div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
-  // 方案②：透明覆盖层切换紧凑模式——仅 touchend（stopPropagation阻断stage + preventDefault阻断click合成），无双触发
-  var _playerEl = contentEl.querySelector('#audioPlayer');
-  if (_playerEl) {
-    _playerEl.style.position = 'relative';
-    var _tz = document.createElement('div');
-    _tz.id = 'tapZone';
-    _playerEl.appendChild(_tz);
-    var _tzResize = function () {
-      try {
-        var ap2 = document.getElementById('audioPlayer');
-        var tz2 = document.getElementById('tapZone');
-        var bar2 = ap2 && ap2.querySelector('.aBar');
-        if (tz2 && bar2 && ap2) tz2.style.height = Math.max(50, bar2.getBoundingClientRect().top - ap2.getBoundingClientRect().top) + 'px';
-      } catch (e2) {}
-    };
-    var _tzToggle = function () {
-      var ap = document.getElementById('audioPlayer');
-      if (!ap) return;
-      if (ap.classList.contains('compact')) {
-        ap.classList.remove('compact');
-        setInfo('已恢复布局 · 再点顶部显示顶栏');
-      } else {
-        document.body.classList.add('hidebar');
-        ap.classList.add('compact');
-        setInfo('紧凑模式 · 点上方区域恢复');
-      }
-      setTimeout(function () { _tzResize(); updateStageCenter(); }, 60);
-    };
-    var _tzSY = -1, _tzSX = -1, _tzMoved = false;
-    _tz.addEventListener('touchstart', function (ev) {
-      if (ev.touches.length === 1) { _tzSX = ev.touches[0].clientX; _tzSY = ev.touches[0].clientY; _tzMoved = false; }
-    }, { passive: true });
-    _tz.addEventListener('touchmove', function (ev) {
-      if (ev.touches.length !== 1 || _tzSY < 0) return;
-      var dy = ev.touches[0].clientY - _tzSY, dx = ev.touches[0].clientX - _tzSX;
-      if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) {
-        try { ev.preventDefault(); } catch (e) {}
-        if (dy < 0) document.body.classList.remove('hidebar'); // 上滑：拉出底部栏
-        else document.body.classList.add('hidebar');           // 下滑：隐藏底部栏
-        _tzMoved = true;
-      }
-    }, { passive: false });
-    _tz.addEventListener('touchend', function (ev) {
-      ev.stopPropagation();
-      ev.preventDefault();
-      if (_tzMoved) {
-        _tzMoved = false; _tzSY = -1;
-        setTimeout(function () { _tzResize(); updateStageCenter(); }, 30);
-        return;
-      }
-      _tzToggle();
-    }, { passive: false });
-    var _lrcEl = contentEl.querySelector('.aLrc');
-    if (_lrcEl) {
-      var _lsX = -1, _lsY = -1;
-      _lrcEl.addEventListener('touchstart', function (ev) {
-        if (ev.touches.length === 1) { _lsX = ev.touches[0].clientX; _lsY = ev.touches[0].clientY; }
-      }, { passive: true });
-      _lrcEl.addEventListener('touchend', function (ev) {
-        if (_lsX < 0 || ev.changedTouches.length !== 1) { _lsX = -1; return; }
-        var dx = ev.changedTouches[0].clientX - _lsX, dy = ev.changedTouches[0].clientY - _lsY;
-        _lsX = -1;
-        if (Math.abs(dx) < 25 && Math.abs(dy) < 25) { ev.stopPropagation(); _tzToggle(); }
-      }, { passive: true });
-      _lrcEl.addEventListener('pointerdown', function (ev) {
-        if (ev.pointerType === 'touch') return;
-        _tzToggle();
-      });
-    }
-    _tz.addEventListener('pointerdown', function (ev) {
-      if (ev.pointerType === 'touch') return;
-      _tzToggle();
-    });
-    setTimeout(_tzResize, 100);
-  }
   setTotal(1); document.getElementById('pageInput').value = 1;
   updateStageCenter();
   // 循环播放
