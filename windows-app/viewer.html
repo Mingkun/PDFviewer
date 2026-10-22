@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.17 (windows)'; },
+  appVersion: function () { return '1.2.18 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.17';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.18';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -151,7 +151,7 @@ window.addEventListener('keydown', function (e) {
   #recentBar .rbItem .rbHold { position:absolute; top:50%; left:50%; width:56px; height:56px; margin:-28px 0 0 -28px; opacity:0; pointer-events:none; z-index:2; }
   #recentBar .rbItem.holding .rbHold { opacity:1; }
   #audioPlayer { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:16px; padding:20px; }
-  /*v4183-audiomin: 音符与按钮行已移除 */
+  /*v4184-audiobtns: 仅保留播放相关按钮 */
   #audioPlayer .aTitle { font-size:16px; color:#c8cdd5; text-align:center; word-break:break-all; max-width:90%; }
   #audioPlayer .aBar { width:min(85%,380px); }
   #audioPlayer audio { width:100%; }
@@ -3364,6 +3364,7 @@ function openAudio(buf, name, srcUrl) {
     '<div class="aLrc" id="aLrc"></div>' +
     '<div class="aTitle">' + esc(name) + '</div>' +
     '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
+    '<div class="aLoop"><button id="prevBtn" onclick="audioPrev()" title="上一首">⏮</button><button id="nextBtn" onclick="audioNext()" title="下一首">⏭</button><button id="loopBtn" onclick="toggleLoop()" title="循环">🔁</button><button id="stopBtn" onclick="audioStop()" title="终止">⏹</button></div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
   // 方案②：透明覆盖层切换紧凑模式——仅 touchend（stopPropagation阻断stage + preventDefault阻断click合成），无双触发
