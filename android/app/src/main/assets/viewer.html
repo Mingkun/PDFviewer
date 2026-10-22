@@ -96,7 +96,7 @@
   #audioPlayer .aLoop { display:flex; flex-wrap:nowrap; justify-content:center; gap:6px; align-items:center; }
   #audioPlayer .aLoop button { border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.08); color:#c8cdd5; border-radius:14px; padding:4px 9px; font-size:12px; cursor:pointer; font-family:inherit; white-space:nowrap; }
   #audioPlayer .aLoop button.on { background:#0a84ff; color:#fff; border-color:#0a84ff; }
-  #audioPlayer .aLrc { width:min(90%,400px); max-height:200px; overflow-y:auto; text-align:center; font-size:14px; line-height:2.2; color:#8e959f; padding-top:8px; box-sizing:border-box; }
+  #audioPlayer .aLrc { width:min(90%,400px); flex:1; overflow-y:auto; text-align:center; font-size:14px; line-height:2.2; color:#8e959f; padding-top:12px; box-sizing:border-box; position:relative; z-index:6; } /*v4181-audiolayout*/
   #audioPlayer .aLrc .on { color:#4ade80; font-size:16px; font-weight:600; }
   #audioPlayer .asrEn { font-size:15px; color:#dfe3ea; line-height:1.7; }
   #audioPlayer .asrZh { font-size:13px; color:#b8c1cd; line-height:1.5; margin-top:2px; }
@@ -3295,12 +3295,12 @@ function openAudio(buf, name, srcUrl) {
   _asrName = name || '';
   _asrSegs = [];
   contentEl.innerHTML = '<div id="audioPlayer">' +
-    '<div class="aIcon">🎵</div>' +
+    '<div class="aLrc" id="aLrc"></div>' +
     '<div class="aTitle">' + esc(name) + '</div>' +
     '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
     '<div class="aLoop"><button id="prevBtn" onclick="audioPrev()" title="上一首">⏮</button><button id="nextBtn" onclick="audioNext()" title="下一首">⏭</button><button id="loopBtn" onclick="toggleLoop()" title="循环">🔁</button><button id="stopBtn" onclick="audioStop()" title="终止">⏹</button><button id="asrBtn" onclick="asrTranslate()">🌐 AI翻译</button><button id="asrToggle" style="display:none" onclick="asrToggleView()">📋 歌词</button></div>' +
-    '<div class="aLrc" id="aLrc"></div>' +
     '<div class="aInfo">支持上一首/下一首/循环/连播/歌词/AI翻译/终止 · 双指右划关闭</div>' +
+    '<div class="aIcon">🎵</div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
   // 方案②：透明覆盖层切换紧凑模式——仅 touchend（stopPropagation阻断stage + preventDefault阻断click合成），无双触发
@@ -3340,8 +3340,8 @@ function openAudio(buf, name, srcUrl) {
       var dy = ev.touches[0].clientY - _tzSY, dx = ev.touches[0].clientX - _tzSX;
       if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) {
         try { ev.preventDefault(); } catch (e) {}
-        if (dy < 0) document.body.classList.add('hidebar');   // 上滑：隐藏顶部按钮
-        else document.body.classList.remove('hidebar');       // 下滑：显示顶部按钮
+        if (dy < 0) document.body.classList.remove('hidebar'); // 上滑：拉出底部栏
+        else document.body.classList.add('hidebar');           // 下滑：隐藏底部栏
         _tzMoved = true;
       }
     }, { passive: false });
@@ -3355,6 +3355,23 @@ function openAudio(buf, name, srcUrl) {
       }
       _tzToggle();
     }, { passive: false });
+    var _lrcEl = contentEl.querySelector('.aLrc');
+    if (_lrcEl) {
+      var _lsX = -1, _lsY = -1;
+      _lrcEl.addEventListener('touchstart', function (ev) {
+        if (ev.touches.length === 1) { _lsX = ev.touches[0].clientX; _lsY = ev.touches[0].clientY; }
+      }, { passive: true });
+      _lrcEl.addEventListener('touchend', function (ev) {
+        if (_lsX < 0 || ev.changedTouches.length !== 1) { _lsX = -1; return; }
+        var dx = ev.changedTouches[0].clientX - _lsX, dy = ev.changedTouches[0].clientY - _lsY;
+        _lsX = -1;
+        if (Math.abs(dx) < 25 && Math.abs(dy) < 25) { ev.stopPropagation(); _tzToggle(); }
+      }, { passive: true });
+      _lrcEl.addEventListener('pointerdown', function (ev) {
+        if (ev.pointerType === 'touch') return;
+        _tzToggle();
+      });
+    }
     _tz.addEventListener('pointerdown', function (ev) {
       if (ev.pointerType === 'touch') return;
       _tzToggle();
