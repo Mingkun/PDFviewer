@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.13 (windows)'; },
+  appVersion: function () { return '1.2.14 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.13';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.14';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -87,7 +87,7 @@ window.addEventListener('keydown', function (e) {
   #pslider { flex:1; accent-color:#0a84ff; min-width:80px; }
   .bz { width:33px; height:31px; font-size:16px; padding:0 4px !important; border-radius:16px !important; color:#c9ced6 !important; }
   #zoomlab { font-size:10px; color:#8e959f; min-width:36px; text-align:center; font-variant-numeric:tabular-nums; }
-  #readbar { position:absolute; left:0; bottom:0; height:2px; width:0; background:#39c97e; transition:width .3s; }
+  #readbar { position:absolute; left:0; top:0; height:2px; width:0; background:#39c97e; transition:width .3s; }
   body.slimbar #bar, body.slimbar #ebar { padding-top:2px; padding-bottom:2px; }
   body.hidebar #bar, body.hidebar #ebar { display:none !important; }
   body.ctrcontent #stage { display:flex; flex-direction:column; align-items:center; justify-content:center; }
@@ -241,7 +241,7 @@ window.addEventListener('keydown', function (e) {
   #ocv { position:absolute; display:none; touch-action:none; z-index:5; }
   #bar button.onb { background:#0a84ff; color:#fff; box-shadow:0 2px 10px rgba(10,132,255,.35); }
   #bar button.onb i { color:rgba(255,255,255,.92); }
-  #ebar { display:none; flex-wrap:wrap; gap:4px; padding:6px 8px; background:#f0f4fa; border-bottom:1px solid #e3e8ef; align-items:center; }
+  #ebar { display:none; flex-wrap:wrap; gap:4px; padding:6px 8px; background:#f0f4fa; border-top:1px solid #e3e8ef; align-items:center; order:8; } /*v4180-gestflip*/
   #ebar button { border:1px solid #d5dbe4; background:#fff; border-radius:6px; padding:5px 9px; font-size:12px; cursor:pointer; }
   #ebar button.et.on { background:#1e88e5; color:#fff; border-color:#1e88e5; }
   .ec { display:inline-block; width:20px; height:20px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px #c3ccd8; cursor:pointer; }
@@ -308,7 +308,7 @@ window.addEventListener('keydown', function (e) {
     </div>
   </div>
 </div>
-<div id="stage"><div id="hint"><div id="hintShort" onclick="hintToggle()">💡 Tips</div><div id="hintFull" style="display:none" onclick="hintToggle()">点击「📄 打开」选择文件（PDF/EPUB/Word/Excel/PPT/TXT/MD/图片/音频/视频）<div style="margin-top:6px;font-size:11px;opacity:.8">屏幕下划：显示操作菜单，上划隐藏</div><div style="margin-top:3px;font-size:11px;opacity:.8">双指右划：关闭当前文件</div></div></div><div id="hintSep"><span class="sline"></span><span class="sdot"></span><span class="sline"></span></div><div id="recentBar"></div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
+<div id="stage"><div id="hint"><div id="hintShort" onclick="hintToggle()">💡 Tips</div><div id="hintFull" style="display:none" onclick="hintToggle()">点击「📄 打开」选择文件（PDF/EPUB/Word/Excel/PPT/TXT/MD/图片/音频/视频）<div style="margin-top:6px;font-size:11px;opacity:.8">屏幕上划：显示操作菜单，下划隐藏</div><div style="margin-top:3px;font-size:11px;opacity:.8">双指右划：关闭当前文件</div></div></div><div id="hintSep"><span class="sline"></span><span class="sdot"></span><span class="sline"></span></div><div id="recentBar"></div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
 <div id="bottomInfo"></div>
 <div id="trashModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;">
   <div style="width:min(360px,90vw);background:#fff;border-radius:12px;padding:14px;max-height:calc(100vh - 60px);overflow-y:auto;box-sizing:border-box">
@@ -1846,16 +1846,16 @@ function attachEpubSwipe(d) {
       }
     }
     else if (Math.abs(dy) > 60 && Math.abs(dy) > Math.abs(dx) * 1.5) {
-      // 竖划：上划隐藏顶栏 / 下划显示（与主页面手势一致；分页模式无纵向滚动，不冲突）
-      if (dy < 0) document.body.classList.add('hidebar');
-      else document.body.classList.remove('hidebar');
+      // 竖划：上划显示底栏 / 下划隐藏（与主页面手势一致；分页模式无纵向滚动，不冲突）
+      if (dy < 0) document.body.classList.remove('hidebar');
+      else document.body.classList.add('hidebar');
       setTimeout(updateStageCenter, 30);
       epubOnLayoutChange();
     }
     else if (Math.abs(dx) < 25 && Math.abs(dy) < 25) {
-      // 顶部轻点 = 下划（隐藏状态下点顶部恢复顶栏，与主页面行为一致）
+      // 隐藏状态下点屏幕底边或顶边 = 恢复底栏
       var _ty = e.changedTouches[0].clientY;
-      if (_ty < 90 && document.body.classList.contains('hidebar')) {
+      if ((_ty < 90 || _ty > window.innerHeight - 90) && document.body.classList.contains('hidebar')) {
         document.body.classList.remove('hidebar');
         setTimeout(updateStageCenter, 30);
         epubOnLayoutChange();
@@ -1898,23 +1898,23 @@ stage.addEventListener('touchmove', function (e) {
       var _ap = document.getElementById('audioPlayer');
       var _inLrc = e.target && e.target.closest && e.target.closest('.aLrc');
       if (mdy < 0) {
-        if (docKind === 'audio' && _ap && _ap.classList.contains('compact')) {
-          // 已在最紧凑，不再处理
-        } else if (docKind === 'audio' && _ap && document.body.classList.contains('hidebar') && !_inLrc) {
-          _ap.classList.add('compact');
-          try { var _tzH = document.getElementById('tapZone'); if (_tzH) { var _apH = document.getElementById('audioPlayer'); var _bH = _apH && _apH.querySelector('.aBar'); if (_bH) _tzH.style.height = Math.max(50, _bH.getBoundingClientRect().top - _apH.getBoundingClientRect().top) + 'px'; } } catch (e7) {}
-          setInfo('紧凑模式 · 下划恢复');
-        } else {
-          document.body.classList.add('hidebar');
-        }
-      } else {
-        if (_inLrc) { /* 歌词区内下划=滚动歌词，不退出紧凑 */ }
+        if (_inLrc) { /* 歌词区内滑动=滚动歌词，不恢复底栏 */ }
         else if (docKind === 'audio' && _ap && _ap.classList.contains('compact')) {
           _ap.classList.remove('compact');
           try { var _tzL = document.getElementById('tapZone'); if (_tzL) { var _apL = document.getElementById('audioPlayer'); var _bL = _apL && _apL.querySelector('.aBar'); if (_bL) _tzL.style.height = Math.max(50, _bL.getBoundingClientRect().top - _apL.getBoundingClientRect().top) + 'px'; } } catch (e8) {}
           setInfo('已恢复布局');
         } else {
           document.body.classList.remove('hidebar');
+        }
+      } else {
+        if (docKind === 'audio' && _ap && _ap.classList.contains('compact')) {
+          // 已在最紧凑，不再处理
+        } else if (docKind === 'audio' && _ap && document.body.classList.contains('hidebar') && !_inLrc) {
+          _ap.classList.add('compact');
+          try { var _tzH = document.getElementById('tapZone'); if (_tzH) { var _apH = document.getElementById('audioPlayer'); var _bH = _apH && _apH.querySelector('.aBar'); if (_bH) _tzH.style.height = Math.max(50, _bH.getBoundingClientRect().top - _apH.getBoundingClientRect().top) + 'px'; } } catch (e7) {}
+          setInfo('紧凑模式 · 上划恢复');
+        } else {
+          document.body.classList.add('hidebar');
         }
       }
       if (!(docKind === 'audio' && _ap && _ap.classList.contains('compact'))) setTimeout(updateStageCenter, 30);
@@ -1987,11 +1987,11 @@ stage.addEventListener('touchend', function (e) {
   }
   var now = Date.now();
   if (Math.abs(dx) < 25 && Math.abs(dy) < 25) {
-    // 紧凑布局下点一下顶部空区 = 下划（恢复顶栏 / 退出紧凑布局）
+    // 隐藏/紧凑下点一下屏幕底边或顶边空区 = 恢复底栏 / 退出紧凑布局
     var _tY = e.changedTouches[0].clientY;
     var _onCtl = e.target && e.target.closest && e.target.closest('audio,video,input,button,.aBar,.aLoop');
     var _apC = docKind === 'audio' ? document.getElementById('audioPlayer') : null;
-    if (!_onCtl && _tY < 90 && (document.body.classList.contains('hidebar') || (_apC && _apC.classList.contains('compact')))) {
+    if (!_onCtl && (_tY < 90 || _tY > window.innerHeight - 90) && (document.body.classList.contains('hidebar') || (_apC && _apC.classList.contains('compact')))) {
       if (_apC && _apC.classList.contains('compact')) { _apC.classList.remove('compact'); setInfo('已恢复布局'); }
       else { document.body.classList.remove('hidebar'); }
       setTimeout(updateStageCenter, 30);
