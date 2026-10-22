@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.22 (windows)'; },
+  appVersion: function () { return '1.2.23 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.22';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.23';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -83,7 +83,10 @@ window.addEventListener('keydown', function (e) {
   #bar .bb i { font-style:normal; font-size:10px; font-weight:500; letter-spacing:.2px; color:#8e959f; }
   #bar .bb svg { width:21px; height:21px; display:block; }
   #bar .bb i { font-style:normal; font-size:9px; opacity:.85; letter-spacing:1px; }
-  #pnav { display:flex; align-items:center; gap:7px; flex-basis:100%; order:8; padding-top:1px; }
+  #pnav { display:flex; align-items:center; gap:7px; flex-basis:100%; order:8; padding-top:1px; max-height:0; overflow:hidden; transition:max-height .2s ease; } /*v4189-pnavchip*/
+  body.pnavopen #pnav { max-height:44px; }
+  #pchip { flex:0 0 auto; height:46px; padding:0 13px; background:rgba(255,255,255,.065); color:#c9ced6; border:none; border-radius:12px; font-size:13px; font-variant-numeric:tabular-nums; cursor:pointer; font-family:inherit; -webkit-user-select:none; user-select:none; }
+  #pchip:active { background:rgba(255,255,255,.14); }
   #pslider { flex:1; accent-color:#0a84ff; min-width:80px; }
   .bz { width:33px; height:31px; font-size:16px; padding:0 4px !important; border-radius:16px !important; color:#c9ced6 !important; }
   #zoomlab { font-size:10px; color:#8e959f; min-width:36px; text-align:center; font-variant-numeric:tabular-nums; }
@@ -270,6 +273,7 @@ window.addEventListener('keydown', function (e) {
   <button id="editb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg><i>编辑</i></button>
   <button id="nightb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><i>夜间</i></button>
   <button id="gear" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><i>设置</i></button>
+  <button id="pchip" style="display:none"><span id="pchipTxt">1/1</span></button>
   <div id="pnav"><button id="zoomout" class="bz">−</button><span id="zoomlab">150%</span><button id="zoomin" class="bz">＋</button><input id="pageInput" type="number" value="0"><span id="total">/ 0</span><input type="range" id="pslider" min="1" max="1" value="1"></div>
   <div id="readbar"></div>
 </div>
@@ -2057,6 +2061,7 @@ function closeDoc() {
   var h = document.getElementById('hint');
   if (h) h.style.display = '';
   renderRecentBar();
+  _pchipUpdate();
   setInfo('已关闭当前文件');
 }
 function setTotal(n) {
@@ -2064,6 +2069,7 @@ function setTotal(n) {
   var sl = document.getElementById('pslider');
   sl.max = Math.max(1, n);
   sl.value = Math.min(Math.max(1, pageNum), Math.max(1, n));
+  _pchipUpdate();
 }
 function readTotal() { return docKind === 'pdf' ? (pdf ? pdf.numPages : 0) : docPages.length; }
 function navTotal() { return docKind === 'epub' ? (window.__epubPgTotal || 1) : (readTotal() || 1); }
@@ -2534,9 +2540,9 @@ function epubGotoPage(n) {
 }
 function displayPage(n) {
   if (docKind === 'epub') { epubGotoPage(n); return; }
-  pageNum = n;
+  pageNum = n; _pchipUpdate();
   if (docKind === 'pdf') { render(); return; }
-  if (docKind === 'pptx') { showSlide(n); document.getElementById('pageInput').value = n; document.getElementById('pslider').value = n; return; }
+  if (docKind === 'pptx') { showSlide(n); document.getElementById('pageInput').value = n; document.getElementById('pslider').value = n; _pchipUpdate(); return; }
 }
 var compactPass = false;
 var docFrame = null, frameBusy = false, frameToken = 0, frameCount = 0;
@@ -2823,6 +2829,7 @@ function render() {
     try { setInfo(''); } catch (e) {}
     syncOverlay(); drawAnns();
     document.getElementById('pageInput').value = pageNum;
+    _pchipUpdate();
     document.getElementById('pslider').value = pageNum;
     updateStageCenter();
     if (compactOn() && !compactPass) {
@@ -4133,6 +4140,30 @@ document.getElementById('gear').onclick = function () {
   menu.style.display = 'flex';
 };
 document.getElementById('mclose').onclick = function () { menu.style.display = 'none'; };
+var _pnavT = null;
+function _pnavArm() {
+  if (_pnavT) clearTimeout(_pnavT);
+  _pnavT = setTimeout(function () {
+    document.body.classList.remove('pnavopen');
+    setTimeout(updateStageCenter, 240);
+  }, 5000);
+}
+function _pchipUpdate() {
+  var c = document.getElementById('pchip'), t = document.getElementById('pchipTxt');
+  if (!c || !t) return;
+  var total = readTotal();
+  if (!docKind || !total) { c.style.display = 'none'; document.body.classList.remove('pnavopen'); return; }
+  c.style.display = '';
+  t.textContent = pageNum + '/' + total;
+}
+document.getElementById('pchip').addEventListener('click', function () {
+  var open = document.body.classList.toggle('pnavopen');
+  if (open) { _pnavArm(); }
+  setTimeout(updateStageCenter, 240);
+});
+['zoomin', 'zoomout'].forEach(function (id) { var e = document.getElementById(id); if (e) e.addEventListener('click', function () { if (document.body.classList.contains('pnavopen')) _pnavArm(); }); });
+document.getElementById('pslider').addEventListener('input', function () { if (document.body.classList.contains('pnavopen')) _pnavArm(); });
+document.getElementById('pageInput').addEventListener('change', function () { if (document.body.classList.contains('pnavopen')) _pnavArm(); });
 menu.addEventListener('click', function (e) { if (e.target === menu) menu.style.display = 'none'; });
 var _upBusy = false, _upTimer = null;
 document.getElementById('checkup').onclick = function () {
