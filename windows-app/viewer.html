@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.29 (windows)'; },
+  appVersion: function () { return '1.2.30 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.29';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.30';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -3399,6 +3399,33 @@ function openAudio(buf, name, srcUrl) {
     '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
+  var _lrcBox = document.getElementById('aLrc');
+  if (_lrcBox) {
+    var _ltX = -1, _ltY = -1, _lastTap = 0, _lastIdx = -1;
+    _lrcBox.addEventListener('touchstart', function (ev) {
+      if (ev.touches.length === 1) { _ltX = ev.touches[0].clientX; _ltY = ev.touches[0].clientY; }
+    }, { passive: true });
+    _lrcBox.addEventListener('touchend', function (ev) {
+      if (ev.changedTouches.length !== 1 || _ltX < 0) return;
+      if (Math.abs(ev.changedTouches[0].clientX - _ltX) > 15 || Math.abs(ev.changedTouches[0].clientY - _ltY) > 15) { _ltX = -1; return; }
+      _ltX = -1;
+      var line = ev.target && ev.target.closest ? ev.target.closest('#aLrc > div[data-i]') : null;
+      if (!line) return;
+      var idx = +line.getAttribute('data-i');
+      var now = Date.now();
+      if (now - _lastTap < 350 && idx === _lastIdx) {
+        _lastTap = 0;
+        ev.stopPropagation(); try { ev.preventDefault(); } catch (e) {}
+        _lrcSeekTo(idx);
+      } else { _lastTap = now; _lastIdx = idx; }
+    }, { passive: false });
+    _lrcBox.addEventListener('dblclick', function (ev) {
+      var line = ev.target && ev.target.closest ? ev.target.closest('#aLrc > div[data-i]') : null;
+      if (!line) return;
+      ev.stopPropagation();
+      _lrcSeekTo(+line.getAttribute('data-i'));
+    });
+  }
   setTotal(1); document.getElementById('pageInput').value = 1;
   updateStageCenter();
   // 循环播放
@@ -3701,6 +3728,16 @@ function _lrcDetectAnchors(buf, cb) {
     }).catch(function() { try { ctx.close(); } catch (e4) {} cb(null); });
   } catch (e) { cb(null); }
 }
+function _lrcSeekTo(idx) {
+  if (!curAudioEl || !_lrcLines || !_lrcLines[idx] || _lrcLines[idx].t < 0) return;
+  var t = _lrcLines[idx].t;
+  try { if (window.__lrcRatio && window.__lrcRatio !== 1) t = (t - (window.__lrcOffset || 0)) / window.__lrcRatio; } catch (e) {}
+  try { curAudioEl.currentTime = Math.max(0, t); } catch (e) { setInfo('该句无法跳转'); return; }
+  setInfo('⏩ 已跳到该句');
+  var el = document.getElementById('aLrc');
+  if (el) { el._curIdx = -1; }
+  try { _syncLrc(); } catch (e) {}
+}
 function _syncLrc() {
   if (_asrView) return;  // 翻译视图下不刷歌词，避免两个同步器互相覆盖 #aLrc 导致跳变
   if (!_lrcLines.length || !curAudioEl || _lrcLines[0].t < 0) return;
@@ -3715,7 +3752,7 @@ function _syncLrc() {
   if (el._curIdx === idx) return;
   el._curIdx = idx;
   el.innerHTML = _lrcLines.map(function (l, i2) {
-    return '<div' + (i2 === idx ? ' class="on"' : '') + '>' + esc(l.s || ' ') + '</div>';
+    return '<div data-i="' + i2 + '"' + (i2 === idx ? ' class="on"' : '') + '>' + esc(l.s || ' ') + '</div>'; /*v4196-lrcseek*/
   }).join('');
   var active = el.querySelector('.on');
   if (active) el.scrollTop = active.offsetTop - el.clientHeight / 2 + active.offsetHeight / 2;
