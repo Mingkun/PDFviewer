@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.31 (windows)'; },
+  appVersion: function () { return '1.2.32 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.31';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.32';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -978,6 +978,7 @@ function fbOpenFile(path, name, sz) {
   docOrigin = 'list';
   var _nm = (name || '').toLowerCase(), _ext = _nm.split('.').pop();
   if (/^(mp3|wav|ogg|m4a|flac|aac|wma|opus|mp4|webm|mkv|avi|mov|3gp|m4v|ts|flv)$/.test(_ext)) {
+    if (_isQQEnc(name)) { setInfo('🔒 加密音乐文件，暂不支持播放（' + name + '）'); return; }
     setInfo('正在打开 ' + name + ' …');
     openMediaPath(path, name);
     return;
@@ -3448,6 +3449,10 @@ function openAudio(buf, name, srcUrl) {
   // 歌词：加载同名 .lrc 或 .txt
   _loadLrc(base);
   // 歌词同步
+  curAudioEl.addEventListener('error', function () {
+    var c = (curAudioEl.error && curAudioEl.error.code) || 0;
+    setInfo('⚠️ 无法播放（错误码' + c + '）：文件加密、格式不支持或路径不可读'); /*v4198-errtoast*/
+  });
   curAudioEl.addEventListener('timeupdate', _syncLrc);
   curAudioEl.addEventListener('timeupdate', _syncAsr);
   try { curAudioEl.play(); } catch (e) {}
