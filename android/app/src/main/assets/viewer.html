@@ -208,8 +208,8 @@
   <button id="speak" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg><i>朗读</i></button>
   <button id="searchb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><i>搜索</i></button>
   <button id="editb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg><i>编辑</i></button>
-  <button id="nightb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><i>夜间</i></button>
   <button id="gear" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><i>设置</i></button>
+  <button id="homeb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><i>返回</i></button>
   <button id="pchip" style="display:none"><span id="pchipTxt">1/1</span></button>
   <div id="pnav"><button id="zoomout" class="bz">−</button><span id="zoomlab">150%</span><button id="zoomin" class="bz">＋</button><input id="pageInput" type="number" value="0"><span id="total">/ 0</span><input type="range" id="pslider" min="1" max="1" value="1"></div>
   <div id="readbar"></div>
@@ -328,6 +328,10 @@
         <button id="compactBtn" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">关</button>
       </div>
       <div id="compactInfo" style="font-size:12px;color:#8a94a6;padding:0 0 8px">紧凑模式：—</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px dashed #e3e8ef;">
+        <span style="font-size:14px;color:#1f2630">夜间模式（深色界面）</span>
+        <button id="nightBtn2" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">关</button>
+      </div>
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px dashed #e3e8ef;">
         <span style="font-size:14px;color:#1f2630">首页显示最近文件</span>
         <button id="recentBarBtn" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">开</button>
@@ -3196,15 +3200,30 @@ psl.oninput = function () { document.getElementById('pageInput').value = psl.val
 psl.onchange = function () { var v = parseInt(psl.value, 10); if (v >= 1) displayPage(Math.min(v, navTotal())); };
 document.getElementById('eprev').onclick = function () { displayPage(Math.max(1, pageNum - 1)); };
 document.getElementById('enext').onclick = function () { displayPage(Math.min(navTotal(), pageNum + 1)); };
-document.getElementById('nightb').onclick = function () {
+var _nightBtn = document.getElementById('nightBtn2');
+function _updateNightUI() {
+  if (!_nightBtn) return;
+  var on = document.body.classList.contains('dark');
+  _nightBtn.textContent = on ? '开' : '关';
+  _nightBtn.style.background = on ? '#e8590c' : '#f0f4fa';
+  _nightBtn.style.color = on ? '#fff' : '#5a6472';
+  _nightBtn.style.borderColor = on ? '#e8590c' : '#d5dbe4';
+}
+if (_nightBtn) _nightBtn.onclick = function () {
   document.body.classList.toggle('dark');
   var on = document.body.classList.contains('dark');
   try { localStorage.setItem('pv_dark', on ? '1' : '0'); } catch (e) {}
-  this.innerHTML = (on ? ic('sun') + '<i>日间</i>' : ic('moon') + '<i>夜间</i>');
+  _updateNightUI();
   refreshEpubTheme();
   setInfo(on ? '夜间模式已开启' : '已切回日间模式');
 };
-try { if (localStorage.getItem('pv_dark') === '1') { document.body.classList.add('dark'); document.getElementById('nightb').innerHTML = ic('sun') + '<i>日间</i>'; } } catch (e) {}
+_updateNightUI();
+document.getElementById('homeb').onclick = function () {
+  var fb = document.getElementById('fileBrowser');
+  if (fb && getComputedStyle(fb).display !== 'none') { try { fbClose(); } catch (e) {} return; }
+  if (docKind) closeDoc();
+};
+try { if (localStorage.getItem('pv_dark') === '1') { document.body.classList.add('dark'); } } catch (e) {}
 updZoom();
 setInterval(function () {
   var rb = document.getElementById('readbar'); if (!rb) return;
@@ -4090,7 +4109,7 @@ function _pchipUpdate() {
   var c = document.getElementById('pchip'), t = document.getElementById('pchipTxt');
   if (!c || !t) return;
   if (!docKind) { c.style.display = 'none'; c.classList.remove('off'); document.body.classList.remove('pnavopen'); return; }
-  if (!_PAGED_KINDS[docKind]) { c.style.display = ''; c.classList.add('off'); t.textContent = '—'; document.body.classList.remove('pnavopen'); return; }
+  if (!_PAGED_KINDS[docKind]) { c.style.display = 'none'; document.body.classList.remove('pnavopen'); return; } /*v4195-barchange: 不支持页码直接隐藏*/
   c.classList.remove('off');
   var total = readTotal();
   if (!total) { c.style.display = 'none'; document.body.classList.remove('pnavopen'); return; }
