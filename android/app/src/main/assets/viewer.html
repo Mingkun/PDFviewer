@@ -17,8 +17,8 @@
   #bar .bb i { font-style:normal; font-size:10px; font-weight:500; letter-spacing:.2px; color:#8e959f; }
   #bar .bb svg { width:21px; height:21px; display:block; }
   #bar .bb i { font-style:normal; font-size:9px; opacity:.85; letter-spacing:1px; }
-  #pnav { display:flex; align-items:center; gap:7px; flex-basis:100%; order:8; padding-top:1px; max-height:0; overflow:hidden; transition:max-height .2s ease; } /*v4189-pnavchip*/
-  body.pnavopen #pnav { max-height:44px; }
+  #pnav { display:flex; align-items:center; gap:7px; flex-basis:100%; order:8; padding-top:0; max-height:0; overflow:hidden; transition:max-height .2s ease; } /*v4190-pnavfix*/
+  body.pnavopen #pnav { max-height:44px; padding-top:1px; }
   #pchip { flex:0 0 auto; height:46px; padding:0 13px; background:rgba(255,255,255,.065); color:#c9ced6; border:none; border-radius:12px; font-size:13px; font-variant-numeric:tabular-nums; cursor:pointer; font-family:inherit; -webkit-user-select:none; user-select:none; }
   #pchip:active { background:rgba(255,255,255,.14); }
   #pslider { flex:1; accent-color:#0a84ff; min-width:80px; }
