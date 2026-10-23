@@ -21,6 +21,7 @@
   body.pnavopen #pnav { max-height:44px; padding-top:1px; }
   #pchip { flex:0 0 auto; height:46px; padding:0 13px; background:rgba(255,255,255,.065); color:#c9ced6; border:none; border-radius:12px; font-size:13px; font-variant-numeric:tabular-nums; cursor:pointer; font-family:inherit; -webkit-user-select:none; user-select:none; }
   #pchip:active { background:rgba(255,255,255,.14); }
+  #pchip.off { opacity:.35; pointer-events:none; } /*v4192-pchipgray*/
   #pslider { flex:1; accent-color:#0a84ff; min-width:80px; }
   .bz { width:33px; height:31px; font-size:16px; padding:0 4px !important; border-radius:16px !important; color:#c9ced6 !important; }
   #zoomlab { font-size:10px; color:#8e959f; min-width:36px; text-align:center; font-variant-numeric:tabular-nums; }
@@ -4082,11 +4083,15 @@ function _pnavArm() {
     setTimeout(updateStageCenter, 240);
   }, 5000);
 }
+var _PAGED_KINDS = { pdf: 1, epub: 1, pptx: 1 };
 function _pchipUpdate() {
   var c = document.getElementById('pchip'), t = document.getElementById('pchipTxt');
   if (!c || !t) return;
+  if (!docKind) { c.style.display = 'none'; c.classList.remove('off'); document.body.classList.remove('pnavopen'); return; }
+  if (!_PAGED_KINDS[docKind]) { c.style.display = ''; c.classList.add('off'); t.textContent = '—'; document.body.classList.remove('pnavopen'); return; }
+  c.classList.remove('off');
   var total = readTotal();
-  if (!docKind || !total) { c.style.display = 'none'; document.body.classList.remove('pnavopen'); return; }
+  if (!total) { c.style.display = 'none'; document.body.classList.remove('pnavopen'); return; }
   c.style.display = '';
   t.textContent = pageNum + '/' + total;
 }
