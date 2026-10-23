@@ -3574,8 +3574,8 @@ function _renderLrcList(msg) {
   if (!el) return;
   if (msg) { el.innerHTML = '<div style="color:#8e959f;padding:8px">' + esc(msg) + '</div>'; return; }
   el._curIdx = -1;
-  el.innerHTML = _lrcLines.map(function (l) {
-    return '<div>' + esc(l.s || ' ') + '</div>';
+  el.innerHTML = _lrcLines.map(function (l, i) {
+    return '<div data-i="' + i + '">' + esc(l.s || ' ') + '</div>'; /*v4201-initrender: 首次渲染也带索引，前奏期双击第一句可对齐*/
   }).join('');
 }
 function _parseLrc(txt) {
