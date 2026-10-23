@@ -3477,6 +3477,7 @@ function asrRender() {
   var el = document.getElementById('aLrc');
   if (!el || !_asrSegs.length) return;
   el._curIdx = -1;
+  _applySavedOff();
   el.innerHTML = _asrSegs.map(function (g, i) {
     var zh = g.zh || '';
     return '<div data-i="' + i + '" style="margin:6px 0">' +
@@ -3520,6 +3521,8 @@ var _lrcLines = [], _lrcCache = {};
 function _loadLrc(base) {
   _lrcLines = [];
   window.__lrcReady = 0; window.__lrcRatio = 1; window.__lrcOffset = 0;
+  window.__lrcBase = base || ''; window.__offApplied = 0; window.__asrOff = 0;
+  _loadLrcOff();
   var el = document.getElementById('aLrc');
   if (el) { el.innerHTML = '<div style="color:#8e959f;padding:8px">🔍 搜索歌词中…</div>'; el._curIdx = -1; }
   if (_lrcCache[base]) { _lrcLines = _lrcCache[base]; _renderLrcList(); return; }
@@ -3573,6 +3576,7 @@ function _renderLrcList(msg) {
   var el = document.getElementById('aLrc');
   if (!el) return;
   if (msg) { el.innerHTML = '<div style="color:#8e959f;padding:8px">' + esc(msg) + '</div>'; return; }
+  _applySavedOff();
   el._curIdx = -1;
   el.innerHTML = _lrcLines.map(function (l, i) {
     return '<div data-i="' + i + '">' + esc(l.s || ' ') + '</div>'; /*v4201-initrender: 首次渲染也带索引，前奏期双击第一句可对齐*/
@@ -3586,6 +3590,57 @@ function _parseLrc(txt) {
   });
   return out.sort(function (a, b) { return a.t - b.t; });
 }
+// ===== 歌词手动校准偏移：服务器存取（v4202-offsync）=====
+function _lrcTA() {
+  var base = window.__lrcBase || '';
+  base = base.replace(/\s*\[(?:mqms\d*|qqmusic|flac|mp3|m4a|320k|hq|sq|ape|wav|ogg)\]\s*/gi, ' ').trim();
+  var artist = '', track = base;
+  var m = base.match(/^(.+?)\s*[-–—]\s*(.+)$/);
+  if (m) { artist = m[1].trim(); track = m[2].trim(); }
+  return { track: track, artist: artist };
+}
+function _lrcOffURL() { return CLOUD_TTS.replace('/api/tts', '/api/lrc-offset'); }
+function _saveLrcOff(view, offset, ratio) {
+  try {
+    var ta = _lrcTA();
+    if (!ta.track) return;
+    var qs = '?track=' + encodeURIComponent(ta.track) + (ta.artist ? '&artist=' + encodeURIComponent(ta.artist) : '');
+    fetch(_lrcOffURL() + qs, { method: 'POST', body: JSON.stringify({ offset: offset, ratio: ratio || 1, view: view }) }).catch(function(){});
+  } catch (e) {}
+}
+function _loadLrcOff() {
+  window.__savedOff = null;
+  try {
+    var ta = _lrcTA();
+    if (!ta.track) return;
+    var qs = '?track=' + encodeURIComponent(ta.track) + (ta.artist ? '&artist=' + encodeURIComponent(ta.artist) : '');
+    fetch(_lrcOffURL() + qs, { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { if (j && j.ok) { window.__savedOff = j; _applySavedOff(); } })
+      .catch(function(){});
+  } catch (e) {}
+}
+function _applySavedOff() {
+  var j = window.__savedOff;
+  if (!j || window.__offApplied) return;
+  var el = document.getElementById('aLrc');
+  if (j.view === 'asr') {
+    if (_asrView && _asrSegs.length) {
+      window.__asrOff = j.offset || 0;
+      window.__offApplied = 1;
+      if (el) el._asrIdx = -1;
+      try { _syncAsr(); } catch (e) {}
+    }
+  } else if (_lrcLines.length) {
+    window.__lrcRatio = j.ratio || 1;
+    window.__lrcOffset = j.offset || 0;
+    window.__lrcReady = 1;
+    window.__offApplied = 1;
+    if (el) el._curIdx = -1;
+    try { _syncLrc(); } catch (e) {}
+  }
+}
+
 // ===== 歌词锚点对齐：找音频实际人声区间，把LRC时间轴线性映射进去 =====
 // 有PCM数据→能量检测精确锚点；流媒体→启发式估算（live版前奏短/尾奏长）
 function _lrcSetup() {
@@ -3684,6 +3739,8 @@ function _lrcAnchorTo(idx) { /*v4199-lrcanchor: 双击=对齐到当前声音，�
   try { _syncLrc(); } catch (e) {}
   try { _syncAsr(); } catch (e) {}
   setInfo('✅ 歌词已对齐这句，声音继续');
+  if (_asrView && _asrSegs && _asrSegs[idx] !== undefined) _saveLrcOff('asr', window.__asrOff, 1);
+  else if (_lrcLines && _lrcLines[idx] !== undefined) _saveLrcOff('lrc', window.__lrcOffset, window.__lrcRatio);
 }
 function _syncLrc() {
   if (_asrView) return;  // 翻译视图下不刷歌词，避免两个同步器互相覆盖 #aLrc 导致跳变
