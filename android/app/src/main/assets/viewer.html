@@ -3691,7 +3691,7 @@ function _syncLrc() {
   var now = curAudioEl.currentTime;
   // 锚点对齐：LRC歌词区间线性映射到音频实际人声区间（同时消除前奏/尾奏差和速度差）
   try { if (!window.__lrcReady) _lrcSetup(); } catch (e) { window.__lrcReady = 1; }
-  if (window.__lrcRatio && window.__lrcRatio !== 1) now = now * window.__lrcRatio + window.__lrcOffset;
+  now = now * (window.__lrcRatio || 1) + (window.__lrcOffset || 0); /*v4200-offsetfix: 手动对齐后 ratio=1 时偏移也生效*/
   var idx = -1;
   for (var i = 0; i < _lrcLines.length; i++) { if (_lrcLines[i].t <= now) idx = i; else break; }
   var el = document.getElementById('aLrc');
