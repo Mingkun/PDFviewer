@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.32 (windows)'; },
+  appVersion: function () { return '1.2.33 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.32';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.33';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -3400,6 +3400,7 @@ function openAudio(buf, name, srcUrl) {
     '<div class="aBar"><audio id="curAudio" controls preload="auto" src="' + url + '"></audio></div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
+  window.__asrOff = 0;
   var _lrcBox = document.getElementById('aLrc');
   if (_lrcBox) {
     var _ltX = -1, _ltY = -1, _lastTap = 0, _lastIdx = -1;
@@ -3417,14 +3418,14 @@ function openAudio(buf, name, srcUrl) {
       if (now - _lastTap < 350 && idx === _lastIdx) {
         _lastTap = 0;
         ev.stopPropagation(); try { ev.preventDefault(); } catch (e) {}
-        _lrcSeekTo(idx);
+        _lrcAnchorTo(idx);
       } else { _lastTap = now; _lastIdx = idx; }
     }, { passive: false });
     _lrcBox.addEventListener('dblclick', function (ev) {
       var line = ev.target && ev.target.closest ? ev.target.closest('#aLrc > div[data-i]') : null;
       if (!line) return;
       ev.stopPropagation();
-      _lrcSeekTo(+line.getAttribute('data-i'));
+      _lrcAnchorTo(+line.getAttribute('data-i'));
     });
   }
   setTotal(1); document.getElementById('pageInput').value = 1;
@@ -3552,7 +3553,7 @@ function asrRender() {
 }
 function _syncAsr() {
   if (!_asrView || !_asrSegs.length || !curAudioEl) return;
-  var t = curAudioEl.currentTime, idx = -1;
+  var t = curAudioEl.currentTime + (window.__asrOff || 0), idx = -1; /*v4199: ASR 手动对齐偏移*/
   for (var i = 0; i < _asrSegs.length; i++) { if (_asrSegs[i].s <= t) idx = i; else break; }
   var el = document.getElementById('aLrc');
   if (!el || el._asrIdx === idx) return;
@@ -3733,21 +3734,22 @@ function _lrcDetectAnchors(buf, cb) {
     }).catch(function() { try { ctx.close(); } catch (e4) {} cb(null); });
   } catch (e) { cb(null); }
 }
-function _lrcSeekTo(idx) { /*v4197-asrseek: ASR/翻译视图按 _asrSegs 跳*/
-  var t = -1;
-  if (_asrView && _asrSegs && _asrSegs[idx] && _asrSegs[idx].s >= 0) {
-    t = _asrSegs[idx].s;   // ASR 分段时间即真实音频时间，无需锚点映射
-  } else if (_lrcLines && _lrcLines[idx] && _lrcLines[idx].t >= 0) {
-    t = _lrcLines[idx].t;
-    try { if (window.__lrcRatio && window.__lrcRatio !== 1) t = (t - (window.__lrcOffset || 0)) / window.__lrcRatio; } catch (e) {}
-  }
-  if (t < 0 || !curAudioEl) return;
-  try { curAudioEl.currentTime = Math.max(0, t); } catch (e) { setInfo('该句无法跳转'); return; }
-  setInfo('⏩ 已跳到该句');
+function _lrcAnchorTo(idx) { /*v4199-lrcanchor: 双击=对齐到当前声音，播放不中断*/
   var el = document.getElementById('aLrc');
-  if (el) { el._curIdx = -1; el._asrIdx = -1; }
+  if (!el || !curAudioEl) return;
+  var now = curAudioEl.currentTime;
+  if (_asrView && _asrSegs && _asrSegs[idx] !== undefined) {
+    window.__asrOff = (_asrSegs[idx].s || 0) - now;   // 歌词轴平移：该句=现在
+  } else if (_lrcLines && _lrcLines[idx] !== undefined && _lrcLines[idx].t >= 0) {
+    var ratio = (window.__lrcRatio && window.__lrcRatio > 0) ? window.__lrcRatio : 1;
+    window.__lrcRatio = ratio;
+    window.__lrcOffset = _lrcLines[idx].t - now * ratio;
+    window.__lrcReady = 1;   // 防自动锚点覆盖手动对齐
+  } else return;
+  el._curIdx = -1; el._asrIdx = -1;
   try { _syncLrc(); } catch (e) {}
   try { _syncAsr(); } catch (e) {}
+  setInfo('✅ 歌词已对齐这句，声音继续');
 }
 function _syncLrc() {
   if (_asrView) return;  // 翻译视图下不刷歌词，避免两个同步器互相覆盖 #aLrc 导致跳变
