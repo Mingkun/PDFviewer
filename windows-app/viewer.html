@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.26 (windows)'; },
+  appVersion: function () { return '1.2.27 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.26';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.27';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -88,6 +88,7 @@ window.addEventListener('keydown', function (e) {
   #pchip { flex:0 0 auto; height:46px; padding:0 13px; background:rgba(255,255,255,.065); color:#c9ced6; border:none; border-radius:12px; font-size:13px; font-variant-numeric:tabular-nums; cursor:pointer; font-family:inherit; -webkit-user-select:none; user-select:none; }
   #pchip:active { background:rgba(255,255,255,.14); }
   #pchip.off { opacity:.35; pointer-events:none; } /*v4192-pchipgray*/
+  /*v4193-blackfix: 长文包装层强制GPU合成层，修安卓WebView黑块残影 */
   #pslider { flex:1; accent-color:#0a84ff; min-width:80px; }
   .bz { width:33px; height:31px; font-size:16px; padding:0 4px !important; border-radius:16px !important; color:#c9ced6 !important; }
   #zoomlab { font-size:10px; color:#8e959f; min-width:36px; text-align:center; font-variant-numeric:tabular-nums; }
@@ -221,7 +222,7 @@ window.addEventListener('keydown', function (e) {
   body.dark #recentBar .rbFile + .rbFile { border-top-color:#3a4353; }
   body.dark #recentBar .rbFName { color:#dde3ec; }
   #fpick { display:none; }
-  .mdwrap { display:inline-block; text-align:left; max-width:100%; padding:12px 14px;
+  .mdwrap { display:inline-block; -webkit-transform:translateZ(0); text-align:left; max-width:100%; padding:12px 14px;
             font-size:15px; line-height:1.85; color:#1f2630; word-break:break-word; }
   .mdwrap h1, .mdwrap h2, .mdwrap h3, .mdwrap h4, .mdwrap h5, .mdwrap h6 { margin:16px 0 8px; line-height:1.35; }
   .mdwrap h1 { font-size:23px; } .mdwrap h2 { font-size:20px; } .mdwrap h3 { font-size:17px; }
@@ -2296,7 +2297,7 @@ function openTxt(buf) {
   var txt = decodeText(buf);
   txtRaw = txt;
   docPages = chunksFromText(txt);
-  contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(txt) + '</div>';
+  contentEl.innerHTML = '<div style="-webkit-transform:translateZ(0);display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(txt) + '</div>';
   contentEl.style.background = '#fff';
   contentEl.style.display = 'block'; updateStageCenter();
   docKind = 'txt';
@@ -2308,7 +2309,7 @@ function openDocx(buf) {
   loadScript('libs/mammoth.min.js', function (err) {
     if (err || typeof mammoth === 'undefined') { setInfo('打开失败'); return; }
     mammoth.convertToHtml({ arrayBuffer: buf }).then(function (r) {
-      contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.8;color:#1f2630">' + (r.value || '') + '</div>';
+      contentEl.innerHTML = '<div style="-webkit-transform:translateZ(0);display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.8;color:#1f2630">' + (r.value || '') + '</div>';
       contentEl.style.background = '#fff';
       contentEl.style.display = 'block'; updateStageCenter();
       docKind = 'docx';
@@ -2335,7 +2336,7 @@ function openXlsx(buf) {
         var csv = XLSX.utils.sheet_to_csv(ws);
         if (csv.trim()) texts.push(csv);
       });
-      contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px">' + html.replace(/<td/g, '<td style="border:1px solid #dde4ec;padding:4px 8px"').replace(/<th/g, '<th style="border:1px solid #dde4ec;padding:4px 8px"') + '</div>';
+      contentEl.innerHTML = '<div style="-webkit-transform:translateZ(0);display:inline-block;text-align:left;max-width:100%;padding:12px">' + html.replace(/<td/g, '<td style="border:1px solid #dde4ec;padding:4px 8px"').replace(/<th/g, '<th style="border:1px solid #dde4ec;padding:4px 8px"') + '</div>';
       contentEl.style.background = '#fff';
       contentEl.style.display = 'block'; updateStageCenter();
       var t = texts.join('\n');
@@ -2378,7 +2379,7 @@ function openPptLegacy(buf) {
   var msg = '旧版 .ppt 文件（二进制格式）暂不支持直接预览。\n\n请在电脑上用 PowerPoint / WPS 打开后，另存为 .pptx 或 PDF，再传回手机打开。';
   txtRaw = msg;
   docPages = chunksFromText(msg);
-  contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(msg) + '</div>';
+  contentEl.innerHTML = '<div style="-webkit-transform:translateZ(0);display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(msg) + '</div>';
   contentEl.style.background = '#fff';
   contentEl.style.display = 'block'; updateStageCenter();
   docKind = 'txt';
@@ -2431,7 +2432,7 @@ function openDoc(buf) {
   var txt = extractDocText(buf);
   if (txt.trim().length < 50) { setInfo('旧版 .doc 解析有限，建议另存为 .docx'); return; }
   docPages = chunksFromText(txt);
-  contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(txt) + '</div>';
+  contentEl.innerHTML = '<div style="-webkit-transform:translateZ(0);display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(txt) + '</div>';
   contentEl.style.background = '#fff';
   contentEl.style.display = 'block'; updateStageCenter();
   docKind = 'doc';
@@ -3058,7 +3059,7 @@ document.getElementById('wstxt').onclick = function () {
     contentEl.innerHTML = '<div class="mdwrap">' + mdHtml(txtRaw) + '</div>';
     docPages = chunksFromText(mdPlain(txtRaw));
   } else {
-    contentEl.innerHTML = '<div style="display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(txtRaw) + '</div>';
+    contentEl.innerHTML = '<div style="-webkit-transform:translateZ(0);display:inline-block;text-align:left;max-width:100%;padding:12px;font-size:15px;line-height:1.9;color:#1f2630;white-space:pre-wrap;word-break:break-word">' + esc(txtRaw) + '</div>';
     docPages = chunksFromText(txtRaw || '');
   }
   setTotal(docPages.length);
