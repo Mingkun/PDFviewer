@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.30 (windows)'; },
+  appVersion: function () { return '1.2.31 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.30';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.31';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -3728,15 +3728,21 @@ function _lrcDetectAnchors(buf, cb) {
     }).catch(function() { try { ctx.close(); } catch (e4) {} cb(null); });
   } catch (e) { cb(null); }
 }
-function _lrcSeekTo(idx) {
-  if (!curAudioEl || !_lrcLines || !_lrcLines[idx] || _lrcLines[idx].t < 0) return;
-  var t = _lrcLines[idx].t;
-  try { if (window.__lrcRatio && window.__lrcRatio !== 1) t = (t - (window.__lrcOffset || 0)) / window.__lrcRatio; } catch (e) {}
+function _lrcSeekTo(idx) { /*v4197-asrseek: ASR/翻译视图按 _asrSegs 跳*/
+  var t = -1;
+  if (_asrView && _asrSegs && _asrSegs[idx] && _asrSegs[idx].s >= 0) {
+    t = _asrSegs[idx].s;   // ASR 分段时间即真实音频时间，无需锚点映射
+  } else if (_lrcLines && _lrcLines[idx] && _lrcLines[idx].t >= 0) {
+    t = _lrcLines[idx].t;
+    try { if (window.__lrcRatio && window.__lrcRatio !== 1) t = (t - (window.__lrcOffset || 0)) / window.__lrcRatio; } catch (e) {}
+  }
+  if (t < 0 || !curAudioEl) return;
   try { curAudioEl.currentTime = Math.max(0, t); } catch (e) { setInfo('该句无法跳转'); return; }
   setInfo('⏩ 已跳到该句');
   var el = document.getElementById('aLrc');
-  if (el) { el._curIdx = -1; }
+  if (el) { el._curIdx = -1; el._asrIdx = -1; }
   try { _syncLrc(); } catch (e) {}
+  try { _syncAsr(); } catch (e) {}
 }
 function _syncLrc() {
   if (_asrView) return;  // 翻译视图下不刷歌词，避免两个同步器互相覆盖 #aLrc 导致跳变
