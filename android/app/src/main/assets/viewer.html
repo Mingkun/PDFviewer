@@ -209,7 +209,7 @@
   <button id="searchb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><i>搜索</i></button>
   <button id="editb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg><i>编辑</i></button>
   <button id="gear" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><i>设置</i></button>
-  <button id="homeb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><i>返回</i></button>
+  <button id="homeb" class="bb" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><i>返回</i></button>
   <button id="pchip" style="display:none"><span id="pchipTxt">1/1</span></button>
   <div id="pnav"><button id="zoomout" class="bz">−</button><span id="zoomlab">150%</span><button id="zoomin" class="bz">＋</button><input id="pageInput" type="number" value="0"><span id="total">/ 0</span><input type="range" id="pslider" min="1" max="1" value="1"></div>
   <div id="readbar"></div>
@@ -1985,6 +1985,7 @@ function resetView() {
   var hs = document.getElementById('hintSep');
   if (hs) hs.style.display = 'none';
   pdf = null; docKind = null; docPages = []; txtRaw = null; txtIsMd = false;
+  _homeBtnUpdate();
   cv.style.transform = '';
   window.epubBook = null; window.epubRendition = null;
   document.getElementById('total').textContent = '/ 0';
@@ -2080,6 +2081,7 @@ function openImage(buf) {
   ioc.addEventListener('pointermove', iMove);
   ioc.addEventListener('pointerup', iUp);
   docKind = 'img';
+  _homeBtnUpdate();
   setTotal(1);
 }
 function syncImgOverlay() {
@@ -4211,8 +4213,13 @@ function _pnavArm() {
     setTimeout(updateStageCenter, 240);
   }, 5000);
 }
+function _homeBtnUpdate() { /*v4203-homebtn: 无文档隐藏返回按钮*/
+  var hb = document.getElementById('homeb');
+  if (hb) hb.style.display = docKind ? '' : 'none';
+}
 var _PAGED_KINDS = { pdf: 1, epub: 1, pptx: 1 };
 function _pchipUpdate() {
+  _homeBtnUpdate();
   var c = document.getElementById('pchip'), t = document.getElementById('pchipTxt');
   if (!c || !t) return;
   if (!docKind) { c.style.display = 'none'; c.classList.remove('off'); document.body.classList.remove('pnavopen'); return; }
