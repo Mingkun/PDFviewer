@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.39 (windows)'; },
+  appVersion: function () { return '1.2.40 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.39';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.40';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -399,10 +399,10 @@ window.addEventListener('keydown', function (e) {
         <span style="font-size:14px;color:#1f2630">夜间模式（深色界面）</span>
         <button id="nightBtn2" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">关</button>
       </div>
-      <div id="shareRow" style="display:none;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px dashed #e3e8ef;">
-        <span style="font-size:14px;color:#1f2630">📤 分享当前文件（微信等）</span>
-        <button id="shareBtn" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">分享</button>
-      </div> <!--v4204-share-->
+      <div id="shareRow" style="display:none;align-items:center;justify-content:space-between;gap:8px;padding:10px 0;border-top:1px dashed #e3e8ef;"> <!--v4206-nowrap-->
+        <span style="font-size:14px;color:#1f2630;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1">📤 分享当前文件</span>
+        <button id="shareBtn" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0">分享</button>
+      </div>
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px dashed #e3e8ef;">
         <span style="font-size:14px;color:#1f2630">首页显示最近文件</span>
         <button id="recentBarBtn" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">开</button>
