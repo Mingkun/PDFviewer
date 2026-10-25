@@ -671,6 +671,33 @@ class MainActivity : Activity() {
 
     inner class Bridge {
         @JavascriptInterface
+        fun shareFile(path: String, name: String) {
+            try {
+                val f = java.io.File(path)
+                if (!f.exists() || !f.isFile) {
+                    runOnUiThread { android.widget.Toast.makeText(this@MainActivity, "文件不存在，无法分享", android.widget.Toast.LENGTH_SHORT).show() }
+                    return
+                }
+                val ext = f.name.substringAfterLast('.', "").lowercase()
+                val mime = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream"
+                val uri = androidx.core.content.FileProvider.getUriForFile(this@MainActivity, packageName + ".fileprovider", f)
+                val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = mime
+                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                    putExtra(android.content.Intent.EXTRA_SUBJECT, if (name.isBlank()) f.name else name)
+                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                runOnUiThread {
+                    val chooser = android.content.Intent.createChooser(send, "分享给…")
+                    chooser.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    startActivity(chooser)
+                }
+            } catch (e: Exception) {
+                runOnUiThread { android.widget.Toast.makeText(this@MainActivity, "分享失败：" + (e.message ?: "?"), android.widget.Toast.LENGTH_LONG).show() }
+            }
+        }
+
+        @JavascriptInterface
         fun volumeUp() {
             try {
                 val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager

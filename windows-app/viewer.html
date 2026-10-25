@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.37 (windows)'; },
+  appVersion: function () { return '1.2.38 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.37';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.38';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -398,6 +398,10 @@ window.addEventListener('keydown', function (e) {
         <span style="font-size:14px;color:#1f2630">夜间模式（深色界面）</span>
         <button id="nightBtn2" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">关</button>
       </div>
+      <div id="shareRow" style="display:none;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px dashed #e3e8ef;">
+        <span style="font-size:14px;color:#1f2630">📤 分享当前文件（微信等）</span>
+        <button id="shareBtn" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">分享</button>
+      </div> <!--v4204-share-->
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px dashed #e3e8ef;">
         <span style="font-size:14px;color:#1f2630">首页显示最近文件</span>
         <button id="recentBarBtn" style="border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:3px 14px;font-size:12px;cursor:pointer">开</button>
@@ -3287,6 +3291,13 @@ if (_nightBtn) _nightBtn.onclick = function () {
   setInfo(on ? '夜间模式已开启' : '已切回日间模式');
 };
 _updateNightUI();
+document.getElementById('shareBtn').onclick = function () {
+  try {
+    var nm = (curFileKey || '').split('/').pop();
+    AppBridge.shareFile(curFileKey, nm || '');
+    setInfo('已打开分享面板');
+  } catch (e) { setInfo('分享不可用'); }
+};
 document.getElementById('homeb').onclick = function () {
   var fb = document.getElementById('fileBrowser');
   if (fb && getComputedStyle(fb).display !== 'none') { try { fbClose(); } catch (e) {} return; }
@@ -4260,6 +4271,8 @@ function showResults(q, hits) {
 }
 var menu = document.getElementById('menu');
 document.getElementById('gear').onclick = function () {
+  var _sr = document.getElementById('shareRow');
+  if (_sr) _sr.style.display = (curFileKey && window.AppBridge && AppBridge.shareFile) ? 'flex' : 'none';
   updateCompactBtn();
   if (compactOn() && String(document.getElementById('compactInfo').textContent).indexOf('紧凑模式：—') === 0) {
     setCompactInfo('已开启（打开 PDF 后生效）');
