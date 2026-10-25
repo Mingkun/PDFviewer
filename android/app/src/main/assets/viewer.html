@@ -31,6 +31,7 @@
   body.slimbar #bar, body.slimbar #ebar { padding-top:2px; padding-bottom:2px; }
   body.hidebar #bar, body.hidebar #ebar { display:none !important; }
   body.audiobaroff #bar { display:none !important; } /*v4185-audiobaroff*/
+  body.audiobaroff.barpeek #bar { display:flex !important; } /*v4205-barpeek: 音频页上划唤出主底栏*/
   body.ctrcontent #stage { display:flex; flex-direction:column; align-items:center; justify-content:center; }
   #content.ctr { display:flex !important; flex-direction:column; align-items:center; justify-content:center; }
   body.slimbar #bar .bb { height:34px; }
@@ -1854,6 +1855,8 @@ stage.addEventListener('touchmove', function (e) {
           _ap.classList.remove('compact');
           try { var _tzL = document.getElementById('tapZone'); if (_tzL) { var _apL = document.getElementById('audioPlayer'); var _bL = _apL && _apL.querySelector('.aBar'); if (_bL) _tzL.style.height = Math.max(50, _bL.getBoundingClientRect().top - _apL.getBoundingClientRect().top) + 'px'; } } catch (e8) {}
           setInfo('已恢复布局');
+        } else if (docKind === 'audio') {
+          _barPeek();
         } else {
           document.body.classList.remove('hidebar');
         }
@@ -1864,6 +1867,8 @@ stage.addEventListener('touchmove', function (e) {
           _ap.classList.add('compact');
           try { var _tzH = document.getElementById('tapZone'); if (_tzH) { var _apH = document.getElementById('audioPlayer'); var _bH = _apH && _apH.querySelector('.aBar'); if (_bH) _tzH.style.height = Math.max(50, _bH.getBoundingClientRect().top - _apH.getBoundingClientRect().top) + 'px'; } } catch (e7) {}
           setInfo('紧凑模式 · 上划恢复');
+        } else if (docKind === 'audio') {
+          _barPeekOff();
         } else {
           document.body.classList.add('hidebar');
         }
@@ -1970,7 +1975,21 @@ window.addEventListener('resize', function () {
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 var docKind = null, docPages = [];
 var contentEl = document.getElementById('content');
+var _barPeekTimer = null;
+function _barPeek() {
+  document.body.classList.add('barpeek');
+  if (_barPeekTimer) clearTimeout(_barPeekTimer);
+  _barPeekTimer = setTimeout(function () {
+    document.body.classList.remove('barpeek');
+    _barPeekTimer = null;
+  }, 4000);
+}
+function _barPeekOff() {
+  if (_barPeekTimer) { clearTimeout(_barPeekTimer); _barPeekTimer = null; }
+  document.body.classList.remove('barpeek');
+}
 function resetView() {
+  _barPeekOff();
   frameToken++; docFrame = null; frameBusy = false; frameCount = 0;
   document.body.classList.remove('hidebar');
   document.body.classList.remove('audiobaroff');
