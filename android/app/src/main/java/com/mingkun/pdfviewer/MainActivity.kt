@@ -1350,7 +1350,7 @@ class MainActivity : Activity() {
                     try { if (dest.exists()) dest.delete() } catch (_: Exception) {}
                     val bust = apkUrl + (if (apkUrl.contains("?")) "&" else "?") + "t=" + System.currentTimeMillis()
                     val req = DownloadManager.Request(Uri.parse(bust))
-                        .setTitle("PDF 阅读器更新")
+                        .setTitle("遥遥领先阅读器更新")
                         .setDescription("下载完成后自动打开安装")
                         .setMimeType("application/vnd.android.package-archive")
                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
@@ -1419,7 +1419,7 @@ class MainActivity : Activity() {
                 try {
                     val pm = getSystemService(PRINT_SERVICE) as PrintManager
                     pm.print(
-                        "PDF 阅读器打印",
+                        "遥遥领先阅读器打印",
                         PdfPrintAdapter(currentPdf),
                         PrintAttributes.Builder().build()
                     )

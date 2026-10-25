@@ -5,7 +5,7 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 560,
     height: 860,
-    title: 'PDF 阅读器',
+    title: '遥遥领先阅读器',
     autoHideMenuBar: true,
     webPreferences: {
       contextIsolation: true,

@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>PDF 阅读器</title>
+<title>遥遥领先阅读器</title>
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.40 (windows)'; },
+  appVersion: function () { return '1.2.41 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.40';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.41';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
