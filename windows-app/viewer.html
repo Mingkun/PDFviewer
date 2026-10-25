@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.41 (windows)'; },
+  appVersion: function () { return '1.2.42 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.41';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.42';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -317,7 +317,7 @@ window.addEventListener('keydown', function (e) {
     </div>
   </div>
 </div>
-<div id="stage"><div id="hint"><div id="hintShort" onclick="hintToggle()">💡 Tips</div><div id="hintFull" style="display:none" onclick="hintToggle()">点击「📄 打开」选择文件（PDF/EPUB/Word/Excel/PPT/TXT/MD/图片/音频/视频）<div style="margin-top:6px;font-size:11px;opacity:.8">屏幕上划：显示操作菜单，下划隐藏</div><div style="margin-top:3px;font-size:11px;opacity:.8">双指右划：关闭当前文件</div></div></div><div id="hintSep"><span class="sline"></span><span class="sdot"></span><span class="sline"></span></div><div id="recentBar"></div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
+<div id="stage"><div id="hint"><div id="hintShort" onclick="hintToggle()">💡 Tips</div><div id="hintFull" style="display:none" onclick="hintToggle()">点击「📄 打开」选择文件（PDF/EPUB/XMind/Word/Excel/PPT/TXT/MD/图片/音频/视频）<div style="margin-top:6px;font-size:11px;opacity:.8">屏幕上划：显示操作菜单，下划隐藏</div><div style="margin-top:3px;font-size:11px;opacity:.8">双指右划：关闭当前文件</div></div></div><div id="hintSep"><span class="sline"></span><span class="sdot"></span><span class="sline"></span></div><div id="recentBar"></div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
 <div id="bottomInfo"></div>
 <div id="trashModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;">
   <div style="width:min(360px,90vw);background:#fff;border-radius:12px;padding:14px;max-height:calc(100vh - 60px);overflow-y:auto;box-sizing:border-box">
@@ -455,7 +455,7 @@ window.addEventListener('keydown', function (e) {
     </div>
   </div>
 </div>
-<input type="file" id="fpick" accept=".pdf,.epub,.txt,.csv,.doc,.docx,.xlsx,.ppt,.pptx,.md,.markdown,image/*">
+<input type="file" id="fpick" accept=".pdf,.epub,.xmind,.txt,.csv,.doc,.docx,.xlsx,.ppt,.pptx,.md,.markdown,image/*">
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdfjs/pdf.worker.min.js';
 var pdf = null, pageNum = 1, scale = 1.5, rendering = false, pending = null;
@@ -2335,6 +2335,199 @@ function openTxt(buf) {
   setTotal(docPages.length);
   if (autoReadOn()) readerToggle();
 }
+
+/* ================= XMind(.xmind) 大纲视图 + 轻编辑 ================= */
+function xmindKidList(t) {
+  var out = [];
+  if (!t) return out;
+  if (window.__xmindFmt === 'json') {
+    var ch = t.children || {};
+    (ch.attached || []).forEach(function (k) { out.push([k, false]); });
+    (ch.detached || []).forEach(function (k) { out.push([k, true]); });
+  } else {
+    (t.children || []).forEach(function (k) { out.push([k, false]); });
+  }
+  return out;
+}
+function xmindNote(t) {
+  if (window.__xmindFmt === 'json') {
+    try { return (t.notes && t.notes.plain && t.notes.plain.content) || ''; } catch (e) { return ''; }
+  }
+  return t.note || '';
+}
+function xmindTopicFromXml(t) {
+  var title = '', note = '', children = [];
+  Array.prototype.forEach.call(t.children, function (c) {
+    if (c.tagName === 'title') title = c.textContent;
+    else if (c.tagName === 'notes') { var pl = c.getElementsByTagName('plain'); if (pl.length) note = pl[0].textContent; }
+    else if (c.tagName === 'children') {
+      Array.prototype.forEach.call(c.children, function (tp) {
+        if (tp.tagName !== 'topics') return;
+        Array.prototype.forEach.call(tp.children, function (tc) { if (tc.tagName === 'topic') children.push(xmindTopicFromXml(tc)); });
+      });
+    }
+  });
+  return { title: title, note: note, children: children };
+}
+function xmindAppend(parent, t, depth, isDet) {
+  if (!t) return;
+  var editable = window.__xmindFmt === 'json';
+  var kids = xmindKidList(t);
+  var row = document.createElement('div');
+  row.className = 'xrow';
+  row.style.margin = depth === 0 ? '12px 0 4px' : '2px 0';
+  if (depth > 0) row.style.paddingLeft = Math.min(depth, 8) * 18 + 'px';
+  var tri = null;
+  if (kids.length) {
+    tri = document.createElement('span');
+    tri.className = 'xtri';
+    tri.textContent = depth + 1 >= 3 ? '▸' : '▾';
+    tri.style.cssText = 'cursor:pointer;display:inline-block;width:20px;color:#1e88e5;font-size:13px;vertical-align:middle;user-select:none;-webkit-user-select:none';
+    row.appendChild(tri);
+  } else {
+    var sp = document.createElement('span'); sp.style.display = 'inline-block'; sp.style.width = '20px'; row.appendChild(sp);
+  }
+  var bl = document.createElement('span');
+  bl.textContent = isDet ? '🧩' : depth === 0 ? '🧠' : depth === 1 ? '●' : '·';
+  bl.style.cssText = 'margin-right:6px;color:' + (depth <= 1 ? '#1e88e5' : '#90a4ae') + ';font-size:' + (depth === 0 ? '17px' : depth === 1 ? '12px' : '14px') + ';vertical-align:middle';
+  row.appendChild(bl);
+  var lbl = document.createElement(depth === 0 ? 'div' : 'span');
+  lbl.textContent = t.title || '';
+  if (editable) { lbl.setAttribute('data-xm', '1'); lbl.__topic = t; }
+  if (depth === 0) lbl.style.cssText = 'font-weight:700;font-size:18px;color:#1565c0;padding:6px 12px;background:#e3f2fd;border-radius:8px;display:inline-block';
+  else if (depth === 1) lbl.style.cssText = 'font-weight:600;font-size:15px;color:#1f2630;vertical-align:middle';
+  else lbl.style.cssText = 'font-size:14px;color:#37474f;vertical-align:middle';
+  row.appendChild(lbl);
+  parent.appendChild(row);
+  var nt = xmindNote(t);
+  if (nt) {
+    var nEl = document.createElement('div');
+    nEl.textContent = '📝 ' + nt.replace(/\s+/g, ' ').slice(0, 300);
+    nEl.style.cssText = 'margin:2px 0 2px 20px;' + (depth > 0 ? 'padding-left:' + Math.min(depth, 8) * 18 + 'px;' : '') + 'font-size:12px;color:#90a4ae;white-space:pre-wrap;word-break:break-word';
+    parent.appendChild(nEl);
+  }
+  if (kids.length) {
+    var sub = document.createElement('div');
+    if (depth + 1 >= 3) sub.style.display = 'none';
+    parent.appendChild(sub);
+    tri.onclick = function () {
+      var vis = sub.style.display === 'none';
+      sub.style.display = vis ? '' : 'none';
+      tri.textContent = vis ? '▾' : '▸';
+    };
+    kids.forEach(function (p) { xmindAppend(sub, p[0], depth + 1, p[1]); });
+  }
+}
+function renderXmind() {
+  var sheets = window.__xmindSheets;
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'max-width:100%;padding:12px;background:#fff;font-size:15px;line-height:1.85;color:#1f2630;text-align:left';
+  if (window.__xmindFmt === 'json') {
+    var bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;gap:8px;margin-bottom:10px;position:sticky;top:0;background:#fff;padding:6px 0;z-index:5';
+    var be = document.createElement('button');
+    be.id = 'xmedit'; be.textContent = '✏️ 编辑大纲';
+    be.style.cssText = 'border:1px solid #1e88e5;background:#fff;color:#1e88e5;border-radius:20px;padding:4px 12px;font-size:13px;cursor:pointer';
+    var bs = document.createElement('button');
+    bs.id = 'xmsave'; bs.textContent = '💾 存为 XMind';
+    bs.style.cssText = 'border:1px solid #d5dbe4;background:#f0f4fa;color:#5a6472;border-radius:20px;padding:4px 12px;font-size:13px;cursor:pointer;white-space:nowrap';
+    bar.appendChild(be); bar.appendChild(bs);
+    wrap.appendChild(bar);
+    be.onclick = function () {
+      var on = wrap.getAttribute('data-edit') === '1';
+      wrap.setAttribute('data-edit', on ? '0' : '1');
+      be.textContent = on ? '✏️ 编辑大纲' : '✔️ 完成编辑';
+      wrap.querySelectorAll('[data-xm]').forEach(function (el) {
+        if (on) { el.removeAttribute('contenteditable'); el.style.outline = ''; el.style.cursor = ''; }
+        else { el.setAttribute('contenteditable', 'plaintext-only'); el.style.outline = '1px dashed #90caf9'; el.style.cursor = 'text'; }
+      });
+      setInfo(on ? '已退出编辑' : '可点击文字直接修改，改完点「存为 XMind」');
+    };
+    bs.onclick = function () {
+      wrap.querySelectorAll('[data-xm]').forEach(function (el) {
+        if (el.__topic) el.__topic.title = (el.textContent || '').trim();
+      });
+      try {
+        window.__xmindZip.file('content.json', JSON.stringify(window.__xmindSheets));
+        window.__xmindZip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' }).then(function (ab) {
+          var u8 = new Uint8Array(ab);
+          var name = 'edited-xmind-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.xmind';
+          var b64 = u8b64(u8);
+          if (window.AppBridge && AppBridge.saveFileBase64) { AppBridge.saveFileBase64(name, 'application/vnd.xmind.workbook', b64); setInfo('已保存 ' + name + '（' + u8.length + ' 字节）'); }
+          else { var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ab], { type: 'application/vnd.xmind.workbook' })); a.download = name; a.click(); setInfo('已生成 ' + name); }
+        }).catch(function (e) { setInfo('保存失败：' + e); });
+      } catch (e) { setInfo('保存失败：' + e); }
+    };
+  } else {
+    var tip = document.createElement('div');
+    tip.textContent = '旧版 XMind 8 格式：仅查看。如需编辑，请用 XMind 软件打开后另存为新格式（2020+）';
+    tip.style.cssText = 'font-size:12px;color:#90a4ae;margin:0 0 10px';
+    wrap.appendChild(tip);
+  }
+  var plain = [];
+  sheets.forEach(function (sh, si) {
+    var root = window.__xmindFmt === 'json' ? sh.rootTopic : sh.root;
+    if (!root) return;
+    var shTitle = sh.title || ('画布 ' + (si + 1));
+    var h = document.createElement('div');
+    h.textContent = '📄 ' + shTitle;
+    h.style.cssText = 'font-weight:700;font-size:16px;margin:14px 0 8px;border-bottom:2px solid #1e88e5;padding-bottom:4px';
+    wrap.appendChild(h);
+    plain.push('# ' + shTitle);
+    (function collect(t, d, det) {
+      plain.push(new Array(d + 1).join('  ') + (det ? '[游离] ' : '') + (t.title || ''));
+      var n = xmindNote(t);
+      if (n) plain.push(new Array(d + 2).join('  ') + '[备注] ' + n.replace(/\s+/g, ' ').trim());
+      xmindKidList(t).forEach(function (p) { collect(p[0], d + 1, p[1]); });
+    })(root, 0, false);
+    xmindAppend(wrap, root, 0, false);
+  });
+  contentEl.innerHTML = '';
+  contentEl.appendChild(wrap);
+  contentEl.style.background = '#fff';
+  contentEl.style.display = 'block'; updateStageCenter();
+  docKind = 'xmind';
+  txtRaw = plain.join('\n'); txtIsMd = false;
+  docPages = chunksFromText(txtRaw);
+  setTotal(docPages.length);
+  setInfo('XMind 大纲 · ' + (window.__xmindFmt === 'json' ? '可编辑（只改文字，结构不变）' : '仅查看'));
+}
+function openXmind(buf) {
+  resetView();
+  loadScript('libs/jszip.min.js', function (err) {
+    if (err || typeof JSZip === 'undefined') { setInfo('打开失败'); return; }
+    JSZip.loadAsync(buf).then(function (zip) {
+      window.__xmindZip = zip;
+      if (zip.file('content.json')) {
+        zip.file('content.json').async('string').then(function (s) {
+          var sheets = null;
+          try { sheets = JSON.parse(s); } catch (e) {}
+          if (!Array.isArray(sheets) || !sheets.length) { setInfo('XMind 文件损坏'); return; }
+          window.__xmindSheets = sheets; window.__xmindFmt = 'json';
+          renderXmind();
+        });
+      } else if (zip.file('content.xml')) {
+        zip.file('content.xml').async('string').then(function (s) {
+          var doc = new DOMParser().parseFromString(s, 'application/xml');
+          if (doc.getElementsByTagName('parsererror').length) { setInfo('旧版 XMind 文件解析失败（XML 无效）'); return; }
+          var sheets = [];
+          Array.prototype.forEach.call(doc.getElementsByTagName('sheet'), function (sh) {
+            var o = { title: '', root: null };
+            Array.prototype.forEach.call(sh.children, function (c) {
+              if (c.tagName === 'title') o.title = c.textContent;
+              else if (c.tagName === 'topic' && !o.root) o.root = xmindTopicFromXml(c);
+            });
+            if (o.root) sheets.push(o);
+          });
+          if (!sheets.length) { setInfo('旧版 XMind 解析失败'); return; }
+          window.__xmindSheets = sheets; window.__xmindFmt = 'xml';
+          renderXmind();
+        });
+      } else setInfo('不支持的 .xmind（缺少 content.json/xml）');
+    }).catch(function (e) { setInfo('XMind 打开失败：' + e); });
+  });
+} /*v4208-xmind*/
+
 function openDocx(buf) {
   resetView();
   loadScript('libs/mammoth.min.js', function (err) {
@@ -3875,6 +4068,7 @@ function openByBytes(name, buf, mime, key) {
     else if (/\.(mp3|wav|ogg|m4a|flac|aac|wma|opus)$/i.test(nm)) openAudio(buf, nm);
     else if (/\.(mp4|webm|mkv|avi|mov|3gp|m4v|ts|flv)$/i.test(nm)) openVideo(buf, nm);
     else if (nm.indexOf('.epub') >= 0) openEpub(buf);
+    else if (nm.indexOf('.xmind') >= 0) openXmind(buf);
     else if (nm.indexOf('.docx') >= 0) openDocx(buf);
     else if (nm.indexOf('.doc') >= 0) openDoc(buf);
     else if (nm.indexOf('.xlsx') >= 0 || nm.indexOf('.csv') >= 0) openXlsx(buf);
