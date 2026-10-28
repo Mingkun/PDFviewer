@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.45 (windows)'; },
+  appVersion: function () { return '1.2.46 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.45';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.46';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -3682,8 +3682,7 @@ function openAudio(buf, name, srcUrl) {
       _spdIdx = (_spdIdx + 1) % _spdList.length;
       var v = _spdList[_spdIdx];
       if (curAudioEl) curAudioEl.playbackRate = v;
-      _spd.textContent = (v % 1 === 0 ? v.toFixed(0) : String(v)) + 'x';
-      setInfo('倍速 ' + (v % 1 === 0 ? v.toFixed(0) : String(v)) + 'x');
+      _spd.textContent = (v % 1 === 0 ? v.toFixed(0) : String(v)) + 'x'; /*v4212-nospeedtoast*/
     };
   })();
   window.audioTogglePlay = function () { if (!curAudioEl) return; if (curAudioEl.paused) curAudioEl.play().catch(function () {}); else curAudioEl.pause(); };
