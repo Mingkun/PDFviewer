@@ -3807,6 +3807,7 @@ var _lrcLines = [], _lrcCache = {};
 function _loadLrc(base) {
   _lrcLines = [];
   window.__lrcReady = 0; window.__lrcRatio = 1; window.__lrcOffset = 0;
+  window.__lrcPts = []; window.__asrPts = []; /*v4213-multifit*/
   window.__lrcBase = base || ''; window.__offApplied = 0; window.__asrOff = 0;
   _loadLrcOff();
   var el = document.getElementById('aLrc');
@@ -3896,6 +3897,17 @@ function _saveLrcOff(view, offset, ratio) {
 }
 function _loadLrcOff() {
   window.__savedOff = null;
+  try { /*v4213-multifit: 恢复本机校准点历史（最多20点）*/
+    var _ta = _lrcTA();
+    if (_ta.track) {
+      var _pk = 'pv_lrcpts_' + _ta.track + '|' + (_ta.artist || '');
+      var _pj = JSON.parse(localStorage.getItem(_pk) || 'null');
+      if (_pj && typeof _pj === 'object') {
+        window.__lrcPts = Array.isArray(_pj.lrc) ? _pj.lrc.slice(-20) : [];
+        window.__asrPts = Array.isArray(_pj.asr) ? _pj.asr.slice(-20) : [];
+      }
+    }
+  } catch (e) {}
   try {
     var ta = _lrcTA();
     if (!ta.track) return;
@@ -4009,22 +4021,58 @@ function _lrcDetectAnchors(buf, cb) {
     }).catch(function() { try { ctx.close(); } catch (e4) {} cb(null); });
   } catch (e) { cb(null); }
 }
-function _lrcAnchorTo(idx) { /*v4199-lrcanchor: 双击=对齐到当前声音，播放不中断*/
+function _lrcFitPts(pts) { /*v4213-multifit: 多点最小二乘拟合 l = r*a + b，全部校准点参与*/
+  if (!pts || !pts.length) return null;
+  var keepR = (window.__lrcRatio && window.__lrcRatio > 0) ? window.__lrcRatio : 1;
+  if (pts.length === 1) return { r: keepR, b: pts[0].l - pts[0].a * keepR };
+  var n = pts.length, sa = 0, sl = 0;
+  for (var i = 0; i < n; i++) { sa += pts[i].a; sl += pts[i].l; }
+  var ma = sa / n, ml = sl / n, num = 0, den = 0;
+  for (var j = 0; j < n; j++) { num += (pts[j].a - ma) * (pts[j].l - ml); den += (pts[j].a - ma) * (pts[j].a - ma); }
+  var r = den > 1e-6 ? num / den : keepR;
+  if (!isFinite(r) || r <= 0) r = keepR;
+  r = Math.max(0.5, Math.min(2, r));
+  var b = ml - r * ma;
+  if (!isFinite(b)) b = pts[n - 1].l - pts[n - 1].a * r;
+  return { r: r, b: b };
+}
+
+function _lrcPtsPersist() {
+  try {
+    var ta = _lrcTA();
+    if (!ta.track) return;
+    localStorage.setItem('pv_lrcpts_' + ta.track + '|' + (ta.artist || ''), JSON.stringify({ lrc: window.__lrcPts || [], asr: window.__asrPts || [] }));
+  } catch (e) {}
+}
+
+function _lrcAnchorTo(idx) { /*v4213-multifit: 双击=加一个校准点（每曲最多20点），全部参与拟合；对齐到当前声音，播放不中断*/
   var el = document.getElementById('aLrc');
   if (!el || !curAudioEl) return;
   var now = curAudioEl.currentTime;
+  var nPts = 0;
   if (_asrView && _asrSegs && _asrSegs[idx] !== undefined) {
-    window.__asrOff = (_asrSegs[idx].s || 0) - now;   // 歌词轴平移：该句=现在
+    var ap = window.__asrPts || (window.__asrPts = []);
+    ap.push({ a: now, l: _asrSegs[idx].s || 0 });
+    if (ap.length > 20) ap.shift();
+    var sumO = 0;
+    for (var q = 0; q < ap.length; q++) sumO += ap[q].l - ap[q].a;
+    window.__asrOff = sumO / ap.length;   // 均值：每点都生效
+    nPts = ap.length;
   } else if (_lrcLines && _lrcLines[idx] !== undefined && _lrcLines[idx].t >= 0) {
-    var ratio = (window.__lrcRatio && window.__lrcRatio > 0) ? window.__lrcRatio : 1;
-    window.__lrcRatio = ratio;
-    window.__lrcOffset = _lrcLines[idx].t - now * ratio;
+    var lp = window.__lrcPts || (window.__lrcPts = []);
+    lp.push({ a: now, l: _lrcLines[idx].t });
+    if (lp.length > 20) lp.shift();
+    var fit = _lrcFitPts(lp);
+    window.__lrcRatio = fit.r;
+    window.__lrcOffset = fit.b;
     window.__lrcReady = 1;   // 防自动锚点覆盖手动对齐
+    nPts = lp.length;
   } else return;
   el._curIdx = -1; el._asrIdx = -1;
   try { _syncLrc(); } catch (e) {}
   try { _syncAsr(); } catch (e) {}
-  setInfo('✅ 歌词已对齐这句，声音继续');
+  _lrcPtsPersist();
+  setInfo('✅ 第' + nPts + '/20 个校准点已生效' + (nPts >= 2 ? '（多点拟合）' : '') + '，声音继续');
   if (_asrView && _asrSegs && _asrSegs[idx] !== undefined) _saveLrcOff('asr', window.__asrOff, 1);
   else if (_lrcLines && _lrcLines[idx] !== undefined) _saveLrcOff('lrc', window.__lrcOffset, window.__lrcRatio);
 }
