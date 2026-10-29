@@ -3575,11 +3575,12 @@ function openAudio(buf, name, srcUrl) {
     '<div class="aTitle">' + esc(name) + '</div>' +
     '<div class="aBar">' + /*v4210-audiobar*/
     '<audio id="curAudio" preload="auto" src="' + url + '"></audio>' +
-    '<div class="aProg"><span class="aTime" id="aCur">00:00</span><div class="aSlider" id="aSlider"><div class="aFill" id="aFill"></div><div class="aThumb" id="aThumb"></div></div><button class="aSpeed" id="speedBtn" title="倍速">1.0x</button><span class="aTime" id="aDur">00:00</span></div>' +
+    '<div class="aProg"><span class="aTime" id="aCur">00:00</span><div class="aSlider" id="aSlider"><div class="aFill" id="aFill"></div><div class="aThumb" id="aThumb"></div></div><span class="aTime" id="aDur">00:00</span><button class="aSpeed" id="speedBtn" title="倍速">1.0x</button> <!--v4220-fix--></div>' +
     '<div class="aCtrls"><button id="loopBtn" onclick="toggleLoop()" title="循环"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M17 2 L21 6 L17 10" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 6 H10 C6 6 3 9 3 13 C3 15 4 17 5.5 18.2" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round"/><path d="M7 22 L3 18 L7 14" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 18 H14 C18 18 21 15 21 11 C21 9 20 7 18.5 5.8" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round"/></svg></button><button id="prevBtn" class="aMed" onclick="audioPrev()" title="上一首"><svg viewBox="0 0 24 24" width="22" height="22"><rect x="2" y="4" width="2.5" height="16" fill="#c8cdd5"/><path d="M20 4 L20 20 L7 12 Z" fill="#c8cdd5"/></svg></button><button id="playBtn" class="aBig" onclick="audioTogglePlay()" title="播放/暂停"><svg viewBox="0 0 24 24" width="28" height="28"><path d="M6 4 L6 20 L20 12 Z" fill="#fff"/></svg></button><button id="nextBtn" class="aMed" onclick="audioNext()" title="下一首"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 4 L4 20 L17 12 Z" fill="#c8cdd5"/><rect x="19.5" y="4" width="2.5" height="16" fill="#c8cdd5"/></svg></button><button id="stopBtn" onclick="audioStop()" title="终止"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" rx="1.5" fill="none" stroke="#c8cdd5" stroke-width="2.5"/></svg></button> <!--v4217-svg--></div>' +
     '</div>' +
     '</div>';
   curAudioEl = contentEl.querySelector('#curAudio');
+  var _alEl = document.getElementById('aLrc'); if (_alEl) _alEl.dataset.noAutoScroll = '1'; /*v4220-fix*/
   (function () { /*v4210-audiobar*/
     var _fmt = function (t) { t = Math.max(0, Math.floor(t || 0)); var m = Math.floor(t / 60), x = t % 60; return (m < 10 ? '0' + m : m) + ':' + (x < 10 ? '0' + x : x); };
     var _bar = document.getElementById('aCur'), _dur = document.getElementById('aDur');
@@ -4093,7 +4094,8 @@ function _syncLrc() {
     return '<div data-i="' + i2 + '"' + (i2 === idx ? ' class="on"' : '') + '>' + esc(l.s || ' ') + '</div>'; /*v4196-lrcseek*/
   }).join('');
   var active = el.querySelector('.on');
-  if (active) el.scrollTop = active.offsetTop - el.clientHeight / 2 + active.offsetHeight / 2;
+  if (active && el.dataset.noAutoScroll !== '1') el.scrollTop = active.offsetTop - el.clientHeight / 2 + active.offsetHeight / 2;
+  el.dataset.noAutoScroll = ''; /*v4220-fix*/
 }
 var curFileKey = '', rxChunks = [], rxName = '', rxKey = '', rxTotal = 0;
 function openByBytes(name, buf, mime, key) {
@@ -4124,7 +4126,7 @@ function openByBytes(name, buf, mime, key) {
   setTimeout(function () {
     try {
       var q = loadPos();
-      if (q && q.cTop && contentEl && contentEl.style.display !== 'none') contentEl.scrollTop = q.cTop;
+      if (q && q.cTop && contentEl && contentEl.style.display !== 'none' && docKind !== 'audio') contentEl.scrollTop = q.cTop; /*v4220-fix: 音频不恢复滚动*/
     } catch (e) {}
   }, 350);
 }
