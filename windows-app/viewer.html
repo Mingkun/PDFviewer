@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.54 (windows)'; },
+  appVersion: function () { return '1.2.55 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.54';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.55';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -134,7 +134,7 @@ window.addEventListener('keydown', function (e) {
   #fileBrowser .fbItem { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; }
   #fileBrowser .fbItem:active { background:rgba(0,132,255,.15); }
   #fileBrowser .fbIcon { font-size:22px; width:28px; text-align:center; flex-shrink:0; }
-  #fileBrowser .fbName { font-size:14px; color:#dfe3ea; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #fileBrowser .fbName { font-size:14px; color:#dfe3ea; flex:1; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; word-break:break-all; line-height:1.4; } /*v4221-fbname*/
   #fileBrowser .fbSub { font-size:11px; color:#8e959f; flex-shrink:0; }
   #fileBrowser .fbEmpty { text-align:center; padding:40px; color:#8e959f; font-size:13px; }
   #fileBrowser .fbTabs { display:flex; gap:0; border-bottom:1px solid rgba(255,255,255,.08); overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
@@ -813,7 +813,7 @@ function fbRenderTypeList(items) {
     var sub = fbOrder === 'time' ? new Date(it.t).toLocaleDateString() : fbOrder === 'size' ? fmtSize(it.s) : fmtSize(it.s);
     return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="0" data-i="' + _i + '" data-n="' + esc(it.n) + '">' +
       '<div class="fbIcon">' + icon + '</div>' +
-      '<div class="fbName">' + _encMark(it) + esc(it.n) + '</div>' +
+      '<div class="fbName" title="' + esc(it.n) + '">' + _encMark(it) + esc(it.n) + '</div>' + /*v4221-fbname*/
       '<div class="fbSub">' + sub + '</div></div>';
   }).join('');
   }
@@ -952,7 +952,7 @@ function fbLoad(path, offset) {
       var sub = it.d ? '' : fmtSize(it.s);
       return '<div class="fbItem" data-p="' + esc(it.p) + '" data-d="' + it.d + '" data-i="' + (offset + _i) + '" data-n="' + esc(it.n) + '">' +
         '<div class="fbIcon">' + icon + '</div>' +
-        '<div class="fbName">' + _encMark(it) + esc(it.n) + '</div>' +
+        '<div class="fbName" title="' + esc(it.n) + '">' + _encMark(it) + esc(it.n) + '</div>' + /*v4221-fbname*/
         '<div class="fbSub">' + sub + '</div></div>';
     }).join('');
     if (j.more) html += '<div id="fbMoreRow" class="fbItem" style="justify-content:center;color:#0a84ff"><div class="fbIcon">⬇️</div><div class="fbName">加载更多（已显示 ' + (offset + items.length) + ' / ' + j.total + '）</div><div class="fbSub"></div></div>';
