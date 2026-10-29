@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.52 (windows)'; },
+  appVersion: function () { return '1.2.53 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.52';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.53';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -193,7 +193,7 @@ window.addEventListener('keydown', function (e) {
   #audioPlayer .aCtrls .aBig { width:58px; height:58px; background:none; border:none; color:#fff; font-size:0; display:flex; align-items:center; justify-content:center; padding:0; box-shadow:none; } /*v4214-nobg*/
   #audioPlayer .aCtrls .aMed { font-size:26px; padding:6px; }
   #audioPlayer #curAudio { display:none; }
-  #audioPlayer .aCtrls button.on { background:none; border-radius:0; } #audioPlayer .aCtrls button.on svg path, #audioPlayer .aCtrls button.on svg rect { fill:#fff; } #audioPlayer .aCtrls button.on svg path[fill='none'], #audioPlayer .aCtrls button.on svg rect[fill='none'] { stroke:#fff; } /*v4217-svg*/
+  /* v4219-loop1: 激活态箭头保持灰色，白色1由SVG内联fill控制 */
   #audioPlayer.compact .aCtrls { gap:12px; margin:0 0 4px; }
   #audioPlayer.compact .aCtrls .aBig { width:46px; height:46px; font-size:28px; }
   #audioPlayer.compact .aProg { margin:0 auto 4px; }
@@ -3867,7 +3867,7 @@ function audioStop() {
 }
 function updateLoopBtn() {
   var b = document.getElementById('loopBtn');
-  if (b && curAudioEl) { b.classList.toggle('on', curAudioEl.loop); b.innerHTML = curAudioEl.loop ? '<span style="font-size:18px;font-weight:800;color:#fff;font-family:inherit">1</span>' : '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M17 2 L21 6 L17 10" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 6 H10 C6 6 3 9 3 13 C3 15 4 17 5.5 18.2" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round"/><path d="M7 22 L3 18 L7 14" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 18 H14 C18 18 21 15 21 11 C21 9 20 7 18.5 5.8" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round"/></svg>'; } /*v4218-tapfix*/
+  if (b && curAudioEl) { b.classList.toggle('on', curAudioEl.loop); b.innerHTML = curAudioEl.loop ? '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M17 2 L21 6 L17 10" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 6 H10 C6 6 3 9 3 13 C3 15 4 17 5.5 18.2" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round"/><path d="M7 22 L3 18 L7 14" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 18 H14 C18 18 21 15 21 11 C21 9 20 7 18.5 5.8" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round"/><text x="12" y="15" text-anchor="middle" font-size="10" font-weight="800" fill="#fff" font-family="sans-serif">1</text></svg>' : '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M17 2 L21 6 L17 10" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 6 H10 C6 6 3 9 3 13 C3 15 4 17 5.5 18.2" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round"/><path d="M7 22 L3 18 L7 14" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 18 H14 C18 18 21 15 21 11 C21 9 20 7 18.5 5.8" fill="none" stroke="#c8cdd5" stroke-width="2.2" stroke-linecap="round"/></svg>'; } /*v4219-loop1*/
 }
 var _lrcLines = [], _lrcCache = {};
 function _loadLrc(base) {
