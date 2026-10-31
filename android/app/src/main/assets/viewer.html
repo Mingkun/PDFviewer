@@ -970,14 +970,47 @@ function fmtSize(s) {
 }
 
 document.getElementById('open').onclick = function () { goHome(); }; /*v4234-homebtn*/
-function goHome() { /*v4234-homebtn: 回到首页（关文件/关文件浏览器/显示分类网格）*/
-  try { var fb = document.getElementById('fileBrowser'); if (fb) fb.style.display = 'none'; } catch (e) {}
+function goHome() { /*v4236-freshhome: 每次点首页都恢复到刚启动APP的状态*/
+  var g = function (id) { return document.getElementById(id); };
+  /* 1) 关弹层与面板 */
+  try { var sm = g('smodal'); if (sm) sm.style.display = 'none'; } catch (e) {}
+  try { var fb = g('fileBrowser'); if (fb) fb.style.display = 'none'; } catch (e) {}
+  try { var ta = g('tarea'); if (ta) ta.style.display = 'none'; } catch (e) {}
+  /* 2) 停朗读 + 关当前文件 */
+  try { stopReading(); } catch (e) {}
   if (docKind) { try { closeDoc(); } catch (e) {} }
-  try { document.body.classList.remove('hidebar'); } catch (e) {}
-  try { var h = document.getElementById('hint'); if (h) h.style.display = ''; } catch (e) {}
-  try { document.getElementById('ocv').style.display = ''; } catch (e) {}
+  /* 3) 彻底重置视图（等价启动初态） */
+  try { resetView(); } catch (e) {}
+  try { if (curAudioEl) { curAudioEl.pause(); curAudioEl = null; } } catch (e) {}
+  try { if (curVideoEl) { curVideoEl.pause(); curVideoEl = null; } } catch (e) {}
+  /* 4) body 状态类全部清掉 */
+  try {
+    ['hidebar','audiobaroff','ctrcontent','pnavopen','dark'].forEach(function (c) {
+      if (c === 'dark') { if (localStorage.getItem('pv_dark') !== '1') document.body.classList.remove('dark'); }
+      else document.body.classList.remove(c);
+    });
+  } catch (e) {}
+  /* 5) 首页元素复位：Tips 短标签 + 分隔线 + 分类网格 */
+  try {
+    var h = g('hint'); if (h) h.style.display = '';
+    var hs = g('hintSep'); if (hs) hs.style.display = '';
+    var f = g('hintFull'); if (f) f.style.display = 'none';
+    var sh = g('hintShort'); if (sh) sh.style.display = '';
+  } catch (e) {}
+  /* 6) 缩放/页码/进度条复位 */
+  try { scale = 1.5; updZoom(); } catch (e) {}
+  try { var tt = g('total'); if (tt) tt.textContent = '/ 0'; } catch (e) {}
+  try { var pi = g('pageInput'); if (pi) pi.value = 0; } catch (e) {}
+  try { var ps = g('pslider'); if (ps) { ps.max = 1; ps.value = 1; } } catch (e) {}
+  try { var pc = g('pchip'); if (pc) { pc.style.display = 'none'; } } catch (e) {}
+  try { var cv = g('cv'); if (cv) { cv.style.display = 'none'; cv.style.transform = ''; } } catch (e) {}
+  try { var ocv = g('ocv'); if (ocv) ocv.style.display = ''; } catch (e) {}
+  /* 7) 缩放标签复位 */
+  try { updZoom(); } catch (e) {}
+  /* 8) 状态栏清空 + 分类重算 */
+  try { setInfo(''); } catch (e) {}
   try { renderRecentBar(); _renderCatGrid(); } catch (e) {}
-  try { setInfo('首页'); } catch (e) {}
+  try { if (typeof _pchipUpdate === 'function') _pchipUpdate(); } catch (e) {}
 }
 document.getElementById('print').onclick = function () {
   if (docKind === 'pdf') {
@@ -4296,6 +4329,7 @@ function _renderCatGrid() { /*v4232-wrapgrid v4233-xmindicon: 首页分类网格
   html += '</div>';
   bar.innerHTML = html;
   bar.style.display = 'block';
+  try { var _hs = document.getElementById('hintSep'); if (_hs && !docKind) _hs.style.display = 'flex'; } catch (e) {} /*v4236-freshhome*/
 }
 function _openCat(exts) {
   fbOpen();
