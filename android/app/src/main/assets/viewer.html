@@ -57,9 +57,12 @@
   /*v4241-recgrid: 最近打开卡片网格（换行、不滚动、能放几行显示几行）*/
   #recentBar .rcHead { display:flex; align-items:center; justify-content:space-between; padding:10px 2px 8px; font-size:12px; color:#8a94a6; }
   #recentBar .rcCnt { font-size:11px; color:#6f7a88; }
-  #recentBar .rcPages { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; touch-action:pan-x; }
-  #recentBar .rcPages::-webkit-scrollbar { display:none; }
-  #recentBar .rcPage { flex:0 0 100%; width:100%; scroll-snap-align:start; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; align-content:start; box-sizing:border-box; }
+  /*v4243-rec2row: 两行横滑 —— 第一行其他类型，第二行音频/视频*/
+  #recentBar .rcPages { display:block; }
+  #recentBar .rcRow { display:flex; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; touch-action:pan-x; padding:0 0 2px; }
+  #recentBar .rcRow::-webkit-scrollbar { display:none; }
+  #recentBar .rcRow + .rcRow { margin-top:8px; }
+  #recentBar .rcRow .rcCard { flex:0 0 112px; width:112px; box-sizing:border-box; }
   #recentBar .rcDots { display:none; gap:5px; justify-content:center; align-items:center; padding-top:9px; }
   #recentBar .rcDot { width:5px; height:5px; border-radius:50%; background:rgba(138,148,166,.35); transition:width .18s,background .18s; }
   #recentBar .rcDot.on { width:14px; border-radius:3px; background:#0a84ff; }
@@ -4359,7 +4362,7 @@ function _renderCatGrid() { /*v4232-wrapgrid v4233-xmindicon: 首页分类网格
   html += '</div>';
   html += '<div id="recentSec" style="display:none;padding:0 12px 10px">'
     + '<div class="rcHead"><span>🕘 最近打开</span><span class="rcCnt"></span></div>'
-    + '<div class="rcPages"></div><div class="rcDots"></div></div>';
+    + '<div class="rcPages"></div></div>';
   bar.innerHTML = html;
   bar.style.display = 'block';
   try { var _hs = document.getElementById('hintSep'); if (_hs && !docKind) _hs.style.display = 'flex'; } catch (e) {} /*v4236-freshhome*/
@@ -4410,18 +4413,18 @@ function _recentItems() {
   return items;
 }
 var _rcItems = [];
-function _rcCardHtml(from, to) { /*v4242-recswipe*/
-  var h = '';
-  for (var i = from; i < to && i < _rcItems.length; i++) {
-    var it = _rcItems[i];
-    h += '<div class="rcCard" data-i="' + i + '">'
-      + '<div class="rcIcon">' + fileIconOf(it.name) + '</div>'
-      + '<div class="rcName">' + esc(it.name || '?') + '</div>'
-      + '<div class="rcTime">' + (it.pinned ? '📎 ' : '') + fmtRecentTime(it.time) + '</div></div>';
-  }
-  return h;
+function _rcIsAV(nm) { /*v4243-rec2row*/
+  var e = String(nm || '').split('.').pop().toLowerCase();
+  return /^(mp3|wav|ogg|m4a|flac|aac|wma|opus|mp4|webm|mkv|avi|mov|3gp|m4v|ts|flv)$/.test(e);
 }
-function _renderRecentSection() { /*v4242-recswipe: 卡片分页，左右划看更多*/
+function _rcCardHtml(idx) {
+  var it = _rcItems[idx]; if (!it) return '';
+  return '<div class="rcCard" data-i="' + idx + '">'
+    + '<div class="rcIcon">' + fileIconOf(it.name) + '</div>'
+    + '<div class="rcName">' + esc(it.name || '?') + '</div>'
+    + '<div class="rcTime">' + (it.pinned ? '📎 ' : '') + fmtRecentTime(it.time) + '</div></div>';
+}
+function _renderRecentSection() { /*v4243-rec2row: 第一行其他类型，第二行音频/视频，各自左右划*/
   var sec = document.getElementById('recentSec'); if (!sec) return;
   if (!recentBarOn() || docKind) { sec.style.display = 'none'; return; }
   var items = _recentItems();
@@ -4430,45 +4433,15 @@ function _renderRecentSection() { /*v4242-recswipe: 卡片分页，左右划看�
   _rcItems = items.slice(0, 60);
   var cnt = sec.querySelector('.rcCnt'); if (cnt) cnt.textContent = '共 ' + items.length + ' 个';
   var pagesEl = sec.querySelector('.rcPages'); if (!pagesEl) return;
-  sec.style.display = 'block';
-  /* 第 1 遍：全塞一页，量卡片高度和可用高度 */
-  pagesEl.innerHTML = '<div class="rcPage">' + _rcCardHtml(0, _rcItems.length) + '</div>';
-  var firstCard = pagesEl.querySelector('.rcCard');
-  var cardH = firstCard ? firstCard.getBoundingClientRect().height : 77;
-  var headEl = sec.querySelector('.rcHead');
-  var headH = headEl ? headEl.getBoundingClientRect().height : 30;
-  var barEl = document.getElementById('bar');
-  var barTop = barEl ? barEl.getBoundingClientRect().top : window.innerHeight;
-  var avail = barTop - sec.getBoundingClientRect().top - headH - 10;
-  var total = _rcItems.length;
-  var rows = Math.max(1, Math.floor((avail + 8) / (cardH + 8)));
-  var per = rows * 3, pageN = Math.max(1, Math.ceil(total / per));
-  /*v4242-dotsfit: 多页时圆点行要占 16px，重算行数避免压到底栏*/
-  for (var _g = 0; _g < 4 && pageN > 1; _g++) {
-    var _r2 = Math.max(1, Math.floor((avail - 16 + 8) / (cardH + 8)));
-    if (_r2 === rows) break;
-    rows = _r2; per = rows * 3; pageN = Math.max(1, Math.ceil(total / per));
-  }
-  /* 第 2 遍：按每页 per 个切页 */
+  var row1 = [], row2 = [];
+  _rcItems.forEach(function (it, idx) { (_rcIsAV(it.name) ? row2 : row1).push(idx); });
   var h = '';
-  for (var pg = 0; pg < pageN; pg++) h += '<div class="rcPage">' + _rcCardHtml(pg * per, (pg + 1) * per) + '</div>';
+  if (row1.length) h += '<div class="rcRow" data-row="0">' + row1.map(_rcCardHtml).join('') + '</div>';
+  if (row2.length) h += '<div class="rcRow" data-row="1">' + row2.map(_rcCardHtml).join('') + '</div>';
   pagesEl.innerHTML = h;
-  pagesEl.scrollLeft = 0;
-  var dots = sec.querySelector('.rcDots');
-  if (dots) {
-    var d = '';
-    for (var k = 0; k < pageN; k++) d += '<span class="rcDot' + (k === 0 ? ' on' : '') + '"></span>';
-    dots.innerHTML = d;
-    dots.style.display = pageN > 1 ? 'flex' : 'none';
-  }
+  sec.style.display = 'block';
   if (!pagesEl.__bound) {
     pagesEl.__bound = 1;
-    pagesEl.addEventListener('scroll', function () {
-      var w = pagesEl.clientWidth || 1;
-      var idx = Math.round(pagesEl.scrollLeft / w);
-      var ds = sec.querySelectorAll('.rcDot');
-      Array.prototype.forEach.call(ds, function (n, i2) { n.classList.toggle('on', i2 === idx); });
-    }, { passive: true });
     pagesEl.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
   }
   Array.prototype.forEach.call(pagesEl.querySelectorAll('.rcCard'), function (c) {
