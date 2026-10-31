@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.64 (windows)'; },
+  appVersion: function () { return '1.2.65 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.64';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.65';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -4331,7 +4331,7 @@ function rbFillThumbs(bar, list) {
     setTimeout(next, 30);
   })();
 }
-function _renderCatGrid() { /*v4230-catgrid: 首页分类卡片，替代最近打开横条*/
+function _renderCatGrid() { /*v4231-smallsq: 首页分类横滑条，recentBar同款样式*/
   var bar = document.getElementById('recentBar'); if (!bar) return;
   var cats = [
     ['pdf','📕 PDF'], ['epub','📗 EPUB'], ['xmind','🧠 XMind'],
@@ -4342,7 +4342,7 @@ function _renderCatGrid() { /*v4230-catgrid: 首页分类卡片，替代最近�
     ['png,jpg,jpeg,gif,webp,bmp,heic,heif,hif','🖼️ 图片']
   ];
   var all = _typeItems();
-  var html = '<div style="display:flex;flex-wrap:wrap;gap:10px;padding:12px 14px 8px">';
+  var html = '<div style="display:flex;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:12px 14px 0;scrollbar-width:none">';
   cats.forEach(function(cat) {
     var exts = cat[0].split(',');
     var count = all.filter(function(it) {
@@ -4350,10 +4350,11 @@ function _renderCatGrid() { /*v4230-catgrid: 首页分类卡片，替代最近�
       return exts.indexOf(fe) >= 0;
     }).length;
     if (count === 0) return;
-    html += '<div onclick="_openCat(\''+cat[0]+'\')" style="display:flex;align-items:center;gap:6px;padding:10px 14px;border:1px solid rgba(138,148,166,.25);border-radius:12px;cursor:pointer;background:rgba(138,148,166,.08);min-width:100px;flex-direction:column;user-select:none;-webkit-tap-highlight-color:transparent">';
-    html += '<div style="font-size:28px">'+cat[1].split(' ')[0]+'</div>';
-    html += '<div style="font-size:12px;color:#8a94a6;font-weight:600">'+cat[1].split(' ')[1]+'</div>';
-    html += '<div style="font-size:16px;font-weight:700;color:#dfe3ea">'+count+'</div>';
+    var parts = cat[1].split(' ');
+    html += '<div onclick="_openCat(\''+cat[0]+'\')" style="width:64px;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;position:relative;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent">';
+    html += '<div style="font-size:24px;line-height:1.2">'+parts[0]+'</div>';
+    html += '<div style="font-size:10px;color:#8a94a6;line-height:1.3;white-space:nowrap">'+parts[1]+'</div>';
+    html += '<div style="font-size:11px;font-weight:700;color:#dfe3ea;line-height:1.3">'+count+'</div>';
     html += '</div>';
   });
   html += '</div>';
