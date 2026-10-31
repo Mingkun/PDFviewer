@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.71 (windows)'; },
+  appVersion: function () { return '1.2.72 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.71';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.72';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -858,6 +858,7 @@ function fbOpen() {
   fbAsc = !!st.asc;
   if (st.path) fbCurrent = st.path;
   document.getElementById('fileBrowser').style.display = 'flex';
+  try { document.body.classList.add('hidebar'); } catch (e) {} /*v4238-fbhidebar: 进文件列表隐藏底栏*/
   fbApplyState();
 }
 function fbReqPerm() {
@@ -865,6 +866,7 @@ function fbReqPerm() {
 }
 function fbClose() {
   document.getElementById('fileBrowser').style.display = 'none';
+  try { document.body.classList.remove('hidebar'); } catch (e) {} /*v4238-fbhidebar: 退出文件列表恢复底栏*/
 }
 function fbGoUp() {
   if (!fbCurrent || fbCurrent === '/storage/emulated/0') { fbClose(); return; }
