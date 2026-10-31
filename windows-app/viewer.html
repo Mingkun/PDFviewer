@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.67 (windows)'; },
+  appVersion: function () { return '1.2.68 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.67';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.68';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -288,7 +288,7 @@ window.addEventListener('keydown', function (e) {
 </head>
 <body>
 <div id="bar">
-  <button id="open" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><i>打开</i></button>
+  <!--v4234-homebtn--><button id="open" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/><path d="M9.5 20v-5.5h5V20"/></svg><i>首页</i></button>
   <button id="speak" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg><i>朗读</i></button>
   <button id="searchb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><i>搜索</i></button>
   <button id="editb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg><i>编辑</i></button>
@@ -334,7 +334,7 @@ window.addEventListener('keydown', function (e) {
     </div>
   </div>
 </div>
-<div id="stage"><div id="hint"><div id="hintShort" onclick="hintToggle()">💡 Tips</div><div id="hintFull" style="display:none" onclick="hintToggle()">点击「📄 打开」选择文件（PDF/EPUB/XMind/Word/Excel/PPT/TXT/MD/图片/音频/视频）<div style="margin-top:6px;font-size:11px;opacity:.8">屏幕上划：显示操作菜单，下划隐藏</div><div style="margin-top:3px;font-size:11px;opacity:.8">双指右划：关闭当前文件</div></div></div><div id="hintSep"><span class="sline"></span><span class="sdot"></span><span class="sline"></span></div><div id="recentBar"></div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
+<div id="stage"><div id="hint"><div id="hintShort" onclick="hintToggle()">💡 Tips</div><div id="hintFull" style="display:none" onclick="hintToggle()">点击首页分类卡片选择文件（PDF/EPUB/XMind/Word/Excel/PPT/TXT/MD/图片/音频/视频）<div style="margin-top:6px;font-size:11px;opacity:.8">屏幕上划：显示操作菜单，下划隐藏</div><div style="margin-top:3px;font-size:11px;opacity:.8">双指右划：关闭当前文件</div></div></div><div id="hintSep"><span class="sline"></span><span class="sdot"></span><span class="sline"></span></div><div id="recentBar"></div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
 <div id="bottomInfo"></div>
 <div id="trashModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;">
   <div style="width:min(360px,90vw);background:#fff;border-radius:12px;padding:14px;max-height:calc(100vh - 60px);overflow-y:auto;box-sizing:border-box">
@@ -1036,11 +1036,16 @@ function fmtSize(s) {
   return (s / 1073741824).toFixed(1) + 'GB';
 }
 
-document.getElementById('open').onclick = function () {
-  try { if (window.AppBridge && AppBridge.listFiles) { fbOpen(); return; } } catch (e) {}
-  try { if (window.AppBridge && AppBridge.openFile) { AppBridge.openFile(); return; } } catch (e) {}
-  document.getElementById('fpick').click();
-};
+document.getElementById('open').onclick = function () { goHome(); }; /*v4234-homebtn*/
+function goHome() { /*v4234-homebtn: 回到首页（关文件/关文件浏览器/显示分类网格）*/
+  try { var fb = document.getElementById('fileBrowser'); if (fb) fb.style.display = 'none'; } catch (e) {}
+  if (docKind) { try { closeDoc(); } catch (e) {} }
+  try { document.body.classList.remove('hidebar'); } catch (e) {}
+  try { var h = document.getElementById('hint'); if (h) h.style.display = ''; } catch (e) {}
+  try { document.getElementById('ocv').style.display = ''; } catch (e) {}
+  try { renderRecentBar(); _renderCatGrid(); } catch (e) {}
+  try { setInfo('首页'); } catch (e) {}
+}
 document.getElementById('print').onclick = function () {
   if (docKind === 'pdf') {
     try { if (window.AppBridge && AppBridge.printPdf) { AppBridge.printPdf(); return; } } catch (e) {}
