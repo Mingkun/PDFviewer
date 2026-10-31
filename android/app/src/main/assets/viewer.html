@@ -2044,7 +2044,7 @@ function closeDoc() {
   document.body.classList.remove('hidebar');
   var h = document.getElementById('hint');
   if (h) h.style.display = '';
-  renderRecentBar();
+  renderRecentBar(); _renderCatGrid();
   _pchipUpdate();
   setInfo('已关闭当前文件');
 }
@@ -2841,10 +2841,10 @@ document.addEventListener('DOMContentLoaded', function() {
   if (rb2) rb2.addEventListener('click', function() {
     localStorage.setItem('pv_recentbar', recentBarOn() ? '0' : '1');
     updateRecentBarBtn();
-    renderRecentBar();
+    renderRecentBar(); _renderCatGrid();
   });
   updateRecentBarBtn();
-  renderRecentBar();
+  renderRecentBar(); _renderCatGrid();
 });
 
 
@@ -4249,7 +4249,7 @@ function recentCatOf(nm) {
 var rbExpanded = null;   // 当前展开的类别文件夹
 function rbToggleThumb() {
   localStorage.setItem('pv_rbthumb', localStorage.getItem('pv_rbthumb') === '1' ? '0' : '1');
-  renderRecentBar();
+  renderRecentBar(); _renderCatGrid();
 }
 var rbThumbGen = 0;
 function rbFillThumbs(bar, list) {
@@ -4265,6 +4265,41 @@ function rbFillThumbs(bar, list) {
     setTimeout(next, 30);
   })();
 }
+function _renderCatGrid() { /*v4230-catgrid: 首页分类卡片，替代最近打开横条*/
+  var bar = document.getElementById('recentBar'); if (!bar) return;
+  var cats = [
+    ['pdf','📕 PDF'], ['epub','📗 EPUB'], ['xmind','🧠 XMind'],
+    ['doc,docx','📘 Word'], ['xlsx,xls,csv','📊 Excel'], ['ppt,pptx','📽 PPT'],
+    ['mp3,wav,ogg,m4a,flac,aac,wma,opus','🎵 音频'],
+    ['mp4,webm,mkv,avi,mov,3gp,m4v,ts,flv','🎬 视频'],
+    ['md,markdown,mdown,mkd,txt','📄 文本'],
+    ['png,jpg,jpeg,gif,webp,bmp,heic,heif,hif','🖼️ 图片']
+  ];
+  var all = _typeItems();
+  var html = '<div style="display:flex;flex-wrap:wrap;gap:10px;padding:12px 14px 8px">';
+  cats.forEach(function(cat) {
+    var exts = cat[0].split(',');
+    var count = all.filter(function(it) {
+      var fe = (it.n.split('.').pop()||'').toLowerCase();
+      return exts.indexOf(fe) >= 0;
+    }).length;
+    if (count === 0) return;
+    html += '<div onclick="_openCat(\''+cat[0]+'\')" style="display:flex;align-items:center;gap:6px;padding:10px 14px;border:1px solid rgba(138,148,166,.25);border-radius:12px;cursor:pointer;background:rgba(138,148,166,.08);min-width:100px;flex-direction:column;user-select:none;-webkit-tap-highlight-color:transparent">';
+    html += '<div style="font-size:28px">'+cat[1].split(' ')[0]+'</div>';
+    html += '<div style="font-size:12px;color:#8a94a6;font-weight:600">'+cat[1].split(' ')[1]+'</div>';
+    html += '<div style="font-size:16px;font-weight:700;color:#dfe3ea">'+count+'</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  bar.innerHTML = html;
+  bar.style.display = 'block';
+}
+function _openCat(exts) {
+  fbOpen();
+  fbSwitchTab('type');
+  fbSetType(exts);
+}
+
 function renderRecentBar() {
   var bar = document.getElementById('recentBar'); if (!bar) return;
   var items = [];
@@ -4353,7 +4388,7 @@ function renderRecentBar() {
     el.onclick = function () {
       var k = el.getAttribute('data-k');
       rbExpanded = (rbExpanded === k) ? null : k;
-      renderRecentBar();
+      renderRecentBar(); _renderCatGrid();
     };
   });
   if (!cur) return;
@@ -4379,7 +4414,7 @@ function renderRecentBar() {
       } catch (e) {}
       try { AppBridge.pinRecent(it.nativeIdx, !it.pinned); } catch (e) {}
       setInfo((!it.pinned ? '已固定：' : '已取消固定：') + it.name);
-      renderRecentBar();
+      renderRecentBar(); _renderCatGrid();
     }
     el.addEventListener('touchstart', function () { timer = setTimeout(function () { timer = null; doPin(); }, 2000); }, { passive: true });
     el.addEventListener('touchmove', function () { cancelTimer(); }, { passive: true });
@@ -4404,7 +4439,7 @@ function renderRecentBar() {
       try { AppBridge.vibrate(80); } catch (e) {}
       try { AppBridge.pinRecent(it.nativeIdx, !it.pinned); } catch (e) {}
       setInfo((!it.pinned ? '已固定：' : '已取消固定：') + it.name);
-      renderRecentBar();
+      renderRecentBar(); _renderCatGrid();
     }
     el.addEventListener('touchstart', function () { timer = setTimeout(function () { timer = null; doPin2(); }, 2000); }, { passive: true });
     el.addEventListener('touchmove', function () { cancelTimer2(); }, { passive: true });
