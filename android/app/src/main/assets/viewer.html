@@ -4265,7 +4265,7 @@ function rbFillThumbs(bar, list) {
     setTimeout(next, 30);
   })();
 }
-function _renderCatGrid() { /*v4231-smallsq: 首页分类横滑条，recentBar同款样式*/
+function _renderCatGrid() { /*v4232-wrapgrid: 首页分类文件夹自动换行网格*/
   var bar = document.getElementById('recentBar'); if (!bar) return;
   var cats = [
     ['pdf','📕 PDF'], ['epub','📗 EPUB'], ['xmind','🧠 XMind'],
@@ -4276,7 +4276,7 @@ function _renderCatGrid() { /*v4231-smallsq: 首页分类横滑条，recentBar�
     ['png,jpg,jpeg,gif,webp,bmp,heic,heif,hif','🖼️ 图片']
   ];
   var all = _typeItems();
-  var html = '<div style="display:flex;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:12px 14px 0;scrollbar-width:none">';
+  var html = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px 12px 6px">';
   cats.forEach(function(cat) {
     var exts = cat[0].split(',');
     var count = all.filter(function(it) {
@@ -4285,10 +4285,10 @@ function _renderCatGrid() { /*v4231-smallsq: 首页分类横滑条，recentBar�
     }).length;
     if (count === 0) return;
     var parts = cat[1].split(' ');
-    html += '<div onclick="_openCat(\''+cat[0]+'\')" style="width:64px;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;position:relative;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent">';
-    html += '<div style="font-size:24px;line-height:1.2">'+parts[0]+'</div>';
-    html += '<div style="font-size:10px;color:#8a94a6;line-height:1.3;white-space:nowrap">'+parts[1]+'</div>';
-    html += '<div style="font-size:11px;font-weight:700;color:#dfe3ea;line-height:1.3">'+count+'</div>';
+    html += '<div onclick="_openCat(\''+cat[0]+'\')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 2px;border:1px solid rgba(138,148,166,.22);border-radius:10px;background:rgba(138,148,166,.07);cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;min-width:0">';
+    html += '<div style="font-size:22px;line-height:1.1">'+parts[0]+'</div>';
+    html += '<div style="font-size:10.5px;color:#8a94a6;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">'+parts[1]+'</div>';
+    html += '<div style="font-size:12px;font-weight:700;color:#dfe3ea;line-height:1.2">'+count+'</div>';
     html += '</div>';
   });
   html += '</div>';
