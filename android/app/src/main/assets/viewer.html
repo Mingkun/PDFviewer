@@ -543,6 +543,18 @@ function _mediaLoad(kind) {
   return [];
 }
 function _mediaSave(kind, a) { _mediaCache[kind] = a; try { localStorage.setItem('pv_fbMedia_' + kind, JSON.stringify(a)); } catch (e) {} }
+function _allItems() { /*v4237-allcats: 首页分类统计用，忽略当前类型/媒体筛选，返回全部文件*/
+  var bak = fbType; fbType = '';
+  var items = [];
+  try { items = _typeItems(); } catch (e) { items = []; }
+  fbType = bak;
+  var seen = {};
+  items.forEach(function (it) { seen[it.p] = 1; });
+  ['img', 'audio', 'video'].forEach(function (k) {
+    try { _mediaLoad(k).forEach(function (it) { if (!seen[it.p]) { seen[it.p] = 1; items.push(it); } }); } catch (e) {}
+  });
+  return items;
+}
 function _typeItems() {
   var exts = fbType ? fbType.split(',') : null;
   var items = _treeItems(exts);
@@ -1009,6 +1021,7 @@ function goHome() { /*v4236-freshhome: 每次点首页都恢复到刚启动APP�
   try { updZoom(); } catch (e) {}
   /* 8) 状态栏清空 + 分类重算 */
   try { setInfo(''); } catch (e) {}
+  try { fbType = ''; fbTab = 'folder'; } catch (e) {} /*v4237-allcats: 回首页清掉上次的类型筛选*/
   try { renderRecentBar(); _renderCatGrid(); } catch (e) {}
   try { if (typeof _pchipUpdate === 'function') _pchipUpdate(); } catch (e) {}
 }
@@ -4309,7 +4322,7 @@ function _renderCatGrid() { /*v4232-wrapgrid v4233-xmindicon: 首页分类网格
     ['md,markdown,mdown,mkd,txt','文本','📄'],
     ['png,jpg,jpeg,gif,webp,bmp,heic,heif,hif','图片','🖼️']
   ];
-  var all = _typeItems();
+  var all = _allItems(); /*v4237-allcats: 用全量文件统计，避免只剩图片一栏*/
   var html = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px 12px 6px">';
   cats.forEach(function(cat) {
     var exts = cat[0].split(',');
