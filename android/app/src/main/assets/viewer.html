@@ -792,15 +792,22 @@ function fbOpen() {
   fbAsc = !!st.asc;
   if (st.path) fbCurrent = st.path;
   document.getElementById('fileBrowser').style.display = 'flex';
-  try { document.body.classList.add('hidebar'); } catch (e) {} /*v4238-fbhidebar: 进文件列表隐藏底栏*/
+  try { /*v4239-fbshrink: 文件浏览器底边让出底栏高度，不遮挡也不隐藏*/
+    var _b = document.getElementById('bar');
+    var _bh = (_b && _b.offsetHeight) ? _b.offsetHeight : 60;
+    var _fbEl = document.getElementById('fileBrowser');
+    _fbEl.style.bottom = _bh + 'px';
+    _fbEl.style.height = 'auto';
+  } catch (e) {}
   fbApplyState();
 }
 function fbReqPerm() {
   try { AppBridge.requestStoragePermission(); } catch (e) {}
 }
 function fbClose() {
-  document.getElementById('fileBrowser').style.display = 'none';
-  try { document.body.classList.remove('hidebar'); } catch (e) {} /*v4238-fbhidebar: 退出文件列表恢复底栏*/
+  var _fbEl = document.getElementById('fileBrowser');
+  _fbEl.style.display = 'none';
+  try { _fbEl.style.bottom = '0'; } catch (e) {} /*v4239-fbshrink: 退出列表恢复全屏*/
 }
 function fbGoUp() {
   if (!fbCurrent || fbCurrent === '/storage/emulated/0') { fbClose(); return; }
