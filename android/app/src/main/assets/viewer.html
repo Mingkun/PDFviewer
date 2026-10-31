@@ -62,14 +62,14 @@
   #recentBar .rcRow { display:flex; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; touch-action:pan-x; padding:0 0 2px; }
   #recentBar .rcRow::-webkit-scrollbar { display:none; }
   #recentBar .rcRow + .rcRow { margin-top:8px; }
-  #recentBar .rcRow .rcCard { flex:0 0 112px; width:112px; box-sizing:border-box; }
+  #recentBar .rcRow .rcCard { flex:0 0 calc((100% - 24px) / 4); width:calc((100% - 24px) / 4); box-sizing:border-box; } /*v4244-rccompact: 一屏正好 4 个*/
   #recentBar .rcDots { display:none; gap:5px; justify-content:center; align-items:center; padding-top:9px; }
   #recentBar .rcDot { width:5px; height:5px; border-radius:50%; background:rgba(138,148,166,.35); transition:width .18s,background .18s; }
   #recentBar .rcDot.on { width:14px; border-radius:3px; background:#0a84ff; }
-  #recentBar .rcCard { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:9px 6px; border:1px solid rgba(138,148,166,.22); border-radius:10px; background:rgba(138,148,166,.07); min-width:0; cursor:pointer; user-select:none; -webkit-user-select:none; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+  #recentBar .rcCard { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:8px 4px; border:1px solid rgba(138,148,166,.22); border-radius:10px; background:rgba(138,148,166,.07); min-width:0; cursor:pointer; user-select:none; -webkit-user-select:none; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
   #recentBar .rcCard.on { border-color:rgba(10,132,255,.45); background:rgba(10,132,255,.12); }
-  #recentBar .rcIcon { font-size:22px; line-height:1.1; }
-  #recentBar .rcName { font-size:11px; color:#dfe3ea; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #recentBar .rcIcon { font-size:17px; line-height:1.1; }
+  #recentBar .rcName { font-size:10px; color:#dfe3ea; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #recentBar .rcTime { font-size:9.5px; color:#7d8794; }
   #hintSep { display:none; width:56%; margin:0 auto 8px; align-items:center; justify-content:center; gap:10px; }
   #hintSep .sline { flex:1; height:2px; border-radius:1px; background:rgba(0,0,0,.35); box-shadow:0 1px 1px rgba(255,255,255,.06); }
@@ -4361,7 +4361,7 @@ function _renderCatGrid() { /*v4232-wrapgrid v4233-xmindicon: 首页分类网格
   });
   html += '</div>';
   html += '<div id="recentSec" style="display:none;padding:0 12px 10px">'
-    + '<div class="rcHead"><span>🕘 最近打开</span><span class="rcCnt"></span></div>'
+    + '<div class="rcHead"><span>🕘 最近打开</span></div>'
     + '<div class="rcPages"></div></div>';
   bar.innerHTML = html;
   bar.style.display = 'block';
@@ -4420,9 +4420,8 @@ function _rcIsAV(nm) { /*v4243-rec2row*/
 function _rcCardHtml(idx) {
   var it = _rcItems[idx]; if (!it) return '';
   return '<div class="rcCard" data-i="' + idx + '">'
-    + '<div class="rcIcon">' + fileIconOf(it.name) + '</div>'
-    + '<div class="rcName">' + esc(it.name || '?') + '</div>'
-    + '<div class="rcTime">' + (it.pinned ? '📎 ' : '') + fmtRecentTime(it.time) + '</div></div>';
+    + '<div class="rcIcon">' + (it.pinned ? '📎' : fileIconOf(it.name)) + '</div>'
+    + '<div class="rcName">' + esc(it.name || '?') + '</div></div>';
 }
 function _renderRecentSection() { /*v4243-rec2row: 第一行其他类型，第二行音频/视频，各自左右划*/
   var sec = document.getElementById('recentSec'); if (!sec) return;
@@ -4431,7 +4430,7 @@ function _renderRecentSection() { /*v4243-rec2row: 第一行其他类型，第�
   if (!items.length) { sec.style.display = 'none'; return; }
   items.sort(function (a, b) { return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.time || 0) - (a.time || 0); });
   _rcItems = items.slice(0, 60);
-  var cnt = sec.querySelector('.rcCnt'); if (cnt) cnt.textContent = '共 ' + items.length + ' 个';
+  /*v4244-rccompact: 不再显示「共 N 个」*/
   var pagesEl = sec.querySelector('.rcPages'); if (!pagesEl) return;
   var row1 = [], row2 = [];
   _rcItems.forEach(function (it, idx) { (_rcIsAV(it.name) ? row2 : row1).push(idx); });
