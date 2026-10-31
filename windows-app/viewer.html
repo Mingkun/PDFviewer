@@ -7,10 +7,10 @@
 <script src="pdfjs/pdf.min.js"></script>
 <script>
 window.AppBridge = {
-  appVersion: function () { return '1.2.73 (windows)'; },
+  appVersion: function () { return '1.2.74 (windows)'; },
   checkUpdate: function () {
     fetch('https://5130599.best/Translator/downloads/pdfviewer-windows-version.json').then(function (r) { return r.json(); }).then(function (d) {
-      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.73';
+      if (d && !d.error) d.hasUpdate = (d.versionName || '') !== '1.2.74';
       if (window.onUpdateInfo) window.onUpdateInfo(d);
     }).catch(function () { if (window.onUpdateInfo) window.onUpdateInfo({ error: 'network' }); });
   },
@@ -360,28 +360,7 @@ window.addEventListener('keydown', function (e) {
   </div>
 </div>
 <div id="fileBrowser">
-  <div class="fbHeader">
-    <button onclick="fbGoUp()">← 上级</button>
-    <div class="fbTitle" id="fbPath">内部存储</div>
-    <button onclick="fbClose()">✕</button>
-  </div>
-  <div class="fbTabs">
-    <div class="fbTab on" id="tabFolder" onclick="fbSwitchTab('folder')">📁 文件夹</div>
-    <div class="fbTab" id="tabType" onclick="fbSwitchTab('type')">📄 按类型</div>
-  </div>
-  <div class="fbSortBar" id="fbSortBar" style="display:none">
-    <button id="sortAll" class="on" onclick="fbSetType('')">全部</button>
-    <button id="sortPdf" onclick="fbSetType('pdf')">📕 PDF</button>
-    <button id="sortEpub" onclick="fbSetType('epub')">📗 EPUB</button>
-    <button id="sortDoc" onclick="fbSetType('doc,docx')">📘 Word</button>
-    <button id="sortXls" onclick="fbSetType('xlsx,xls,csv')">📊 Excel</button><button id="sortPpt" onclick="fbSetType('ppt,pptx')">📽 PPT</button>
-    <button id="sortAudio" onclick="fbSetType('mp3,wav,ogg,m4a,flac,aac,wma,opus')">🎵 音频</button>
-    <button id="sortVideo" onclick="fbSetType('mp4,webm,mkv,avi,mov,3gp,m4v,ts,flv')">🎬 视频</button>
-    <button id="sortText" onclick="fbSetType('txt,csv,json,log')">📄 文本</button>
-    <button id="sortImg" onclick="fbSetType('png,jpg,jpeg,gif,webp,bmp,heic,heif,hif')">🖼️ 图片</button>
-    <button id="sortMd" onclick="fbSetType('md,markdown,mdown,mkd')">📝 MD</button>
-    <button id="sortXmind" onclick="fbSetType('xmind')">🧠 XMind</button> <!--v4209-xmindtype-->
-  </div>
+  <!--v4240-leanfb: 顶部标题/返回/切换 tabs/类型筛选行整块移除，列表从「按日期」那排开始-->
   <div class="fbSortBar" id="fbOrderBy" style="display:none">
     <button id="ordTime" class="on" onclick="fbSetOrder('time')">按日期</button>
     <button id="ordName" onclick="fbSetOrder('name')">按名称</button>
@@ -531,12 +510,14 @@ function _fbLoadState() {
   try { return JSON.parse(localStorage.getItem('pv_fbState') || '{}') || {}; } catch (e) { return {}; }
 }
 function fbApplyState() {
-  document.getElementById('tabFolder').classList.toggle('on', fbTab === 'folder');
-  document.getElementById('tabType').classList.toggle('on', fbTab === 'type');
-  document.getElementById('fbSortBar').style.display = fbTab === 'type' ? 'flex' : 'none';
-  var _sb = document.getElementById('fbSearchBar'); if (_sb) _sb.style.display = fbTab === 'type' ? 'block' : 'none';
-  document.getElementById('fbOrderBy').style.display = fbTab === 'type' ? 'flex' : 'none';
-  var up = document.querySelector('#fileBrowser .fbHeader button[onclick="fbGoUp()"]'); if (up) up.style.display = fbTab === 'folder' ? '' : 'none';
+  /*v4240-leanfb: 顶部栏已移除，固定走按类型视图*/
+  fbTab = 'type';
+  var _tf = document.getElementById('tabFolder'); if (_tf) _tf.classList.toggle('on', false);
+  var _tt = document.getElementById('tabType'); if (_tt) _tt.classList.toggle('on', true);
+  var _tsb = document.getElementById('fbSortBar'); if (_tsb) _tsb.style.display = 'none';
+  var _sb = document.getElementById('fbSearchBar'); if (_sb) _sb.style.display = 'block';
+  var _ob = document.getElementById('fbOrderBy'); if (_ob) _ob.style.display = 'flex';
+  var up = document.querySelector('#fileBrowser .fbHeader button[onclick="fbGoUp()"]'); if (up) up.style.display = 'none';
   document.querySelectorAll('#fbOrderBy button').forEach(function(b) { b.classList.remove('on'); });
   var oe = document.getElementById(fbOrder === 'time' ? 'ordTime' : fbOrder === 'name' ? 'ordName' : 'ordSize');
   if (oe) oe.classList.add('on');
@@ -712,9 +693,22 @@ function fbForceRefresh() {
   var mk = _mediaKindOf(); if (mk) { try { AppBridge.queryMedia(mk); } catch (e) {} }
   setInfo('🔄 正在全量刷新文件列表…');
 }
+function _typeLabel(t) {
+  if (!t) return '全部文件';
+  if (t.indexOf('pdf') >= 0) return 'PDF 文档';
+  if (t.indexOf('epub') >= 0) return 'EPUB 电子书';
+  if (t.indexOf('xmind') >= 0) return 'XMind 导图';
+  if (t.indexOf('doc') >= 0) return 'Word 文档';
+  if (t.indexOf('xls') >= 0) return 'Excel 表格';
+  if (t.indexOf('ppt') >= 0) return 'PPT 演示';
+  if (t.indexOf('mp3') >= 0) return '音频';
+  if (t.indexOf('mp4') >= 0) return '视频';
+  if (t.indexOf('png') >= 0) return '图片';
+  if (t.indexOf('md') >= 0) return 'Markdown 文本';
+  return '文本文件';
+}
 function fbLoadType() {
-  var label = fbType === '' ? '全部文件' : (document.querySelector('#fbSortBar button.on') || {}).textContent || '文件';
-  document.getElementById('fbPath').textContent = label;
+  var _p = document.getElementById('fbPath'); if (_p) _p.textContent = _typeLabel(fbType);
   fbTypeCache = _typeItems();
   fbRenderTypeList(fbTypeCache);
   _fbBgRefresh();
@@ -852,7 +846,7 @@ function fbRenderTypeList(items) {
 
 function fbOpen() {
   var st = _fbLoadState();
-  if (st.tab) fbTab = st.tab;
+  fbTab = 'type';   /*v4240-leanfb: 无切换入口，恒定按类型*/
   if (st.type !== undefined) fbType = st.type;
   if (st.order) fbOrder = st.order;
   fbAsc = !!st.asc;
@@ -953,7 +947,7 @@ function fbLoad(path, offset) {
   if (offset === 0) fbCurrent = path;
   _fbSaveState();
   var list = document.getElementById('fbList');
-  var title = document.getElementById('fbPath');
+  var title = document.getElementById('fbPath') || { textContent: '', style: {} };
   if (offset === 0) {
     title.textContent = path ? path.split('/').pop() || '内部存储' : '内部存储';
     list.innerHTML = '<div class="fbEmpty">扫描中…</div>';
@@ -1096,7 +1090,7 @@ function goHome() { /*v4236-freshhome: 每次点首页都恢复到刚启动APP�
   try { updZoom(); } catch (e) {}
   /* 8) 状态栏清空 + 分类重算 */
   try { setInfo(''); } catch (e) {}
-  try { fbType = ''; fbTab = 'folder'; } catch (e) {} /*v4237-allcats: 回首页清掉上次的类型筛选*/
+  try { fbType = ''; fbTab = 'type'; } catch (e) {} /*v4237-allcats: 回首页清掉上次的类型筛选*/
   try { renderRecentBar(); _renderCatGrid(); } catch (e) {}
   try { if (typeof _pchipUpdate === 'function') _pchipUpdate(); } catch (e) {}
 }
