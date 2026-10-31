@@ -65,11 +65,11 @@
   #fileBrowser .fbHeader .fbTitle { font-size:15px; color:#dfe3ea; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #fileBrowser .fbHeader button { border:none; background:rgba(255,255,255,.08); color:#c8cdd5; border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; font-family:inherit; }
   #fileBrowser .fbList { flex:1; overflow-y:auto; padding:6px 0; }
-  #fileBrowser .fbItem, #homeList .fbItem { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; } /*v4228-homefix*/
-  #fileBrowser .fbItem:active, #homeList .fbItem:active { background:rgba(0,132,255,.15); }
-  #fileBrowser .fbIcon, #homeList .fbIcon { font-size:22px; width:28px; text-align:center; flex-shrink:0; }
-  #fileBrowser .fbName, #homeList .fbName { font-size:14px; color:#dfe3ea; flex:1; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; word-break:break-all; line-height:1.4; } /*v4221-fbname*/
-  #fileBrowser .fbSub, #homeList .fbSub { font-size:11px; color:#8e959f; flex-shrink:0; }
+  #fileBrowser .fbItem { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; }
+  #fileBrowser .fbItem:active { background:rgba(0,132,255,.15); }
+  #fileBrowser .fbIcon { font-size:22px; width:28px; text-align:center; flex-shrink:0; }
+  #fileBrowser .fbName { font-size:14px; color:#dfe3ea; flex:1; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; word-break:break-all; line-height:1.4; } /*v4221-fbname*/
+  #fileBrowser .fbSub { font-size:11px; color:#8e959f; flex-shrink:0; }
   #fileBrowser .fbEmpty { text-align:center; padding:40px; color:#8e959f; font-size:13px; }
   #fileBrowser .fbTabs { display:flex; gap:0; border-bottom:1px solid rgba(255,255,255,.08); overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
   #fileBrowser .fbTabs::-webkit-scrollbar { display:none; }
@@ -222,7 +222,7 @@
 </head>
 <body>
 <div id="bar">
-  <button id="open" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><i>最近</i></button> <!--v4227-home-->
+  <button id="open" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><i>打开</i></button>
   <button id="speak" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg><i>朗读</i></button>
   <button id="searchb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><i>搜索</i></button>
   <button id="editb" class="bb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg><i>编辑</i></button>
@@ -268,7 +268,7 @@
     </div>
   </div>
 </div>
-<div id="stage"><div id="homeList" style="width:100%;height:100%;display:flex;flex-direction:column;background:#1e2126;color:#dfe3ea;overflow:hidden"></div><div id="recentBar" style="display:none !important"></div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
+<div id="stage"><div id="hint"><div id="hintShort" onclick="hintToggle()">💡 Tips</div><div id="hintFull" style="display:none" onclick="hintToggle()">点击「📄 打开」选择文件（PDF/EPUB/XMind/Word/Excel/PPT/TXT/MD/图片/音频/视频）<div style="margin-top:6px;font-size:11px;opacity:.8">屏幕上划：显示操作菜单，下划隐藏</div><div style="margin-top:3px;font-size:11px;opacity:.8">双指右划：关闭当前文件</div></div></div><div id="hintSep"><span class="sline"></span><span class="sdot"></span><span class="sline"></span></div><div id="recentBar"></div><canvas id="cv" style="display:none"></canvas><canvas id="ocv"></canvas><div id="content" style="display:none;width:100%;height:100%;overflow:auto"></div><textarea id="tarea" style="display:none;position:absolute;inset:0;z-index:8;box-sizing:border-box;width:100%;height:100%;padding:12px;font-family:inherit;font-size:15px;line-height:1.8;border:none;outline:none;background:#fff;resize:none" placeholder="编辑文本…"></textarea></div>
 <div id="bottomInfo"></div>
 <div id="trashModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;">
   <div style="width:min(360px,90vw);background:#fff;border-radius:12px;padding:14px;max-height:calc(100vh - 60px);overflow-y:auto;box-sizing:border-box">
@@ -931,7 +931,7 @@ window.onMediaPath = function (name, path) {
   audioQueue = null;
   try { openMediaPath(path, name); } catch (e) { setInfo('打开失败'); }
 };
-function fbOpenFile(path, name, sz) { /*v4228-homefix*/
+function fbOpenFile(path, name, sz) {
   docOrigin = 'list';
   var _nm = (name || '').toLowerCase(), _ext = _nm.split('.').pop();
   if (/^(mp3|wav|ogg|m4a|flac|aac|wma|opus|mp4|webm|mkv|avi|mov|3gp|m4v|ts|flv)$/.test(_ext)) {
@@ -970,32 +970,11 @@ function fmtSize(s) {
   return (s / 1073741824).toFixed(1) + 'GB';
 }
 
-document.getElementById('open').onclick = function () { /*v4227-home: 最近文件*/
-  _showRecentOverlay();
+document.getElementById('open').onclick = function () {
+  try { if (window.AppBridge && AppBridge.listFiles) { fbOpen(); return; } } catch (e) {}
+  try { if (window.AppBridge && AppBridge.openFile) { AppBridge.openFile(); return; } } catch (e) {}
+  document.getElementById('fpick').click();
 };
-
-function _showRecentOverlay() {
-  var recents = _loadRecentList();
-  var el = document.getElementById('homeList');
-  if (!el) return;
-  if (!recents.length) { setInfo('暂无最近打开的文件'); return; }
-  var html = '<div style="padding:12px 14px;font-size:14px;font-weight:700;color:#dfe3ea;border-bottom:1px solid rgba(255,255,255,.08)">🕘 最近打开</div><div style="flex:1;overflow:auto">';
-  recents.forEach(function (r) {
-    html += '<div class="fbItem" style="color:#dfe3ea" onclick="_openRecent(\'' + r.p.replace(/'/g, "\\'") + '\',\'' + r.n.replace(/'/g, "\\'") + '\')">' +
-      '<div class="fbIcon">' + (r.e === 'mp3' ? '🎵' : r.e === 'mp4' ? '🎬' : r.e === 'pdf' ? '📕' : r.e === 'epub' ? '📗' : r.e === 'xmind' ? '🧠' : r.e === 'docx' || r.e === 'doc' ? '📘' : r.e === 'xlsx' || r.e === 'xls' ? '📊' : r.e === 'pptx' || r.e === 'ppt' ? '📽' : '📄') + '</div>' +
-      '<div class="fbName">' + esc(r.n) + '</div></div>';
-  });
-  html += '</div><div style="padding:10px;text-align:center"><button onclick="_renderHomeList()" style="border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#8e959f;border-radius:14px;padding:6px 16px;font-size:12px;cursor:pointer;font-family:inherit">← 返回文件列表</button></div>';
-  el.innerHTML = html;
-}
-
-function _openRecent(path, name) {
-  try { openMediaPath(path, name); } catch (e) { setInfo('打开失败'); }
-}
-
-function _loadRecentList() {
-  try { return JSON.parse(localStorage.getItem('pv_recent') || '[]'); } catch (e) { return []; }
-}
 document.getElementById('print').onclick = function () {
   if (docKind === 'pdf') {
     try { if (window.AppBridge && AppBridge.printPdf) { AppBridge.printPdf(); return; } } catch (e) {}
@@ -4638,60 +4617,6 @@ window.onUpdateDownload = function (s) {
 };
 document.getElementById('dl').onclick = function () {
   if (latest && latest.apkUrl) { try { AppBridge.downloadUpdate(latest.apkUrl); } catch (e) {} }
-};
-
-// ===== v4227-home: 首页内嵌按类型文件列表 =====
-function _renderHomeList() {
-  var el = document.getElementById('homeList');
-  if (!el || docKind) return;
-  if (window.AppBridge && AppBridge.hasStoragePermission && !AppBridge.hasStoragePermission()) {
-    el.innerHTML = '<div style="padding:60px 30px;text-align:center;color:#8e959f">📂 需要文件访问权限<br><br><button onclick="fbReqPerm()" style="border:1px solid rgba(255,255,255,.3);background:rgba(10,132,255,.3);color:#0a84ff;border-radius:10px;padding:8px 24px;font-size:14px;cursor:pointer;font-family:inherit">授予权限</button></div>';
-    return;
-  }
-  var items = _typeItems();
-  if (!items.length) {
-    el.innerHTML = '<div style="padding:60px 30px;text-align:center;color:#8e959f;font-size:13px">📂 正在扫描文件…<br><span style="font-size:11px;opacity:.7">或点击底栏「🕘 最近」查看最近打开</span></div>';
-    _fbBgRefresh();
-    setTimeout(_renderHomeList, 2000);
-    return;
-  }
-  var typeBar = '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06)">';
-  var types = [
-    ['', '全部'], ['pdf', '📕 PDF'], ['epub,xmind', '📗 EPUB'], ['doc,docx', '📘 Word'],
-    ['xlsx,xls,csv', '📊 Excel'], ['ppt,pptx', '📽 PPT'],
-    ['mp3,wav,ogg,m4a,flac,aac,wma,opus', '🎵 音频'],
-    ['mp4,webm,mkv,avi,mov,3gp', '🎬 视频'],
-    ['md,markdown,txt', '📄 文本'], ['png,jpg,jpeg,gif,webp,bmp', '🖼️ 图片']
-  ];
-  var curType = window.__homeType || '';
-  types.forEach(function (t) {
-    var on = t[0] === curType;
-    typeBar += '<button onclick="window.__homeType=\'' + t[0] + '\';_renderHomeList()" style="border:1px solid ' + (on ? '#0a84ff' : 'rgba(255,255,255,.1)') + ';background:' + (on ? 'rgba(10,132,255,.2)' : 'rgba(255,255,255,.05)') + ';color:' + (on ? '#0a84ff' : '#8e959f') + ';border-radius:14px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit">' + t[1] + '</button>';
-  });
-  typeBar += '</div>';
-
-  var sorted = items.slice().sort(function (a, b) { return (b.t || 0) - (a.t || 0); });
-  var list = '<div style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch">';
-  sorted.forEach(function (it) {
-    var ext = (it.n.split('.').pop() || '').toLowerCase();
-    var icon = ext === 'mp3' ? '🎵' : ext === 'mp4' ? '🎬' : ext === 'pdf' ? '📕' : ext === 'epub' ? '📗' : ext === 'xmind' ? '🧠' : ext === 'docx' || ext === 'doc' ? '📘' : ext === 'xlsx' || ext === 'xls' ? '📊' : ext === 'pptx' || ext === 'ppt' ? '📽' : '📄';
-    list += '<div class="fbItem" onclick="fbOpenFile(\'' + it.p.replace(/'/g, "\\'") + '\',\'' + it.n.replace(/'/g, "\\'") + '\',' + (it.s || 0) + ')"><div class="fbIcon">' + icon + '</div><div class="fbName">' + esc(it.n) + '</div><div class="fbSub">' + Math.round((it.s || 0) / 1024) + 'KB</div></div>';
-  });
-  list += '</div>';
-
-  el.innerHTML = typeBar + list;
-}
-
-// 首页初始化
-setTimeout(function () {
-  if (!docKind) _renderHomeList();
-}, 500);
-
-// 文件关闭时回到首页列表
-var _origResetView = resetView;
-resetView = function () {
-  _origResetView();
-  setTimeout(_renderHomeList, 100);
 };
 </script>
 </body>
