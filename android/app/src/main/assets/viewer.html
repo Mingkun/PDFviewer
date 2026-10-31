@@ -57,7 +57,12 @@
   /*v4241-recgrid: 最近打开卡片网格（换行、不滚动、能放几行显示几行）*/
   #recentBar .rcHead { display:flex; align-items:center; justify-content:space-between; padding:10px 2px 8px; font-size:12px; color:#8a94a6; }
   #recentBar .rcCnt { font-size:11px; color:#6f7a88; }
-  #recentBar .rcGrid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  #recentBar .rcPages { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; touch-action:pan-x; }
+  #recentBar .rcPages::-webkit-scrollbar { display:none; }
+  #recentBar .rcPage { flex:0 0 100%; width:100%; scroll-snap-align:start; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; align-content:start; box-sizing:border-box; }
+  #recentBar .rcDots { display:none; gap:5px; justify-content:center; align-items:center; padding-top:9px; }
+  #recentBar .rcDot { width:5px; height:5px; border-radius:50%; background:rgba(138,148,166,.35); transition:width .18s,background .18s; }
+  #recentBar .rcDot.on { width:14px; border-radius:3px; background:#0a84ff; }
   #recentBar .rcCard { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:9px 6px; border:1px solid rgba(138,148,166,.22); border-radius:10px; background:rgba(138,148,166,.07); min-width:0; cursor:pointer; user-select:none; -webkit-user-select:none; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
   #recentBar .rcCard.on { border-color:rgba(10,132,255,.45); background:rgba(10,132,255,.12); }
   #recentBar .rcIcon { font-size:22px; line-height:1.1; }
@@ -4354,7 +4359,7 @@ function _renderCatGrid() { /*v4232-wrapgrid v4233-xmindicon: 首页分类网格
   html += '</div>';
   html += '<div id="recentSec" style="display:none;padding:0 12px 10px">'
     + '<div class="rcHead"><span>🕘 最近打开</span><span class="rcCnt"></span></div>'
-    + '<div class="rcGrid"></div></div>';
+    + '<div class="rcPages"></div><div class="rcDots"></div></div>';
   bar.innerHTML = html;
   bar.style.display = 'block';
   try { var _hs = document.getElementById('hintSep'); if (_hs && !docKind) _hs.style.display = 'flex'; } catch (e) {} /*v4236-freshhome*/
@@ -4405,42 +4410,73 @@ function _recentItems() {
   return items;
 }
 var _rcItems = [];
-function _renderRecentSection() { /*v4241-recgrid: 换行卡片，按剩余高度决定显示几行*/
+function _rcCardHtml(from, to) { /*v4242-recswipe*/
+  var h = '';
+  for (var i = from; i < to && i < _rcItems.length; i++) {
+    var it = _rcItems[i];
+    h += '<div class="rcCard" data-i="' + i + '">'
+      + '<div class="rcIcon">' + fileIconOf(it.name) + '</div>'
+      + '<div class="rcName">' + esc(it.name || '?') + '</div>'
+      + '<div class="rcTime">' + (it.pinned ? '📎 ' : '') + fmtRecentTime(it.time) + '</div></div>';
+  }
+  return h;
+}
+function _renderRecentSection() { /*v4242-recswipe: 卡片分页，左右划看更多*/
   var sec = document.getElementById('recentSec'); if (!sec) return;
   if (!recentBarOn() || docKind) { sec.style.display = 'none'; return; }
   var items = _recentItems();
   if (!items.length) { sec.style.display = 'none'; return; }
   items.sort(function (a, b) { return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.time || 0) - (a.time || 0); });
   _rcItems = items.slice(0, 60);
-  var box = sec.querySelector('.rcGrid'); if (!box) return;
-  box.innerHTML = _rcItems.map(function (it, idx) {
-    return '<div class="rcCard" data-i="' + idx + '">'
-      + '<div class="rcIcon">' + fileIconOf(it.name) + '</div>'
-      + '<div class="rcName">' + esc(it.name || '?') + '</div>'
-      + '<div class="rcTime">' + (it.pinned ? '📎 ' : '') + fmtRecentTime(it.time) + '</div>'
-      + '</div>';
-  }).join('');
-  sec.style.display = 'block';
   var cnt = sec.querySelector('.rcCnt'); if (cnt) cnt.textContent = '共 ' + items.length + ' 个';
-  var cards = box.querySelectorAll('.rcCard');
-  if (!cards.length) return;
-  /* 可用高度 = 底栏顶 - 区块顶 - 标题行 */
-  var cardH = cards[0].getBoundingClientRect().height || 82;
+  var pagesEl = sec.querySelector('.rcPages'); if (!pagesEl) return;
+  sec.style.display = 'block';
+  /* 第 1 遍：全塞一页，量卡片高度和可用高度 */
+  pagesEl.innerHTML = '<div class="rcPage">' + _rcCardHtml(0, _rcItems.length) + '</div>';
+  var firstCard = pagesEl.querySelector('.rcCard');
+  var cardH = firstCard ? firstCard.getBoundingClientRect().height : 77;
+  var headEl = sec.querySelector('.rcHead');
+  var headH = headEl ? headEl.getBoundingClientRect().height : 30;
   var barEl = document.getElementById('bar');
   var barTop = barEl ? barEl.getBoundingClientRect().top : window.innerHeight;
-  var headH = (sec.querySelector('.rcHead') || {}).getBoundingClientRect ? sec.querySelector('.rcHead').getBoundingClientRect().height : 30;
   var avail = barTop - sec.getBoundingClientRect().top - headH - 10;
+  var total = _rcItems.length;
   var rows = Math.max(1, Math.floor((avail + 8) / (cardH + 8)));
-  var maxN = rows * 3;
-  Array.prototype.forEach.call(cards, function (c, i) { c.style.display = i < maxN ? '' : 'none'; });
-  Array.prototype.forEach.call(cards, function (c) {
+  var per = rows * 3, pageN = Math.max(1, Math.ceil(total / per));
+  /*v4242-dotsfit: 多页时圆点行要占 16px，重算行数避免压到底栏*/
+  for (var _g = 0; _g < 4 && pageN > 1; _g++) {
+    var _r2 = Math.max(1, Math.floor((avail - 16 + 8) / (cardH + 8)));
+    if (_r2 === rows) break;
+    rows = _r2; per = rows * 3; pageN = Math.max(1, Math.ceil(total / per));
+  }
+  /* 第 2 遍：按每页 per 个切页 */
+  var h = '';
+  for (var pg = 0; pg < pageN; pg++) h += '<div class="rcPage">' + _rcCardHtml(pg * per, (pg + 1) * per) + '</div>';
+  pagesEl.innerHTML = h;
+  pagesEl.scrollLeft = 0;
+  var dots = sec.querySelector('.rcDots');
+  if (dots) {
+    var d = '';
+    for (var k = 0; k < pageN; k++) d += '<span class="rcDot' + (k === 0 ? ' on' : '') + '"></span>';
+    dots.innerHTML = d;
+    dots.style.display = pageN > 1 ? 'flex' : 'none';
+  }
+  if (!pagesEl.__bound) {
+    pagesEl.__bound = 1;
+    pagesEl.addEventListener('scroll', function () {
+      var w = pagesEl.clientWidth || 1;
+      var idx = Math.round(pagesEl.scrollLeft / w);
+      var ds = sec.querySelectorAll('.rcDot');
+      Array.prototype.forEach.call(ds, function (n, i2) { n.classList.toggle('on', i2 === idx); });
+    }, { passive: true });
+    pagesEl.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
+  }
+  Array.prototype.forEach.call(pagesEl.querySelectorAll('.rcCard'), function (c) {
     var it = _rcItems[+c.getAttribute('data-i')]; if (!it) return;
     var timer = null;
-    c.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
     function cancelT() { if (timer) { clearTimeout(timer); timer = null; } }
     c.addEventListener('touchstart', function () {
-      c.classList.add('on');
-      cancelT();
+      c.classList.add('on'); cancelT();
       timer = setTimeout(function () {
         timer = null;
         if (it.nativeIdx === undefined || !window.AppBridge || !AppBridge.pinRecent) { setInfo('此记录不支持固定'); return; }
