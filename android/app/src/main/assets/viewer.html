@@ -4265,15 +4265,16 @@ function rbFillThumbs(bar, list) {
     setTimeout(next, 30);
   })();
 }
-function _renderCatGrid() { /*v4232-wrapgrid: 首页分类文件夹自动换行网格*/
+function _renderCatGrid() { /*v4232-wrapgrid v4233-xmindicon: 首页分类网格+XMind抽象图标*/
   var bar = document.getElementById('recentBar'); if (!bar) return;
+  var XM_ICON = '<svg viewBox="0 0 24 24" width="22" height="22" style="display:block"><g stroke="#8fa3c0" stroke-width="1.4" stroke-linecap="round"><line x1="12" y1="12" x2="4.6" y2="5.2"/><line x1="12" y1="12" x2="19.4" y2="5.2"/><line x1="12" y1="12" x2="4.6" y2="18.8"/><line x1="12" y1="12" x2="19.4" y2="18.8"/></g><circle cx="12" cy="12" r="2.5" fill="#8fa3c0"/><circle cx="4.6" cy="5.2" r="1.7" fill="#8fa3c0"/><circle cx="19.4" cy="5.2" r="1.7" fill="#8fa3c0"/><circle cx="4.6" cy="18.8" r="1.7" fill="#8fa3c0"/><circle cx="19.4" cy="18.8" r="1.7" fill="#8fa3c0"/></svg>'; /*v4233-xmindicon*/
   var cats = [
-    ['pdf','📕 PDF'], ['epub','📗 EPUB'], ['xmind','🧠 XMind'],
-    ['doc,docx','📘 Word'], ['xlsx,xls,csv','📊 Excel'], ['ppt,pptx','📽 PPT'],
-    ['mp3,wav,ogg,m4a,flac,aac,wma,opus','🎵 音频'],
-    ['mp4,webm,mkv,avi,mov,3gp,m4v,ts,flv','🎬 视频'],
-    ['md,markdown,mdown,mkd,txt','📄 文本'],
-    ['png,jpg,jpeg,gif,webp,bmp,heic,heif,hif','🖼️ 图片']
+    ['pdf','PDF','📕'], ['epub','EPUB','📗'], ['xmind','XMind',XM_ICON],
+    ['doc,docx','Word','📘'], ['xlsx,xls,csv','Excel','📊'], ['ppt,pptx','PPT','📽'],
+    ['mp3,wav,ogg,m4a,flac,aac,wma,opus','音频','🎵'],
+    ['mp4,webm,mkv,avi,mov,3gp,m4v,ts,flv','视频','🎬'],
+    ['md,markdown,mdown,mkd,txt','文本','📄'],
+    ['png,jpg,jpeg,gif,webp,bmp,heic,heif,hif','图片','🖼️']
   ];
   var all = _typeItems();
   var html = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px 12px 6px">';
@@ -4284,10 +4285,11 @@ function _renderCatGrid() { /*v4232-wrapgrid: 首页分类文件夹自动换行�
       return exts.indexOf(fe) >= 0;
     }).length;
     if (count === 0) return;
-    var parts = cat[1].split(' ');
+    var ic = cat[2], lbl = cat[1];
+    var icHtml = ic.charAt(0) === '<' ? '<div style="height:22px;display:flex;align-items:center;justify-content:center">'+ic+'</div>' : '<div style="font-size:22px;line-height:1.1">'+ic+'</div>';
     html += '<div onclick="_openCat(\''+cat[0]+'\')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 2px;border:1px solid rgba(138,148,166,.22);border-radius:10px;background:rgba(138,148,166,.07);cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;min-width:0">';
-    html += '<div style="font-size:22px;line-height:1.1">'+parts[0]+'</div>';
-    html += '<div style="font-size:10.5px;color:#8a94a6;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">'+parts[1]+'</div>';
+    html += icHtml;
+    html += '<div style="font-size:10.5px;color:#8a94a6;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">'+lbl+'</div>';
     html += '<div style="font-size:12px;font-weight:700;color:#dfe3ea;line-height:1.2">'+count+'</div>';
     html += '</div>';
   });
